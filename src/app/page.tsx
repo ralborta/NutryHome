@@ -8,7 +8,11 @@ import {
   TrendingUp, 
   AlertTriangle, 
   Users, 
-  Activity 
+  Activity,
+  Calendar,
+  RefreshCw,
+  Eye,
+  Download
 } from 'lucide-react';
 import DashboardStats from '@/components/dashboard/DashboardStats';
 import CallsChart from '@/components/dashboard/CallsChart';
@@ -77,18 +81,40 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-600 mt-2">
-            Resumen de actividad del call center
-          </p>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200 px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+            <p className="text-gray-600 mt-1">
+              Resumen de actividad del call center
+            </p>
+          </div>
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2 text-sm text-gray-500">
+              <Calendar className="h-4 w-4" />
+              <span>
+                {new Date().toLocaleDateString('es-ES', { 
+                  weekday: 'long', 
+                  year: 'numeric', 
+                  month: 'long', 
+                  day: 'numeric' 
+                })}
+              </span>
+            </div>
+            <button className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+              <RefreshCw className="h-4 w-4" />
+              <span>Actualizar</span>
+            </button>
+          </div>
         </div>
+      </div>
 
+      {/* Main Content */}
+      <div className="p-6 space-y-6">
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {stats.map((stat, index) => (
             <motion.div
               key={stat.title}
@@ -101,30 +127,68 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        {/* Charts Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        {/* Charts Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, delay: 0.6 }}
-            className="bg-white rounded-lg shadow-sm p-6"
+            className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"
           >
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">
-              Llamadas por Día
-            </h2>
-            <CallsChart />
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-900">
+                    Llamadas por Día
+                  </h2>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Últimos 7 días de actividad
+                  </p>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                    <Eye className="h-4 w-4 text-gray-600" />
+                  </button>
+                  <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                    <Download className="h-4 w-4 text-gray-600" />
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div className="p-6">
+              <CallsChart />
+            </div>
           </motion.div>
 
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, delay: 0.7 }}
-            className="bg-white rounded-lg shadow-sm p-6"
+            className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"
           >
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">
-              Razones de Derivación
-            </h2>
-            <DerivationsChart />
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-900">
+                    Razones de Derivación
+                  </h2>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Top 5 motivos de derivación
+                  </p>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                    <Eye className="h-4 w-4 text-gray-600" />
+                  </button>
+                  <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                    <Download className="h-4 w-4 text-gray-600" />
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div className="p-6">
+              <DerivationsChart />
+            </div>
           </motion.div>
         </div>
 
@@ -133,7 +197,6 @@ export default function DashboardPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.8 }}
-          className="mb-8"
         >
           <PerformanceMetrics />
         </motion.div>
