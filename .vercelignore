@@ -1,0 +1,10 @@
+# Ignorar todo excepto el frontend
+backend/
+docs/
+.github/
+*.md
+railway.json
+nixpacks.toml
+
+# Solo incluir el frontend
+!frontend/ 
