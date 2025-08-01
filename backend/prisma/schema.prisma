@@ -1,0 +1,115 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Modelo principal para las llamadas
+model Call {
+  id              String   @id @default(cuid())
+  callId          String   @unique // ID único de ElevenLabs
+  fecha           DateTime @default(now())
+  telefono        String
+  duracion        Int      // Duración en segundos
+  transcript      String   @db.Text
+  dataCollection  Json     // Datos adicionales de ElevenLabs
+  criteriaResults Json     // Resultados de criterios evaluados
+  status          CallStatus @default(ACTIVE)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relaciones
+  derivations     Derivation[]
+  complaints      Complaint[]
+
+  @@map("calls")
+}
+
+// Modelo para derivaciones
+model Derivation {
+  id          String   @id @default(cuid())
+  callId      String
+  motivo      String
+  descripcion String?
+  prioridad   Priority @default(MEDIA)
+  createdAt   DateTime @default(now())
+
+  // Relación con Call
+  call        Call     @relation(fields: [callId], references: [id], onDelete: Cascade)
+
+  @@map("derivations")
+}
+
+// Modelo para reclamos
+model Complaint {
+  id          String   @id @default(cuid())
+  callId      String
+  tipo        ComplaintType
+  descripcion String
+  severidad   Severity @default(MEDIA)
+  resuelto    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  resueltoAt  DateTime?
+
+  // Relación con Call
+  call        Call     @relation(fields: [callId], references: [id], onDelete: Cascade)
+
+  @@map("complaints")
+}
+
+// Modelo para usuarios del sistema
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  nombre    String
+  apellido  String
+  rol       UserRole @default(AGENTE)
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+// Enums
+enum CallStatus {
+  ACTIVE
+  ARCHIVED
+  DELETED
+}
+
+enum Priority {
+  BAJA
+  MEDIA
+  ALTA
+  CRITICA
+}
+
+enum ComplaintType {
+  CALIDAD
+  SERVICIO
+  TECNICO
+  FACTURACION
+  OTRO
+}
+
+enum Severity {
+  BAJA
+  MEDIA
+  ALTA
+  CRITICA
+}
+
+enum UserRole {
+  ADMIN
+  SUPERVISOR
+  AGENTE
+  ANALISTA
+} 
