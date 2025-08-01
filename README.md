@@ -1,8 +1,10 @@
 # NutryHome - Sistema de Gestión de Llamadas
 
-Sistema fullstack moderno para gestión de llamadas tipo call center con integración de webhooks de ElevenLabs.
+<!-- Deployment trigger: 2024-12-19 23:25 -->
 
-<!-- Deployment trigger: 2024-07-31 -->
+## 🚀 Descripción
+
+NutryHome es una aplicación fullstack moderna para la gestión de llamadas en operaciones tipo call center. La aplicación integra con ElevenLabs para recibir datos de llamadas y proporciona un dashboard completo con métricas, estadísticas y gestión de llamadas.
 
 ## 🚀 Características
 
