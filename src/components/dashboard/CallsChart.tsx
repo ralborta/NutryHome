@@ -3,13 +3,13 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 interface CallsChartProps {
-  data: Array<{
+  data?: Array<{
     fecha: string;
     cantidad: number;
   }>;
 }
 
-export default function CallsChart({ data }: CallsChartProps) {
+export default function CallsChart({ data = [] }: CallsChartProps) {
   // Formatear datos para el gráfico
   const chartData = data.map(item => ({
     fecha: format(new Date(item.fecha), 'dd/MM', { locale: es }),
