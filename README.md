@@ -1,6 +1,6 @@
 # NutryHome - Sistema de Gestión de Llamadas
 
-<!-- Deployment trigger: 2024-12-19 23:25 -->
+<!-- Deployment trigger: 2024-12-19 23:45 - Deployment automático configurado -->
 
 ## 🚀 Descripción
 
