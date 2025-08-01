@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { motion } from 'framer-motion';
 import {
   LayoutDashboard,
   Phone,
@@ -65,7 +64,6 @@ const menuItems = [
 ];
 
 export default function Sidebar() {
-  const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const pathname = usePathname();
 
@@ -80,16 +78,12 @@ export default function Sidebar() {
       </button>
 
       {/* Sidebar */}
-      <motion.div
-        initial={{ x: -280 }}
-        animate={{ x: 0 }}
-        className={`
-          fixed lg:relative lg:translate-x-0 z-40
-          ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-          transition-transform duration-300 ease-in-out
-          w-70 lg:w-64 h-full bg-white border-r border-gray-200 shadow-xl
-        `}
-      >
+      <div className={`
+        fixed lg:relative lg:translate-x-0 z-40
+        ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+        transition-transform duration-300 ease-in-out
+        w-70 lg:w-64 h-full bg-white border-r border-gray-200 shadow-xl
+      `}>
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
           <div className="flex items-center space-x-3">
@@ -101,12 +95,6 @@ export default function Sidebar() {
               <p className="text-xs text-gray-600 font-medium">Call Center</p>
             </div>
           </div>
-          <button
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            className="hidden lg:block p-2 hover:bg-white rounded-lg transition-colors shadow-sm"
-          >
-            <Menu className="w-4 h-4 text-gray-600" />
-          </button>
         </div>
 
         {/* User Profile */}
@@ -155,7 +143,7 @@ export default function Sidebar() {
                 className={`
                   group flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200
                   ${isActive 
-                    ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg transform scale-105' 
+                    ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg' 
                     : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900 hover:shadow-md'
                   }
                 `}
@@ -171,20 +159,10 @@ export default function Sidebar() {
                 </div>
                 <div className="flex-1">
                   <span className="text-sm font-semibold">{item.title}</span>
-                  {!isCollapsed && (
-                    <p className={`text-xs mt-1 ${isActive ? 'text-blue-100' : 'text-gray-500'}`}>
-                      {item.description}
-                    </p>
-                  )}
+                  <p className={`text-xs mt-1 ${isActive ? 'text-blue-100' : 'text-gray-500'}`}>
+                    {item.description}
+                  </p>
                 </div>
-                {isActive && (
-                  <motion.div
-                    layoutId="activeTab"
-                    className="w-1 h-8 bg-white rounded-full shadow-sm"
-                    initial={false}
-                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                  />
-                )}
               </Link>
             );
           })}
@@ -201,7 +179,7 @@ export default function Sidebar() {
             </p>
           </div>
         </div>
-      </motion.div>
+      </div>
 
       {/* Mobile overlay */}
       {isMobileOpen && (
