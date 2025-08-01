@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, Clock, Target, Zap, Users } from 'lucide-react';
-import { apiClient } from '@/lib/apiClient';
+import apiClient from '@/lib/apiClient';
 
 interface PerformanceData {
   callsByHour: Array<{
