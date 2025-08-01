@@ -2,6 +2,8 @@
 
 Sistema fullstack moderno para gestión de llamadas tipo call center con integración de webhooks de ElevenLabs.
 
+<!-- Deployment trigger: 2024-07-31 -->
+
 ## 🚀 Características
 
 - **Backend**: Node.js + Express + PostgreSQL
