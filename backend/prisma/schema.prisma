@@ -10,7 +10,108 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Modelo principal para las llamadas
+// Modelo para campañas outbound
+model Campaign {
+  id          String   @id @default(cuid())
+  nombre      String
+  descripcion String?
+  estado      CampaignStatus @default(DRAFT)
+  fechaInicio DateTime?
+  fechaFin    DateTime?
+  
+  // Plantilla de variables dinámicas
+  variableTemplateId String?
+  variableTemplate   VariableTemplate? @relation(fields: [variableTemplateId], references: [id])
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relaciones
+  batches     Batch[]
+  createdBy   User     @relation("CampaignCreator", fields: [createdById], references: [id])
+  createdById String
+
+  @@map("campaigns")
+}
+
+// Modelo para batches de llamadas
+model Batch {
+  id          String   @id @default(cuid())
+  nombre      String
+  campaignId  String
+  estado      BatchStatus @default(PENDING)
+  totalCalls  Int      @default(0)
+  completedCalls Int   @default(0)
+  failedCalls Int      @default(0)
+  
+  // Variables dinámicas del batch (JSON flexible)
+  variables   Json?    // Almacena todas las variables dinámicas como JSON
+  // Ejemplo: {
+  //   "nombre_contacto": "Juan Pérez",
+  //   "nombre_paciente": "María García", 
+  //   "phone_number": "+34612345678",
+  //   "domicilio_actual": "Calle Mayor 123",
+  //   "localidad": "Madrid",
+  //   "delegacion": "Centro",
+  //   "fecha_envio": "2024-01-15",
+  //   "producto1": "NutryShake",
+  //   "cantidad1": "2",
+  //   "producto2": "Vitamina C",
+  //   "cantidad2": "1",
+  //   "producto3": "Omega 3",
+  //   "cantidad3": "3"
+  // }
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relaciones
+  campaign    Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  outboundCalls OutboundCall[]
+
+  @@map("batches")
+}
+
+// Modelo para llamadas outbound
+model OutboundCall {
+  id          String   @id @default(cuid())
+  batchId     String
+  telefono    String
+  nombre      String?
+  email       String?
+  estado      OutboundCallStatus @default(PENDING)
+  intentos    Int      @default(0)
+  maxIntentos Int      @default(3)
+  fechaProgramada DateTime?
+  fechaEjecutada DateTime?
+  resultado   OutboundCallResult?
+  notas       String?
+  
+  // Variables dinámicas específicas del contacto (JSON flexible)
+  variables   Json?    // Variables específicas de este contacto
+  // Ejemplo: {
+  //   "nombre_contacto": "Juan Pérez",
+  //   "nombre_paciente": "María García",
+  //   "domicilio_actual": "Calle Mayor 123",
+  //   "localidad": "Madrid",
+  //   "producto1": "NutryShake",
+  //   "cantidad1": "2"
+  // }
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relación con Call (si se convierte en llamada real)
+  callId      String?  @unique
+  call        Call?    @relation(fields: [callId], references: [id])
+
+  // Relación con Batch
+  batch       Batch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@map("outbound_calls")
+}
+
+// Modelo principal para las llamadas (actualizado)
 model Call {
   id              String   @id @default(cuid())
   callId          String   @unique // ID único de ElevenLabs
@@ -21,12 +122,14 @@ model Call {
   dataCollection  Json     // Datos adicionales de ElevenLabs
   criteriaResults Json     // Resultados de criterios evaluados
   status          CallStatus @default(ACTIVE)
+  tipo            CallType @default(INBOUND) // Nuevo campo para distinguir inbound/outbound
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   // Relaciones
   derivations     Derivation[]
   complaints      Complaint[]
+  outboundCall    OutboundCall?
 
   @@map("calls")
 }
@@ -75,14 +178,79 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Relaciones
+  createdCampaigns Campaign[] @relation("CampaignCreator")
+
   @@map("users")
 }
 
-// Enums
+// Modelo para plantillas de variables dinámicas
+model VariableTemplate {
+  id          String   @id @default(cuid())
+  nombre      String   @unique
+  descripcion String?
+  variables   Json     // Lista de variables disponibles
+  // Ejemplo: [
+  //   "nombre_contacto", "nombre_paciente", "phone_number", 
+  //   "domicilio_actual", "localidad", "delegacion", 
+  //   "fecha_envio", "producto1", "cantidad1", "producto2", 
+  //   "cantidad2", "producto3", "cantidad3"
+  // ]
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relación con campañas que usan esta plantilla
+  campaigns   Campaign[]
+
+  @@map("variable_templates")
+}
+
+// Enums actualizados y nuevos
 enum CallStatus {
   ACTIVE
   ARCHIVED
   DELETED
+}
+
+enum CallType {
+  INBOUND
+  OUTBOUND
+}
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+enum BatchStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum OutboundCallStatus {
+  PENDING
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum OutboundCallResult {
+  ANSWERED
+  NO_ANSWER
+  BUSY
+  INVALID_NUMBER
+  VOICEMAIL
+  HANGUP
+  ERROR
 }
 
 enum Priority {

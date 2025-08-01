@@ -10,6 +10,8 @@ const callsRoutes = require('./routes/calls');
 const statsRoutes = require('./routes/stats');
 const webhooksRoutes = require('./routes/webhooks');
 const authRoutes = require('./routes/auth');
+const campaignsRoutes = require('./routes/campaigns');
+const variablesRoutes = require('./routes/variables');
 
 // Importar middleware
 const errorHandler = require('./middleware/errorHandler');
@@ -78,6 +80,8 @@ app.use('/api/calls', callsRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/webhooks', webhooksRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/campaigns', campaignsRoutes);
+app.use('/api/variables', variablesRoutes);
 
 // API Documentation endpoint
 app.get('/api', (req, res) => {
@@ -88,6 +92,8 @@ app.get('/api', (req, res) => {
       stats: '/api/stats',
       webhooks: '/api/webhooks',
       auth: '/api/auth',
+      campaigns: '/api/campaigns',
+      variables: '/api/variables',
     },
     documentation: 'Ver README.md para documentación completa',
   });
