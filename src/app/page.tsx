@@ -21,7 +21,7 @@ import DerivationsChart from '@/components/dashboard/DerivationsChart';
 import RecentCalls from '@/components/dashboard/RecentCalls';
 import PerformanceMetrics from '@/components/dashboard/PerformanceMetrics';
 import { useAuthStore } from '@/store/authStore';
-import { apiClient } from '@/lib/apiClient';
+import apiClient from '@/lib/apiClient';
 
 interface DashboardData {
   overview: {
