@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Phone, Clock, User, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { apiClient } from '@/lib/apiClient';
+import apiClient from '@/lib/apiClient';
 
 interface Call {
   id: string;
