@@ -33,11 +33,28 @@ app.use(helmet({
 }));
 
 // Configuración de CORS
+const allowedOrigins = [
+  'http://localhost:3000',
+  'https://nutry-home-lhultbqne-nivel-41.vercel.app',
+  'https://nutry-home.vercel.app',
+  'https://nutry-home-git-main-nivel-41.vercel.app'
+];
+
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+  origin: function (origin, callback) {
+    // Permitir requests sin origin (como mobile apps o Postman)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      console.log('CORS blocked origin:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
 }));
 
 // Rate limiting
