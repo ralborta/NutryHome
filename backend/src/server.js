@@ -129,6 +129,8 @@ app.listen(PORT, () => {
   console.log(`📊 Ambiente: ${process.env.NODE_ENV}`);
   console.log(`🔗 Health check: http://localhost:${PORT}/health`);
   console.log(`📚 API Docs: http://localhost:${PORT}/api`);
+  console.log(`🔧 CORS configurado para permitir todos los origins`);
+  console.log(`📅 Deploy timestamp: ${new Date().toISOString()}`);
 });
 
 // Manejo de errores no capturados
