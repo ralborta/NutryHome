@@ -44,19 +44,13 @@ const allowedOrigins = [
   /^https:\/\/nutry-home-.*-nivel-41\.vercel\.app$/
 ];
 
-// CORS simplificado para debuggear
+// CORS configurado correctamente
 app.use(cors({
-  origin: true, // Permitir todos los origins temporalmente
+  origin: true, // Permitir todos los origins
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
 }));
-
-// Log para debuggear
-app.use((req, res, next) => {
-  console.log('Request origin:', req.headers.origin);
-  next();
-});
 
 // Rate limiting
 const limiter = rateLimit({
