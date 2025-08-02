@@ -4,16 +4,15 @@
   "description": "Backend API para NutryHome - Sistema de Gestión de Llamadas",
   "main": "src/server.js",
   "scripts": {
-    "start": "node src/server.js",
+    "start": "prisma migrate deploy && node src/server.js",
     "dev": "nodemon src/server.js",
-    "build": "npm install && npm run db:generate",
+    "build": "npm install && prisma generate",
     "test": "jest",
     "db:migrate": "prisma migrate deploy",
     "db:generate": "prisma generate",
     "db:studio": "prisma studio",
     "db:seed": "node src/database/seed.js",
     "db:setup": "node scripts/setup-database.js",
-
     "postinstall": "prisma generate"
   },
   "keywords": [
