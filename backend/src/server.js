@@ -36,8 +36,11 @@ app.use(helmet({
 const allowedOrigins = [
   'http://localhost:3000',
   'https://nutry-home-lhultbqne-nivel-41.vercel.app',
+  'https://nutry-home-bguuj0zcq-nivel-41.vercel.app',
   'https://nutry-home.vercel.app',
-  'https://nutry-home-git-main-nivel-41.vercel.app'
+  'https://nutry-home-git-main-nivel-41.vercel.app',
+  // Permitir cualquier subdominio de vercel.app para NutryHome
+  /^https:\/\/nutry-home-.*-nivel-41\.vercel\.app$/
 ];
 
 app.use(cors({
@@ -45,7 +48,17 @@ app.use(cors({
     // Permitir requests sin origin (como mobile apps o Postman)
     if (!origin) return callback(null, true);
     
-    if (allowedOrigins.indexOf(origin) !== -1) {
+    // Verificar si el origin está en la lista de URLs permitidas
+    const isExactMatch = allowedOrigins.some(allowed => 
+      typeof allowed === 'string' && allowed === origin
+    );
+    
+    // Verificar si el origin coincide con el patrón regex
+    const isPatternMatch = allowedOrigins.some(allowed => 
+      allowed instanceof RegExp && allowed.test(origin)
+    );
+    
+    if (isExactMatch || isPatternMatch) {
       callback(null, true);
     } else {
       console.log('CORS blocked origin:', origin);
