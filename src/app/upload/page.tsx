@@ -11,8 +11,10 @@ import {
   Download,
   Eye,
   Trash2,
-  RefreshCw
+  RefreshCw,
+  Phone
 } from 'lucide-react';
+import { validatePhoneNumber, formatPhoneNumber, getPhoneNumberError, phoneExamples } from '@/lib/phoneValidation';
 
 interface UploadResult {
   success: boolean;
@@ -224,9 +226,32 @@ export default function UploadPage() {
                 </h3>
                 <div className="text-sm text-blue-700 space-y-1">
                   <p>• Archivo Excel (.xlsx) con las columnas exactas del template</p>
-                  <p>• phone_number debe ser texto (ejemplo: 5491137710010)</p>
+                  <p>• phone_number debe ser texto con formato +54 (ejemplo: +5491137710010)</p>
                   <p>• Los nombres de columnas son obligatorios y exactos</p>
                   <p>• Descarga el template para ver el formato correcto</p>
+                </div>
+              </div>
+
+              {/* Información específica de teléfonos */}
+              <div className="mt-4 p-4 bg-green-50 rounded-lg border border-green-200">
+                <div className="flex items-center space-x-2 mb-3">
+                  <Phone className="w-5 h-5 text-green-600" />
+                  <h3 className="text-sm font-medium text-green-900">
+                    📞 Formato de Números de Teléfono
+                  </h3>
+                </div>
+                <div className="text-sm text-green-700 space-y-2">
+                  <p><strong>Formato requerido:</strong> +54XXXXXXXXXX (13 dígitos totales)</p>
+                  <p><strong>Ejemplos válidos:</strong></p>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>• +5491137710010 (Buenos Aires)</div>
+                    <div>• +5491145623789 (Buenos Aires)</div>
+                    <div>• +5493511234567 (Córdoba)</div>
+                    <div>• +5493411234567 (Rosario)</div>
+                  </div>
+                  <p className="text-xs text-green-600 mt-2">
+                    <strong>Importante:</strong> ElevenLabs requiere este formato exacto para procesar las llamadas correctamente.
+                  </p>
                 </div>
               </div>
 

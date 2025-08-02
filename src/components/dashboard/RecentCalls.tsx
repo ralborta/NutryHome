@@ -44,7 +44,7 @@ export default function RecentCalls() {
         {
           id: '1',
           callId: 'CALL001',
-          telefono: '+1234567890',
+          telefono: '+5491137710010',
           duracion: 180,
           fecha: new Date().toISOString(),
           status: 'ACTIVE',
@@ -53,7 +53,7 @@ export default function RecentCalls() {
         {
           id: '2',
           callId: 'CALL002',
-          telefono: '+0987654321',
+          telefono: '+5491145623789',
           duracion: 240,
           fecha: new Date(Date.now() - 3600000).toISOString(),
           status: 'ACTIVE',
@@ -62,7 +62,7 @@ export default function RecentCalls() {
         {
           id: '3',
           callId: 'CALL003',
-          telefono: '+1122334455',
+          telefono: '+5491156345678',
           duracion: 120,
           fecha: new Date(Date.now() - 7200000).toISOString(),
           status: 'ACTIVE',
