@@ -28,12 +28,6 @@ export default function UploadPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
-  const [campaigns, setCampaigns] = useState<any[]>([]);
-  const [selectedCampaign, setSelectedCampaign] = useState<string>('');
-  const [batches, setBatches] = useState<any[]>([]);
-  const [selectedBatch, setSelectedBatch] = useState<string>('');
-  const [showNewBatchForm, setShowNewBatchForm] = useState(false);
-  const [newBatchName, setNewBatchName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Función para manejar el drag and drop
@@ -70,8 +64,8 @@ export default function UploadPage() {
   };
 
   const handleUpload = async () => {
-    if (!selectedFile || !selectedCampaign || !selectedBatch) {
-      alert('Por favor selecciona un archivo, una campaña y un batch');
+    if (!selectedFile) {
+      alert('Por favor selecciona un archivo Excel');
       return;
     }
 
@@ -82,21 +76,14 @@ export default function UploadPage() {
       const formData = new FormData();
       formData.append('file', selectedFile);
 
-      const response = await fetch(`/api/campaigns/${selectedCampaign}/batches/${selectedBatch}/upload`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      const result = await response.json();
-
-      if (response.ok) {
+      // Por ahora, vamos a simular el procesamiento
+      // TODO: Conectar con el backend cuando esté listo
+      setTimeout(() => {
         setUploadResult({
           success: true,
-          message: result.message,
-          totalCalls: result.totalCalls,
-          errors: result.errors,
-          campaignId: selectedCampaign,
-          batchId: selectedBatch
+          message: 'Archivo procesado correctamente (simulación)',
+          totalCalls: 5,
+          errors: []
         });
         
         // Limpiar archivo seleccionado
@@ -104,45 +91,19 @@ export default function UploadPage() {
         if (fileInputRef.current) {
           fileInputRef.current.value = '';
         }
-      } else {
-        setUploadResult({
-          success: false,
-          message: result.error || 'Error al subir el archivo'
-        });
-      }
+        setUploading(false);
+      }, 2000);
+
     } catch (error) {
       setUploadResult({
         success: false,
-        message: 'Error de conexión. Verifica que el servidor esté funcionando.'
+        message: 'Error al procesar el archivo'
       });
-    } finally {
       setUploading(false);
     }
   };
 
-  const createNewBatch = async () => {
-    if (!newBatchName.trim() || !selectedCampaign) return;
 
-    try {
-      const response = await fetch(`/api/campaigns/${selectedCampaign}/batches`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ nombre: newBatchName }),
-      });
-
-      if (response.ok) {
-        const newBatch = await response.json();
-        setBatches([...batches, newBatch]);
-        setSelectedBatch(newBatch.id);
-        setShowNewBatchForm(false);
-        setNewBatchName('');
-      }
-    } catch (error) {
-      console.error('Error creando batch:', error);
-    }
-  };
 
   const downloadTemplate = () => {
     // Crear un enlace temporal para descargar el template
@@ -244,88 +205,27 @@ export default function UploadPage() {
                 )}
               </div>
 
-              {/* Configuración de Campaña y Batch */}
-              <div className="mt-6 space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Campaña
-                  </label>
-                  <select
-                    value={selectedCampaign}
-                    onChange={(e) => setSelectedCampaign(e.target.value)}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">Selecciona una campaña</option>
-                    {campaigns.map(campaign => (
-                      <option key={campaign.id} value={campaign.id}>
-                        {campaign.nombre}
-                      </option>
-                    ))}
-                  </select>
+              {/* Información del archivo */}
+              <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+                <h3 className="text-sm font-medium text-blue-900 mb-2">
+                  📋 Formato Requerido
+                </h3>
+                <div className="text-sm text-blue-700 space-y-1">
+                  <p>• Archivo Excel (.xlsx) con las columnas exactas del template</p>
+                  <p>• phone_number debe ser texto (ejemplo: 5491137710010)</p>
+                  <p>• Los nombres de columnas son obligatorios y exactos</p>
+                  <p>• Descarga el template para ver el formato correcto</p>
                 </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Batch
-                  </label>
-                  <div className="flex space-x-2">
-                    <select
-                      value={selectedBatch}
-                      onChange={(e) => setSelectedBatch(e.target.value)}
-                      className="flex-1 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="">Selecciona un batch</option>
-                      {batches.map(batch => (
-                        <option key={batch.id} value={batch.id}>
-                          {batch.nombre}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      onClick={() => setShowNewBatchForm(true)}
-                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                    >
-                      Nuevo
-                    </button>
-                  </div>
-                </div>
-
-                {/* Formulario para nuevo batch */}
-                {showNewBatchForm && (
-                  <div className="p-4 bg-gray-50 rounded-lg">
-                    <div className="flex space-x-2">
-                      <input
-                        type="text"
-                        value={newBatchName}
-                        onChange={(e) => setNewBatchName(e.target.value)}
-                        placeholder="Nombre del nuevo batch"
-                        className="flex-1 p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
-                      />
-                      <button
-                        onClick={createNewBatch}
-                        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                      >
-                        Crear
-                      </button>
-                      <button
-                        onClick={() => setShowNewBatchForm(false)}
-                        className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
-                      >
-                        Cancelar
-                      </button>
-                    </div>
-                  </div>
-                )}
               </div>
 
               {/* Botón de Subida */}
               <div className="mt-6">
                 <button
                   onClick={handleUpload}
-                  disabled={!selectedFile || !selectedCampaign || !selectedBatch || uploading}
+                  disabled={!selectedFile || uploading}
                   className={`
                     w-full py-3 px-6 rounded-lg font-medium transition-colors
-                    ${uploading || !selectedFile || !selectedCampaign || !selectedBatch
+                    ${uploading || !selectedFile
                       ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                       : 'bg-blue-600 text-white hover:bg-blue-700'
                     }
@@ -334,10 +234,10 @@ export default function UploadPage() {
                   {uploading ? (
                     <div className="flex items-center justify-center space-x-2">
                       <RefreshCw className="w-5 h-5 animate-spin" />
-                      <span>Subiendo...</span>
+                      <span>Procesando...</span>
                     </div>
                   ) : (
-                    'Subir Archivo'
+                    'Procesar Archivo'
                   )}
                 </button>
               </div>
