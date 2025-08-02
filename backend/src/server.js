@@ -69,7 +69,9 @@ const limiter = rateLimit({
   legacyHeaders: false,
 });
 
-app.use('/api/', limiter);
+// Aplicar rate limiting solo a endpoints específicos, no a toda la API
+app.use('/api/auth', limiter);
+app.use('/api/webhooks', limiter);
 
 // Logging
 if (process.env.NODE_ENV === 'development') {
