@@ -120,13 +120,14 @@ app.use(notFound);
 app.use(errorHandler);
 
 // Iniciar servidor
-app.listen(PORT, () => {
-  console.log(`🚀 Servidor NutryHome ejecutándose en puerto ${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Servidor NutryHome COMPLETO ejecutándose en puerto ${PORT}`);
   console.log(`📊 Ambiente: ${process.env.NODE_ENV}`);
-  console.log(`🔗 Health check: http://localhost:${PORT}/health`);
-  console.log(`📚 API Docs: http://localhost:${PORT}/api`);
+  console.log(`🔗 Health check: http://0.0.0.0:${PORT}/health`);
+  console.log(`📚 API Docs: http://0.0.0.0:${PORT}/api`);
   console.log(`🔧 CORS configurado para permitir todos los origins`);
   console.log(`📅 Deploy timestamp: ${new Date().toISOString()}`);
+  console.log(`🔄 SERVIDOR COMPLETO CON PRISMA ACTIVO`);
 });
 
 // Manejo de errores no capturados
