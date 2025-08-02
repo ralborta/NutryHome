@@ -191,9 +191,9 @@ export default function UploadPage() {
                     </div>
                     <button
                       onClick={() => setSelectedFile(null)}
-                      className="px-3 py-1 text-sm bg-red-100 text-red-600 hover:bg-red-200 rounded transition-colors"
+                      className="px-3 py-1 text-sm bg-gray-100 text-gray-600 hover:bg-gray-200 rounded transition-colors"
                     >
-                      Cambiar archivo
+                      Seleccionar otro archivo
                     </button>
                   </div>
                 ) : (
