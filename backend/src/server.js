@@ -37,6 +37,7 @@ const allowedOrigins = [
   'http://localhost:3000',
   'https://nutry-home-lhultbqne-nivel-41.vercel.app',
   'https://nutry-home-bguuj0zcq-nivel-41.vercel.app',
+  'https://nutry-home-b3ux8vjk7-nivel-41.vercel.app',
   'https://nutry-home.vercel.app',
   'https://nutry-home-git-main-nivel-41.vercel.app',
   // Permitir cualquier subdominio de vercel.app para NutryHome
