@@ -76,14 +76,21 @@ export default function UploadPage() {
       const formData = new FormData();
       formData.append('file', selectedFile);
 
-      // Por ahora, vamos a simular el procesamiento
-      // TODO: Conectar con el backend cuando esté listo
-      setTimeout(() => {
+      // Conectar con el backend real
+      const response = await fetch('https://nutryhome-production.up.railway.app/api/campaigns/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
         setUploadResult({
           success: true,
-          message: 'Archivo procesado correctamente (simulación)',
-          totalCalls: 5,
-          errors: []
+          message: result.message || 'Archivo procesado correctamente',
+          totalCalls: result.totalCalls || 0,
+          errors: result.errors || [],
+          batchId: result.batchId
         });
         
         // Limpiar archivo seleccionado
@@ -91,14 +98,19 @@ export default function UploadPage() {
         if (fileInputRef.current) {
           fileInputRef.current.value = '';
         }
-        setUploading(false);
-      }, 2000);
-
+      } else {
+        setUploadResult({
+          success: false,
+          message: result.error || 'Error al procesar el archivo'
+        });
+      }
     } catch (error) {
+      console.error('Error:', error);
       setUploadResult({
         success: false,
-        message: 'Error al procesar el archivo'
+        message: 'Error de conexión con el servidor'
       });
+    } finally {
       setUploading(false);
     }
   };
