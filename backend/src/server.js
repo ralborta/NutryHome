@@ -5,6 +5,10 @@ const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
+// Importar cliente de base de datos
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
+
 // Importar rutas
 const callsRoutes = require('./routes/calls');
 const statsRoutes = require('./routes/stats');
@@ -19,6 +23,18 @@ const notFound = require('./middleware/notFound');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+// Función para verificar conexión a la base de datos
+async function checkDatabaseConnection() {
+  try {
+    await prisma.$connect();
+    console.log('✅ Conexión a la base de datos establecida');
+    return true;
+  } catch (error) {
+    console.error('❌ Error conectando a la base de datos:', error.message);
+    return false;
+  }
+}
 
 // Configuración de seguridad
 app.use(helmet({
@@ -79,16 +95,27 @@ if (process.env.NODE_ENV === 'development') {
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.status(200).json({
-    status: 'OK',
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV,
-    version: '1.0.1',
-    cors: 'TEMPORAL_ALLOW_ALL',
-    deploy: 'FORCED_UPDATE'
-  });
+// Health check endpoint mejorado
+app.get('/health', async (req, res) => {
+  try {
+    const dbConnected = await checkDatabaseConnection();
+    res.status(200).json({
+      status: 'OK',
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV,
+      version: '1.0.2',
+      cors: 'TEMPORAL_ALLOW_ALL',
+      deploy: 'FORCED_UPDATE',
+      database: dbConnected ? 'CONNECTED' : 'DISCONNECTED',
+      port: PORT
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'ERROR',
+      timestamp: new Date().toISOString(),
+      error: error.message
+    });
+  }
 });
 
 // API Routes
@@ -120,15 +147,30 @@ app.use(notFound);
 app.use(errorHandler);
 
 // Iniciar servidor
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Servidor NutryHome COMPLETO ejecutándose en puerto ${PORT}`);
-  console.log(`📊 Ambiente: ${process.env.NODE_ENV}`);
-  console.log(`🔗 Health check: http://0.0.0.0:${PORT}/health`);
-  console.log(`📚 API Docs: http://0.0.0.0:${PORT}/api`);
-  console.log(`🔧 CORS configurado para permitir todos los origins`);
-  console.log(`📅 Deploy timestamp: ${new Date().toISOString()}`);
-  console.log(`🔄 SERVIDOR COMPLETO CON PRISMA ACTIVO`);
-});
+async function startServer() {
+  try {
+    // Verificar conexión a la base de datos
+    const dbConnected = await checkDatabaseConnection();
+    
+    if (!dbConnected) {
+      console.warn('⚠️  Advertencia: No se pudo conectar a la base de datos, pero el servidor continuará');
+    }
+    
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`🚀 Servidor NutryHome COMPLETO ejecutándose en puerto ${PORT}`);
+      console.log(`📊 Ambiente: ${process.env.NODE_ENV}`);
+      console.log(`🔗 Health check: http://0.0.0.0:${PORT}/health`);
+      console.log(`📚 API Docs: http://0.0.0.0:${PORT}/api`);
+      console.log(`🔧 CORS configurado para permitir todos los origins`);
+      console.log(`📅 Deploy timestamp: ${new Date().toISOString()}`);
+      console.log(`🔄 SERVIDOR COMPLETO CON PRISMA ACTIVO`);
+      console.log(`🗄️  Base de datos: ${dbConnected ? 'CONECTADA' : 'DESCONECTADA'}`);
+    });
+  } catch (error) {
+    console.error('❌ Error iniciando el servidor:', error);
+    process.exit(1);
+  }
+}
 
 // Manejo de errores no capturados
 process.on('unhandledRejection', (err, promise) => {
@@ -140,5 +182,21 @@ process.on('uncaughtException', (err) => {
   console.error('Excepción no capturada:', err);
   process.exit(1);
 });
+
+// Manejo de cierre graceful
+process.on('SIGTERM', async () => {
+  console.log('🔄 Cerrando servidor...');
+  await prisma.$disconnect();
+  process.exit(0);
+});
+
+process.on('SIGINT', async () => {
+  console.log('🔄 Cerrando servidor...');
+  await prisma.$disconnect();
+  process.exit(0);
+});
+
+// Iniciar el servidor
+startServer();
 
 module.exports = app; 
