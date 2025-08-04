@@ -152,7 +152,18 @@ async function startServer() {
     // Verificar conexión a la base de datos
     const dbConnected = await checkDatabaseConnection();
     
-    if (!dbConnected) {
+    if (dbConnected) {
+      // Solo ejecutar migraciones si la base de datos está conectada
+      try {
+        console.log('🔄 Ejecutando migraciones de base de datos...');
+        const { execSync } = require('child_process');
+        execSync('npx prisma migrate deploy', { stdio: 'inherit' });
+        console.log('✅ Migraciones ejecutadas correctamente');
+      } catch (migrationError) {
+        console.warn('⚠️  Error ejecutando migraciones:', migrationError.message);
+        console.log('🔄 Continuando sin migraciones...');
+      }
+    } else {
       console.warn('⚠️  Advertencia: No se pudo conectar a la base de datos, pero el servidor continuará');
     }
     
