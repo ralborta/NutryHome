@@ -58,6 +58,8 @@ export default function CallsManagement() {
   const [selectedBatch, setSelectedBatch] = useState<string | null>(null);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [showTestCallModal, setShowTestCallModal] = useState(false);
+  const [showBatchDetailsModal, setShowBatchDetailsModal] = useState(false);
+  const [selectedBatchData, setSelectedBatchData] = useState<Batch | null>(null);
   const [testPhoneNumber, setTestPhoneNumber] = useState('');
   const [testName, setTestName] = useState('');
   const [scheduleDate, setScheduleDate] = useState('');
@@ -159,6 +161,18 @@ export default function CallsManagement() {
   React.useEffect(() => {
     fetchBatches();
   }, []);
+
+  // Función para abrir modal de detalles del batch
+  const handleBatchClick = (batch: Batch) => {
+    setSelectedBatchData(batch);
+    setShowBatchDetailsModal(true);
+  };
+
+  // Función para cerrar modal de detalles
+  const closeBatchDetailsModal = () => {
+    setShowBatchDetailsModal(false);
+    setSelectedBatchData(null);
+  };
 
   const calls: Call[] = [
     {
@@ -548,7 +562,7 @@ export default function CallsManagement() {
                                 </>
                               )}
                               <button
-                                onClick={() => console.log('Ver detalles:', batch.id)}
+                                onClick={() => handleBatchClick(batch)}
                                 className="text-gray-600 hover:text-gray-900"
                                 title="Ver detalles"
                               >
@@ -791,6 +805,169 @@ export default function CallsManagement() {
                   className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
                 >
                   Realizar Llamada
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Batch Details Modal */}
+      {showBatchDetailsModal && selectedBatchData && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-10 mx-auto p-5 border w-4/5 max-w-4xl shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center space-x-3">
+                  <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                    <FileText className="h-6 w-6 text-blue-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-semibold text-gray-900">
+                      {selectedBatchData.name}
+                    </h3>
+                    <p className="text-sm text-gray-500">
+                      {selectedBatchData.totalCalls} llamadas • Creado el {new Date(selectedBatchData.createdAt).toLocaleDateString('es-ES')}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={closeBatchDetailsModal}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              {/* Estadísticas del batch */}
+              <div className="grid grid-cols-4 gap-4 mb-6">
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <div className="text-2xl font-bold text-blue-600">{selectedBatchData.totalCalls}</div>
+                  <div className="text-sm text-blue-600">Total de Llamadas</div>
+                </div>
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <div className="text-2xl font-bold text-green-600">{selectedBatchData.completedCalls}</div>
+                  <div className="text-sm text-green-600">Completadas</div>
+                </div>
+                <div className="bg-red-50 p-4 rounded-lg">
+                  <div className="text-2xl font-bold text-red-600">{selectedBatchData.failedCalls}</div>
+                  <div className="text-sm text-red-600">Fallidas</div>
+                </div>
+                <div className="bg-yellow-50 p-4 rounded-lg">
+                  <div className="text-2xl font-bold text-yellow-600">
+                    {selectedBatchData.totalCalls - selectedBatchData.completedCalls - selectedBatchData.failedCalls}
+                  </div>
+                  <div className="text-sm text-yellow-600">Pendientes</div>
+                </div>
+              </div>
+
+              {/* Estado del batch */}
+              <div className="mb-6">
+                <h4 className="text-lg font-medium text-gray-900 mb-3">Estado del Batch</h4>
+                <div className="flex items-center space-x-4">
+                  <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${getStatusColor(selectedBatchData.status)}`}>
+                    {selectedBatchData.status === 'running' && 'En Progreso'}
+                    {selectedBatchData.status === 'completed' && 'Completado'}
+                    {selectedBatchData.status === 'pending' && 'Pendiente'}
+                    {selectedBatchData.status === 'paused' && 'Pausado'}
+                  </span>
+                  {selectedBatchData.scheduledFor && (
+                    <div className="flex items-center text-sm text-gray-600">
+                      <Calendar className="w-4 h-4 mr-1" />
+                      Programado para: {new Date(selectedBatchData.scheduledFor).toLocaleString('es-ES')}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Lista de llamadas (datos de ejemplo) */}
+              <div>
+                <h4 className="text-lg font-medium text-gray-900 mb-3">Llamadas del Batch</h4>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <p className="text-sm text-gray-600 mb-4">
+                    📋 Este batch contiene {selectedBatchData.totalCalls} contactos para verificación de stock de productos nutricionales.
+                  </p>
+                  
+                  {/* Datos de ejemplo basados en el batch */}
+                  <div className="space-y-3">
+                    {selectedBatchData.name.includes('Verificación Stock') ? (
+                      // Datos específicos para verificación de stock
+                      <>
+                        <div className="flex items-center justify-between p-3 bg-white rounded border">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                              <span className="text-xs font-medium text-blue-600">1</span>
+                            </div>
+                            <div>
+                              <div className="font-medium text-gray-900">GALAN SERGIO EDER</div>
+                              <div className="text-sm text-gray-500">+5491137710010</div>
+                            </div>
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            Fresubin Original 1000ml AR_ECO (5 unidades)
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between p-3 bg-white rounded border">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                              <span className="text-xs font-medium text-blue-600">2</span>
+                            </div>
+                            <div>
+                              <div className="font-medium text-gray-900">SAYAGO JOAQUIN</div>
+                              <div className="text-sm text-gray-500">+5492235956604</div>
+                            </div>
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            Frebini Original E(AR/CL/PE) (12 unidades)
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      // Datos genéricos para otros batches
+                      <>
+                        <div className="flex items-center justify-between p-3 bg-white rounded border">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                              <span className="text-xs font-medium text-blue-600">1</span>
+                            </div>
+                            <div>
+                              <div className="font-medium text-gray-900">Contacto 1</div>
+                              <div className="text-sm text-gray-500">+5491137710010</div>
+                            </div>
+                          </div>
+                          <div className="text-sm text-gray-600">Pendiente</div>
+                        </div>
+                        <div className="flex items-center justify-between p-3 bg-white rounded border">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                              <span className="text-xs font-medium text-blue-600">2</span>
+                            </div>
+                            <div>
+                              <div className="font-medium text-gray-900">Contacto 2</div>
+                              <div className="text-sm text-gray-500">+5491145623789</div>
+                            </div>
+                          </div>
+                          <div className="text-sm text-gray-600">Pendiente</div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  
+                  <div className="mt-4 text-center">
+                    <p className="text-xs text-gray-500">
+                      Mostrando primeros registros. Total: {selectedBatchData.totalCalls} contactos
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Botón de cerrar */}
+              <div className="flex justify-end mt-6">
+                <button
+                  onClick={closeBatchDetailsModal}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                >
+                  Cerrar
                 </button>
               </div>
             </div>
