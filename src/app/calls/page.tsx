@@ -107,7 +107,7 @@ export default function CallsManagement() {
           completedCalls: 0,
           failedCalls: 0,
           status: 'pending',
-          createdAt: '2024-01-15T10:30:00Z'
+          createdAt: '2025-08-03T19:18:48.000Z'
         },
         {
           id: '2',
@@ -116,7 +116,7 @@ export default function CallsManagement() {
           completedCalls: 0,
           failedCalls: 0,
           status: 'pending',
-          createdAt: '2024-01-16T14:20:00Z'
+          createdAt: '2025-08-03T20:29:45.000Z'
         },
         {
           id: '3',
@@ -125,7 +125,7 @@ export default function CallsManagement() {
           completedCalls: 0,
           failedCalls: 0,
           status: 'pending',
-          createdAt: '2024-01-14T08:15:00Z'
+          createdAt: '2025-08-03T20:35:00.000Z'
         }
       ]);
     } finally {
