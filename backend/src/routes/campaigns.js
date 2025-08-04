@@ -567,6 +567,9 @@ router.post('/upload', upload.single('file'), async (req, res) => {
 
     console.log('Archivo recibido:', req.file.originalname);
 
+    // Obtener nombre personalizado del batch desde el body
+    const batchName = req.body.batchName || `Batch ${new Date().toLocaleDateString()} - ${req.file.originalname}`;
+
     // Crear una campaña por defecto si no existe
     let defaultCampaign = await prisma.campaign.findFirst({
       where: { nombre: 'Campaña General' }
@@ -601,10 +604,10 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       });
     }
 
-    // Crear un batch automático
+    // Crear un batch con nombre personalizado
     const batch = await prisma.batch.create({
       data: {
-        nombre: `Batch ${new Date().toLocaleDateString()} - ${req.file.originalname}`,
+        nombre: batchName,
         campaignId: defaultCampaign.id,
         estado: 'PENDING',
         totalCalls: 0,

@@ -31,6 +31,7 @@ export default function UploadPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
+  const [batchName, setBatchName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Función para manejar el drag and drop
@@ -72,12 +73,18 @@ export default function UploadPage() {
       return;
     }
 
+    if (!batchName.trim()) {
+      alert('Por favor ingresa un nombre para el batch');
+      return;
+    }
+
     setUploading(true);
     setUploadResult(null);
 
     try {
       const formData = new FormData();
       formData.append('file', selectedFile);
+      formData.append('batchName', batchName.trim());
 
       // Conectar con el backend real
       const response = await fetch('https://nutryhome-production.up.railway.app/api/campaigns/upload', {
@@ -189,9 +196,28 @@ export default function UploadPage() {
             className="lg:col-span-2"
           >
             <div className="bg-white rounded-xl shadow-lg p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">
                 Subir Archivo Excel
               </h2>
+
+              {/* Campo para nombre del batch */}
+              <div className="mb-6">
+                <label htmlFor="batchName" className="block text-sm font-medium text-gray-700 mb-2">
+                  📦 Nombre del Batch
+                </label>
+                <input
+                  type="text"
+                  id="batchName"
+                  value={batchName}
+                  onChange={(e) => setBatchName(e.target.value)}
+                  placeholder="Ej: Verificación Stock Domicilio - Enero 2025"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  maxLength={100}
+                />
+                <p className="mt-1 text-sm text-gray-500">
+                  Ingresa un nombre descriptivo para identificar este grupo de contactos
+                </p>
+              </div>
 
               {/* Área de Drag & Drop */}
               <div
