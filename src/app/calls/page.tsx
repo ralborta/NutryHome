@@ -96,35 +96,35 @@ export default function CallsManagement() {
       }
     } catch (err) {
       console.error('Error fetching batches:', err);
-      setError('No se pudieron cargar los batches. Usando datos de ejemplo.');
-      // Usar datos de ejemplo como fallback
+      setError('No se pudieron cargar los batches desde el servidor. Mostrando datos de ejemplo.');
+      
+      // Datos de ejemplo más realistas basados en los datos que sabemos que están en la DB
       setBatches([
         {
           id: '1',
-          name: 'Batch Clientes Premium',
-          totalCalls: 150,
-          completedCalls: 89,
-          failedCalls: 12,
-          status: 'running',
+          name: 'Batch de Prueba - test-contacts.xlsx',
+          totalCalls: 8,
+          completedCalls: 0,
+          failedCalls: 0,
+          status: 'pending',
           createdAt: '2024-01-15T10:30:00Z'
         },
         {
           id: '2',
-          name: 'Batch Prospectos Q1',
-          totalCalls: 200,
+          name: 'Batch de Prueba - test-contacts.xlsx',
+          totalCalls: 5,
           completedCalls: 0,
           failedCalls: 0,
           status: 'pending',
-          createdAt: '2024-01-16T14:20:00Z',
-          scheduledFor: '2024-01-20T09:00:00Z'
+          createdAt: '2024-01-16T14:20:00Z'
         },
         {
           id: '3',
-          name: 'Batch Seguimiento',
-          totalCalls: 75,
-          completedCalls: 75,
+          name: 'Verificación Stock Domicilio - Enero 2025',
+          totalCalls: 5,
+          completedCalls: 0,
           failedCalls: 0,
-          status: 'completed',
+          status: 'pending',
           createdAt: '2024-01-14T08:15:00Z'
         }
       ]);
