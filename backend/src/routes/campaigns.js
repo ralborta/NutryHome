@@ -51,6 +51,17 @@ const validateBatch = [
 // GET /campaigns - Listar todas las campañas
 router.get('/', async (req, res) => {
   try {
+    // Verificar conexión a la base de datos
+    try {
+      await prisma.$connect();
+    } catch (dbError) {
+      console.error('Error conectando a la base de datos:', dbError);
+      return res.status(503).json({ 
+        error: 'Servicio de base de datos no disponible',
+        details: process.env.NODE_ENV === 'development' ? dbError.message : 'Contacta al administrador'
+      });
+    }
+
     const { page = 1, limit = 10, estado } = req.query;
     const skip = (page - 1) * limit;
 
@@ -78,7 +89,8 @@ router.get('/', async (req, res) => {
               estado: true,
               totalCalls: true,
               completedCalls: true,
-              failedCalls: true
+              failedCalls: true,
+              createdAt: true
             }
           },
           _count: {
