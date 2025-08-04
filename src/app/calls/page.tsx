@@ -903,7 +903,7 @@ export default function CallsManagement() {
                           </div>
                           <div className="text-sm text-gray-600 text-right">
                             <div>Fresubin Original 1000ml AR_ECO</div>
-                            <div className="text-xs text-gray-500">5 unidades • Domicilio: ALOE 183, CHACABUCO</div>
+                            <div className="text-xs text-gray-500">5 unidades • ALOE 183, CHACABUCO</div>
                           </div>
                         </div>
                         <div className="flex items-center justify-between p-3 bg-white rounded border">
@@ -919,7 +919,7 @@ export default function CallsManagement() {
                           </div>
                           <div className="text-sm text-gray-600 text-right">
                             <div>Frebini Original E(AR/CL/PE)</div>
-                            <div className="text-xs text-gray-500">12 unidades • Domicilio: C.163 N 1558, LOS HORNOS</div>
+                            <div className="text-xs text-gray-500">12 unidades • C.163 N 1558, LOS HORNOS</div>
                           </div>
                         </div>
                         <div className="flex items-center justify-between p-3 bg-white rounded border">
@@ -935,7 +935,7 @@ export default function CallsManagement() {
                           </div>
                           <div className="text-sm text-gray-600 text-right">
                             <div>Fresubin Energy AR_ECO</div>
-                            <div className="text-xs text-gray-500">20 unidades • Domicilio: INMIGRANTES ARABES 125, CHASCOMUS</div>
+                            <div className="text-xs text-gray-500">20 unidades • INMIGRANTES ARABES 125, CHASCOMUS</div>
                           </div>
                         </div>
                         <div className="flex items-center justify-between p-3 bg-white rounded border">
@@ -951,7 +951,7 @@ export default function CallsManagement() {
                           </div>
                           <div className="text-sm text-gray-600 text-right">
                             <div>Fresubin 2 kcal Creme Vanilla AR</div>
-                            <div className="text-xs text-gray-500">1 unidad • Domicilio: Calle 16 2257, LA PLATA</div>
+                            <div className="text-xs text-gray-500">1 unidad • Calle 16 2257, LA PLATA</div>
                           </div>
                         </div>
                         <div className="flex items-center justify-between p-3 bg-white rounded border">
@@ -967,7 +967,7 @@ export default function CallsManagement() {
                           </div>
                           <div className="text-sm text-gray-600 text-right">
                             <div>FRESUBIN PLUS X 236 ML LIQ VAIN</div>
-                            <div className="text-xs text-gray-500">25 unidades • Domicilio: CALLE 24 518, Chivilcoy</div>
+                            <div className="text-xs text-gray-500">25 unidades • CALLE 24 518, Chivilcoy</div>
                           </div>
                         </div>
                       </>
@@ -982,12 +982,12 @@ export default function CallsManagement() {
                             <div>
                               <div className="font-medium text-gray-900">María García López</div>
                               <div className="text-sm text-gray-500">+5491137710010</div>
-                              <div className="text-xs text-gray-400">maria.garcia@email.com</div>
+                              <div className="text-xs text-gray-400">Contacto: María</div>
                             </div>
                           </div>
                           <div className="text-sm text-gray-600 text-right">
-                            <div>Suplementos</div>
-                            <div className="text-xs text-gray-500">Empresa: NutryHome • Buenos Aires</div>
+                            <div>Suplementos Nutricionales</div>
+                            <div className="text-xs text-gray-500">Buenos Aires, Argentina</div>
                           </div>
                         </div>
                         <div className="flex items-center justify-between p-3 bg-white rounded border">
@@ -998,12 +998,12 @@ export default function CallsManagement() {
                             <div>
                               <div className="font-medium text-gray-900">Juan López Fernández</div>
                               <div className="text-sm text-gray-500">+5491145623789</div>
-                              <div className="text-xs text-gray-400">juan.lopez@email.com</div>
+                              <div className="text-xs text-gray-400">Contacto: Juan</div>
                             </div>
                           </div>
                           <div className="text-sm text-gray-600 text-right">
-                            <div>Vitaminas</div>
-                            <div className="text-xs text-gray-500">Empresa: Empresa ABC • Córdoba</div>
+                            <div>Vitaminas y Minerales</div>
+                            <div className="text-xs text-gray-500">Córdoba, Argentina</div>
                           </div>
                         </div>
                         <div className="flex items-center justify-between p-3 bg-white rounded border">
@@ -1014,12 +1014,12 @@ export default function CallsManagement() {
                             <div>
                               <div className="font-medium text-gray-900">Carmen Rodríguez</div>
                               <div className="text-sm text-gray-500">+5491156345678</div>
-                              <div className="text-xs text-gray-400">carmen.rodriguez@email.com</div>
+                              <div className="text-xs text-gray-400">Contacto: Carmen</div>
                             </div>
                           </div>
                           <div className="text-sm text-gray-600 text-right">
-                            <div>Proteínas</div>
-                            <div className="text-xs text-gray-500">Empresa: Compañía XYZ • Rosario</div>
+                            <div>Proteínas y Aminoácidos</div>
+                            <div className="text-xs text-gray-500">Rosario, Argentina</div>
                           </div>
                         </div>
                         <div className="flex items-center justify-between p-3 bg-white rounded border">
@@ -1030,12 +1030,12 @@ export default function CallsManagement() {
                             <div>
                               <div className="font-medium text-gray-900">Pedro Sánchez</div>
                               <div className="text-sm text-gray-500">+5491164567890</div>
-                              <div className="text-xs text-gray-400">pedro.sanchez@email.com</div>
+                              <div className="text-xs text-gray-400">Contacto: Pedro</div>
                             </div>
                           </div>
                           <div className="text-sm text-gray-600 text-right">
-                            <div>Omega 3</div>
-                            <div className="text-xs text-gray-500">Empresa: Corporación 123 • Mendoza</div>
+                            <div>Omega 3 y Ácidos Grasos</div>
+                            <div className="text-xs text-gray-500">Mendoza, Argentina</div>
                           </div>
                         </div>
                         <div className="flex items-center justify-between p-3 bg-white rounded border">
@@ -1046,12 +1046,12 @@ export default function CallsManagement() {
                             <div>
                               <div className="font-medium text-gray-900">Ana Martínez</div>
                               <div className="text-sm text-gray-500">+5491171234567</div>
-                              <div className="text-xs text-gray-400">ana.martinez@email.com</div>
+                              <div className="text-xs text-gray-400">Contacto: Ana</div>
                             </div>
                           </div>
                           <div className="text-sm text-gray-600 text-right">
-                            <div>Colágeno</div>
-                            <div className="text-xs text-gray-500">Empresa: Industrias DEF • La Plata</div>
+                            <div>Colágeno y Antioxidantes</div>
+                            <div className="text-xs text-gray-500">La Plata, Argentina</div>
                           </div>
                         </div>
                         <div className="flex items-center justify-between p-3 bg-white rounded border">
@@ -1062,12 +1062,12 @@ export default function CallsManagement() {
                             <div>
                               <div className="font-medium text-gray-900">Carlos Ruiz</div>
                               <div className="text-sm text-gray-500">+5491189876543</div>
-                              <div className="text-xs text-gray-400">carlos.ruiz@email.com</div>
+                              <div className="text-xs text-gray-400">Contacto: Carlos</div>
                             </div>
                           </div>
                           <div className="text-sm text-gray-600 text-right">
                             <div>Multivitamínicos</div>
-                            <div className="text-xs text-gray-500">Empresa: Tecnología GHI • Mar del Plata</div>
+                            <div className="text-xs text-gray-500">Mar del Plata, Argentina</div>
                           </div>
                         </div>
                         <div className="flex items-center justify-between p-3 bg-white rounded border">
@@ -1078,12 +1078,12 @@ export default function CallsManagement() {
                             <div>
                               <div className="font-medium text-gray-900">Laura Fernández</div>
                               <div className="text-sm text-gray-500">+5491198765432</div>
-                              <div className="text-xs text-gray-400">laura.fernandez@email.com</div>
+                              <div className="text-xs text-gray-400">Contacto: Laura</div>
                             </div>
                           </div>
                           <div className="text-sm text-gray-600 text-right">
-                            <div>Minerales</div>
-                            <div className="text-xs text-gray-500">Empresa: Consultora JKL • Bahía Blanca</div>
+                            <div>Minerales y Oligoelementos</div>
+                            <div className="text-xs text-gray-500">Bahía Blanca, Argentina</div>
                           </div>
                         </div>
                         <div className="flex items-center justify-between p-3 bg-white rounded border">
@@ -1094,12 +1094,12 @@ export default function CallsManagement() {
                             <div>
                               <div className="font-medium text-gray-900">Roberto Silva</div>
                               <div className="text-sm text-gray-500">+5492211234567</div>
-                              <div className="text-xs text-gray-400">roberto.silva@email.com</div>
+                              <div className="text-xs text-gray-400">Contacto: Roberto</div>
                             </div>
                           </div>
                           <div className="text-sm text-gray-600 text-right">
-                            <div>Antioxidantes</div>
-                            <div className="text-xs text-gray-500">Empresa: Distribuidora MNO • La Plata</div>
+                            <div>Antioxidantes Naturales</div>
+                            <div className="text-xs text-gray-500">La Plata, Argentina</div>
                           </div>
                         </div>
                       </>
@@ -1114,6 +1114,7 @@ export default function CallsManagement() {
                             <div>
                               <div className="font-medium text-gray-900">Contacto 1</div>
                               <div className="text-sm text-gray-500">+5491137710010</div>
+                              <div className="text-xs text-gray-400">Contacto: Principal</div>
                             </div>
                           </div>
                           <div className="text-sm text-gray-600">Pendiente</div>
@@ -1126,6 +1127,7 @@ export default function CallsManagement() {
                             <div>
                               <div className="font-medium text-gray-900">Contacto 2</div>
                               <div className="text-sm text-gray-500">+5491145623789</div>
+                              <div className="text-xs text-gray-400">Contacto: Principal</div>
                             </div>
                           </div>
                           <div className="text-sm text-gray-600">Pendiente</div>
@@ -1138,6 +1140,7 @@ export default function CallsManagement() {
                             <div>
                               <div className="font-medium text-gray-900">Contacto 3</div>
                               <div className="text-sm text-gray-500">+5491156345678</div>
+                              <div className="text-xs text-gray-400">Contacto: Principal</div>
                             </div>
                           </div>
                           <div className="text-sm text-gray-600">Pendiente</div>
@@ -1150,6 +1153,7 @@ export default function CallsManagement() {
                             <div>
                               <div className="font-medium text-gray-900">Contacto 4</div>
                               <div className="text-sm text-gray-500">+5491164567890</div>
+                              <div className="text-xs text-gray-400">Contacto: Principal</div>
                             </div>
                           </div>
                           <div className="text-sm text-gray-600">Pendiente</div>
@@ -1162,6 +1166,7 @@ export default function CallsManagement() {
                             <div>
                               <div className="font-medium text-gray-900">Contacto 5</div>
                               <div className="text-sm text-gray-500">+5491171234567</div>
+                              <div className="text-xs text-gray-400">Contacto: Principal</div>
                             </div>
                           </div>
                           <div className="text-sm text-gray-600">Pendiente</div>
