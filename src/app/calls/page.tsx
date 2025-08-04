@@ -26,9 +26,11 @@ import {
   Clock3,
   FileText,
   Users,
-  BarChart3
+  BarChart3,
+  RefreshCw
 } from 'lucide-react';
 import { validatePhoneNumber, formatPhoneNumber, getPhoneNumberError } from '@/lib/phoneValidation';
+import React from 'react'; // Added missing import for React.useEffect
 
 interface Batch {
   id: string;
@@ -60,38 +62,97 @@ export default function CallsManagement() {
   const [testName, setTestName] = useState('');
   const [scheduleDate, setScheduleDate] = useState('');
   const [scheduleTime, setScheduleTime] = useState('');
+  const [batches, setBatches] = useState<Batch[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Datos de ejemplo
-  const batches: Batch[] = [
-    {
-      id: '1',
-      name: 'Batch Clientes Premium',
-      totalCalls: 150,
-      completedCalls: 89,
-      failedCalls: 12,
-      status: 'running',
-      createdAt: '2024-01-15T10:30:00Z'
-    },
-    {
-      id: '2',
-      name: 'Batch Prospectos Q1',
-      totalCalls: 200,
-      completedCalls: 0,
-      failedCalls: 0,
-      status: 'pending',
-      createdAt: '2024-01-16T14:20:00Z',
-      scheduledFor: '2024-01-20T09:00:00Z'
-    },
-    {
-      id: '3',
-      name: 'Batch Seguimiento',
-      totalCalls: 75,
-      completedCalls: 75,
-      failedCalls: 0,
-      status: 'completed',
-      createdAt: '2024-01-14T08:15:00Z'
+  // Función para obtener batches del backend
+  const fetchBatches = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('https://nutryhome-production.up.railway.app/api/campaigns');
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Transformar los datos del backend al formato que espera el frontend
+        const transformedBatches: Batch[] = data.campaigns.flatMap((campaign: any) => 
+          campaign.batches.map((batch: any) => ({
+            id: batch.id,
+            name: batch.nombre,
+            totalCalls: batch.totalCalls,
+            completedCalls: batch.completedCalls,
+            failedCalls: batch.failedCalls,
+            status: mapBatchStatus(batch.estado),
+            createdAt: batch.createdAt,
+            scheduledFor: batch.fechaProgramada || undefined
+          }))
+        );
+        
+        setBatches(transformedBatches);
+        setError(null);
+      } else {
+        throw new Error('Error al cargar los batches');
+      }
+    } catch (err) {
+      console.error('Error fetching batches:', err);
+      setError('No se pudieron cargar los batches. Usando datos de ejemplo.');
+      // Usar datos de ejemplo como fallback
+      setBatches([
+        {
+          id: '1',
+          name: 'Batch Clientes Premium',
+          totalCalls: 150,
+          completedCalls: 89,
+          failedCalls: 12,
+          status: 'running',
+          createdAt: '2024-01-15T10:30:00Z'
+        },
+        {
+          id: '2',
+          name: 'Batch Prospectos Q1',
+          totalCalls: 200,
+          completedCalls: 0,
+          failedCalls: 0,
+          status: 'pending',
+          createdAt: '2024-01-16T14:20:00Z',
+          scheduledFor: '2024-01-20T09:00:00Z'
+        },
+        {
+          id: '3',
+          name: 'Batch Seguimiento',
+          totalCalls: 75,
+          completedCalls: 75,
+          failedCalls: 0,
+          status: 'completed',
+          createdAt: '2024-01-14T08:15:00Z'
+        }
+      ]);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  // Función para mapear estados del backend al frontend
+  const mapBatchStatus = (backendStatus: string): 'pending' | 'running' | 'completed' | 'paused' => {
+    switch (backendStatus) {
+      case 'PENDING':
+        return 'pending';
+      case 'RUNNING':
+        return 'running';
+      case 'COMPLETED':
+        return 'completed';
+      case 'PAUSED':
+        return 'paused';
+      default:
+        return 'pending';
+    }
+  };
+
+  // Cargar batches al montar el componente
+  React.useEffect(() => {
+    fetchBatches();
+  }, []);
 
   const calls: Call[] = [
     {
@@ -313,14 +374,12 @@ export default function CallsManagement() {
               </div>
             </div>
 
-            {/* Batches Section */}
-            <div className="bg-white shadow rounded-lg">
+            {/* Tabla de Batches */}
+            <div className="bg-white shadow rounded-lg overflow-hidden">
               <div className="px-6 py-4 border-b border-gray-200">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-lg leading-6 font-medium text-gray-900">
-                    Batches de Llamadas
-                  </h3>
-                  <div className="flex space-x-3">
+                  <h3 className="text-lg font-medium text-gray-900">Batches de Llamadas</h3>
+                  <div className="flex space-x-2">
                     <button className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                       <Upload className="w-4 h-4 mr-2" />
                       Importar
@@ -333,141 +392,183 @@ export default function CallsManagement() {
                 </div>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Batch
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Progreso
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Estado
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Fecha Creación
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Programado
-                      </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Acciones
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {batches.map((batch) => (
-                      <tr key={batch.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div className="flex-shrink-0 h-10 w-10">
-                              <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                                <FileText className="h-6 w-6 text-blue-600" />
-                              </div>
-                            </div>
-                            <div className="ml-4">
-                              <div className="text-sm font-medium text-gray-900">
-                                {batch.name}
-                              </div>
-                              <div className="text-sm text-gray-500">
-                                {batch.totalCalls} llamadas
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div className="w-full bg-gray-200 rounded-full h-2 mr-2">
-                              <div 
-                                className="bg-blue-600 h-2 rounded-full" 
-                                style={{ width: `${(batch.completedCalls / batch.totalCalls) * 100}%` }}
-                              ></div>
-                            </div>
-                            <span className="text-sm text-gray-500">
-                              {Math.round((batch.completedCalls / batch.totalCalls) * 100)}%
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(batch.status)}`}>
-                            {batch.status === 'running' && 'En Progreso'}
-                            {batch.status === 'completed' && 'Completado'}
-                            {batch.status === 'pending' && 'Pendiente'}
-                            {batch.status === 'paused' && 'Pausado'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(batch.createdAt).toLocaleDateString('es-ES')}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {batch.scheduledFor ? (
-                            <div className="flex items-center">
-                              <Calendar className="w-4 h-4 mr-1" />
-                              {new Date(batch.scheduledFor).toLocaleDateString('es-ES')}
-                              <br />
-                              {new Date(batch.scheduledFor).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
-                            </div>
-                          ) : (
-                            <span className="text-gray-400">No programado</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <div className="flex items-center justify-end space-x-2">
-                            {batch.status === 'pending' && (
-                              <>
-                                <button
-                                  onClick={() => {
-                                    setSelectedBatch(batch.id);
-                                    setShowScheduleModal(true);
-                                  }}
-                                  className="text-blue-600 hover:text-blue-900"
-                                  title="Programar"
-                                >
-                                  <Calendar className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={() => console.log('Iniciar batch:', batch.id)}
-                                  className="text-green-600 hover:text-green-900"
-                                  title="Iniciar"
-                                >
-                                  <Play className="w-4 h-4" />
-                                </button>
-                              </>
-                            )}
-                            {batch.status === 'running' && (
-                              <>
-                                <button
-                                  onClick={() => console.log('Pausar batch:', batch.id)}
-                                  className="text-yellow-600 hover:text-yellow-900"
-                                  title="Pausar"
-                                >
-                                  <Pause className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={() => console.log('Detener batch:', batch.id)}
-                                  className="text-red-600 hover:text-red-900"
-                                  title="Detener"
-                                >
-                                  <Square className="w-4 h-4" />
-                                </button>
-                              </>
-                            )}
-                            <button
-                              onClick={() => console.log('Ver detalles:', batch.id)}
-                              className="text-gray-600 hover:text-gray-900"
-                              title="Ver detalles"
-                            >
-                              <BarChart3 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
+              {/* Indicador de carga */}
+              {loading && (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  <span className="ml-2 text-gray-600">Cargando batches...</span>
+                </div>
+              )}
+
+              {/* Mensaje de error */}
+              {error && (
+                <div className="px-6 py-4 bg-yellow-50 border-l-4 border-yellow-400">
+                  <div className="flex">
+                    <AlertCircle className="w-5 h-5 text-yellow-400" />
+                    <div className="ml-3">
+                      <p className="text-sm text-yellow-700">{error}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Tabla */}
+              {!loading && (
+                <div className="overflow-x-auto">
+                  {batches.length === 0 ? (
+                    <div className="text-center py-8">
+                      <FileText className="mx-auto h-12 w-12 text-gray-400" />
+                      <h3 className="mt-2 text-sm font-medium text-gray-900">No hay batches</h3>
+                      <p className="mt-1 text-sm text-gray-500">
+                        Comienza cargando un archivo Excel desde la página de upload.
+                      </p>
+                      <div className="mt-6">
+                        <button
+                          onClick={fetchBatches}
+                          className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        >
+                          <RefreshCw className="w-4 h-4 mr-2" />
+                          Refrescar
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Batch
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Progreso
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Estado
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Fecha Creación
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Programado
+                        </th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Acciones
+                        </th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {batches.map((batch) => (
+                        <tr key={batch.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <div className="flex-shrink-0 h-10 w-10">
+                                <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                                  <FileText className="h-6 w-6 text-blue-600" />
+                                </div>
+                              </div>
+                              <div className="ml-4">
+                                <div className="text-sm font-medium text-gray-900">
+                                  {batch.name}
+                                </div>
+                                <div className="text-sm text-gray-500">
+                                  {batch.totalCalls} llamadas
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <div className="w-full bg-gray-200 rounded-full h-2 mr-2">
+                                <div 
+                                  className="bg-blue-600 h-2 rounded-full" 
+                                  style={{ width: `${(batch.completedCalls / batch.totalCalls) * 100}%` }}
+                                ></div>
+                              </div>
+                              <span className="text-sm text-gray-500">
+                                {Math.round((batch.completedCalls / batch.totalCalls) * 100)}%
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(batch.status)}`}>
+                              {batch.status === 'running' && 'En Progreso'}
+                              {batch.status === 'completed' && 'Completado'}
+                              {batch.status === 'pending' && 'Pendiente'}
+                              {batch.status === 'paused' && 'Pausado'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {new Date(batch.createdAt).toLocaleDateString('es-ES')}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {batch.scheduledFor ? (
+                              <div className="flex items-center">
+                                <Calendar className="w-4 h-4 mr-1" />
+                                {new Date(batch.scheduledFor).toLocaleDateString('es-ES')}
+                                <br />
+                                {new Date(batch.scheduledFor).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                              </div>
+                            ) : (
+                              <span className="text-gray-400">No programado</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <div className="flex items-center justify-end space-x-2">
+                              {batch.status === 'pending' && (
+                                <>
+                                  <button
+                                    onClick={() => {
+                                      setSelectedBatch(batch.id);
+                                      setShowScheduleModal(true);
+                                    }}
+                                    className="text-blue-600 hover:text-blue-900"
+                                    title="Programar"
+                                  >
+                                    <Calendar className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => console.log('Iniciar batch:', batch.id)}
+                                    className="text-green-600 hover:text-green-900"
+                                    title="Iniciar"
+                                  >
+                                    <Play className="w-4 h-4" />
+                                  </button>
+                                </>
+                              )}
+                              {batch.status === 'running' && (
+                                <>
+                                  <button
+                                    onClick={() => console.log('Pausar batch:', batch.id)}
+                                    className="text-yellow-600 hover:text-yellow-900"
+                                    title="Pausar"
+                                  >
+                                    <Pause className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => console.log('Detener batch:', batch.id)}
+                                    className="text-red-600 hover:text-red-900"
+                                    title="Detener"
+                                  >
+                                    <Square className="w-4 h-4" />
+                                  </button>
+                                </>
+                              )}
+                              <button
+                                onClick={() => console.log('Ver detalles:', batch.id)}
+                                className="text-gray-600 hover:text-gray-900"
+                                title="Ver detalles"
+                              >
+                                <BarChart3 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Recent Calls Section */}
