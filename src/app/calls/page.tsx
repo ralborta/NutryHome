@@ -466,11 +466,15 @@ export default function CallsManagement() {
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {batches.map((batch) => (
-                        <tr key={batch.id} className="hover:bg-gray-50">
+                        <tr 
+                          key={batch.id} 
+                          className="hover:bg-gray-50 cursor-pointer"
+                          onClick={() => handleBatchClick(batch)}
+                        >
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
                               <div className="flex-shrink-0 h-10 w-10">
-                                <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                                <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center hover:bg-blue-200 transition-colors">
                                   <FileText className="h-6 w-6 text-blue-600" />
                                 </div>
                               </div>
@@ -521,7 +525,7 @@ export default function CallsManagement() {
                             )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <div className="flex items-center justify-end space-x-2">
+                            <div className="flex items-center justify-end space-x-2" onClick={(e) => e.stopPropagation()}>
                               {batch.status === 'pending' && (
                                 <>
                                   <button
@@ -561,13 +565,6 @@ export default function CallsManagement() {
                                   </button>
                                 </>
                               )}
-                              <button
-                                onClick={() => handleBatchClick(batch)}
-                                className="text-gray-600 hover:text-gray-900"
-                                title="Ver detalles"
-                              >
-                                <BarChart3 className="w-4 h-4" />
-                              </button>
                             </div>
                           </td>
                         </tr>
