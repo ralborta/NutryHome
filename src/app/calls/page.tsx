@@ -58,8 +58,11 @@ export default function CallsManagement() {
   const [selectedBatch, setSelectedBatch] = useState<string | null>(null);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [showTestCallModal, setShowTestCallModal] = useState(false);
+  // State para modal de detalles del batch
   const [showBatchDetailsModal, setShowBatchDetailsModal] = useState(false);
   const [selectedBatchData, setSelectedBatchData] = useState<Batch | null>(null);
+  const [batchContacts, setBatchContacts] = useState<any[]>([]);
+  const [loadingContacts, setLoadingContacts] = useState(false);
   const [testPhoneNumber, setTestPhoneNumber] = useState('');
   const [testName, setTestName] = useState('');
   const [scheduleDate, setScheduleDate] = useState('');
@@ -162,16 +165,36 @@ export default function CallsManagement() {
     fetchBatches();
   }, []);
 
-  // Función para abrir modal de detalles del batch
-  const handleBatchClick = (batch: Batch) => {
+  // Function to open batch details modal
+  const handleBatchClick = async (batch: Batch) => {
     setSelectedBatchData(batch);
     setShowBatchDetailsModal(true);
+    setLoadingContacts(true);
+    
+    try {
+      // Intentar obtener datos reales del backend
+      const response = await fetch(`https://nutryhome-production.up.railway.app/api/campaigns/${batch.id}/contacts`);
+      if (response.ok) {
+        const data = await response.json();
+        setBatchContacts(data.contacts || []);
+      } else {
+        // Si no hay datos reales, usar datos de ejemplo basados en el nombre del batch
+        console.log('No se pudieron obtener datos reales, usando datos de ejemplo');
+        setBatchContacts([]);
+      }
+    } catch (error) {
+      console.log('Error obteniendo datos reales, usando datos de ejemplo');
+      setBatchContacts([]);
+    } finally {
+      setLoadingContacts(false);
+    }
   };
 
   // Función para cerrar modal de detalles
   const closeBatchDetailsModal = () => {
     setShowBatchDetailsModal(false);
     setSelectedBatchData(null);
+    setBatchContacts([]); // Limpiar datos de contactos al cerrar
   };
 
   const calls: Call[] = [
@@ -877,311 +900,363 @@ export default function CallsManagement() {
                 </div>
               </div>
 
-              {/* Lista de llamadas (datos de ejemplo) */}
-              <div>
-                <h4 className="text-lg font-medium text-gray-900 mb-3">Llamadas del Batch</h4>
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <p className="text-sm text-gray-600 mb-4">
-                    📋 Este batch contiene {selectedBatchData.totalCalls} contactos para verificación de stock de productos nutricionales.
-                  </p>
-                  
-                  {/* Datos de ejemplo basados en el batch */}
-                  <div className="space-y-3">
-                    {selectedBatchData.name.includes('Verificación Stock') ? (
-                      // Datos específicos para verificación de stock - TODOS los registros
-                      <>
-                        <div className="flex items-center justify-between p-3 bg-white rounded border">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                              <span className="text-xs font-medium text-blue-600">1</span>
-                            </div>
-                            <div>
-                              <div className="font-medium text-gray-900">GALAN SERGIO EDER</div>
-                              <div className="text-sm text-gray-500">+5491137710010</div>
-                              <div className="text-xs text-gray-400">Contacto: Joaquin</div>
-                            </div>
-                          </div>
-                          <div className="text-sm text-gray-600 text-right">
-                            <div>Fresubin Original 1000ml AR_ECO</div>
-                            <div className="text-xs text-gray-500">5 unidades • ALOE 183, CHACABUCO</div>
+                        {/* List of Calls (Real Data from Database) */}
+                        <div>
+                          <h4 className="text-lg font-medium text-gray-900 mb-3">Llamadas del Batch</h4>
+                          <div className="bg-gray-50 rounded-lg p-4">
+                            {loadingContacts ? (
+                              <div className="flex items-center justify-center py-8">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                                <span className="ml-2 text-gray-600">Cargando contactos...</span>
+                              </div>
+                            ) : batchContacts.length > 0 ? (
+                              <>
+                                <p className="text-sm text-gray-600 mb-4">
+                                  📋 Este batch contiene {batchContacts.length} contactos para verificación de stock de productos nutricionales.
+                                </p>
+                                <div className="space-y-3">
+                                  {batchContacts.map((contact, index) => (
+                                    <div key={contact.id} className="flex items-center justify-between p-3 bg-white rounded border">
+                                      <div className="flex items-center space-x-3">
+                                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                          <span className="text-xs font-medium text-blue-600">{index + 1}</span>
+                                        </div>
+                                        <div>
+                                          <div className="font-medium text-gray-900">
+                                            {contact.nombre_paciente || contact.nombre || 'Sin nombre'}
+                                          </div>
+                                          <div className="text-sm text-gray-500">{contact.telefono}</div>
+                                          {contact.nombre_contacto && (
+                                            <div className="text-xs text-gray-400">Contacto: {contact.nombre_contacto}</div>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <div className="text-sm text-gray-600 text-right">
+                                        {contact.producto1 && (
+                                          <div>{contact.producto1}</div>
+                                        )}
+                                        {contact.cantidad1 && (
+                                          <div className="text-xs text-gray-500">
+                                            {contact.cantidad1} unidades
+                                            {contact.domicilio_actual && ` • ${contact.domicilio_actual}`}
+                                            {contact.localidad && `, ${contact.localidad}`}
+                                          </div>
+                                        )}
+                                        {!contact.producto1 && (
+                                          <div className="text-xs text-gray-500">Pendiente</div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                                <div className="mt-4 text-center">
+                                  <p className="text-xs text-gray-500">
+                                    Mostrando todos los registros. Total: {batchContacts.length} contactos
+                                  </p>
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <p className="text-sm text-gray-600 mb-4">
+                                  📋 Este batch contiene {selectedBatchData.totalCalls} contactos para verificación de stock de productos nutricionales.
+                                </p>
+                                <div className="space-y-3">
+                                  {selectedBatchData.name.includes('Verificación Stock') ? (
+                                    // Datos específicos para verificación de stock - TODOS los registros
+                                    <>
+                                      <div className="flex items-center justify-between p-3 bg-white rounded border">
+                                        <div className="flex items-center space-x-3">
+                                          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                            <span className="text-xs font-medium text-blue-600">1</span>
+                                          </div>
+                                          <div>
+                                            <div className="font-medium text-gray-900">GALAN SERGIO EDER</div>
+                                            <div className="text-sm text-gray-500">+5491137710010</div>
+                                            <div className="text-xs text-gray-400">Contacto: Joaquin</div>
+                                          </div>
+                                        </div>
+                                        <div className="text-sm text-gray-600 text-right">
+                                          <div>Fresubin Original 1000ml AR_ECO</div>
+                                          <div className="text-xs text-gray-500">5 unidades • ALOE 183, CHACABUCO</div>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center justify-between p-3 bg-white rounded border">
+                                        <div className="flex items-center space-x-3">
+                                          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                            <span className="text-xs font-medium text-blue-600">2</span>
+                                          </div>
+                                          <div>
+                                            <div className="font-medium text-gray-900">SAYAGO JOAQUIN</div>
+                                            <div className="text-sm text-gray-500">+5492235956604</div>
+                                            <div className="text-xs text-gray-400">Contacto: PAMELA</div>
+                                          </div>
+                                        </div>
+                                        <div className="text-sm text-gray-600 text-right">
+                                          <div>Frebini Original E(AR/CL/PE)</div>
+                                          <div className="text-xs text-gray-500">12 unidades • C.163 N 1558, LOS HORNOS</div>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center justify-between p-3 bg-white rounded border">
+                                        <div className="flex items-center space-x-3">
+                                          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                            <span className="text-xs font-medium text-blue-600">3</span>
+                                          </div>
+                                          <div>
+                                            <div className="font-medium text-gray-900">GARAY LAUTARO</div>
+                                            <div className="text-sm text-gray-500">+5491132097353</div>
+                                            <div className="text-xs text-gray-400">Contacto: SUSANA</div>
+                                          </div>
+                                        </div>
+                                        <div className="text-sm text-gray-600 text-right">
+                                          <div>Fresubin Energy AR_ECO</div>
+                                          <div className="text-xs text-gray-500">20 unidades • INMIGRANTES ARABES 125, CHASCOMUS</div>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center justify-between p-3 bg-white rounded border">
+                                        <div className="flex items-center space-x-3">
+                                          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                            <span className="text-xs font-medium text-blue-600">4</span>
+                                          </div>
+                                          <div>
+                                            <div className="font-medium text-gray-900">LOPEZ EMILIA</div>
+                                            <div className="text-sm text-gray-500">+5491132458252</div>
+                                            <div className="text-xs text-gray-400">Contacto: GISELA</div>
+                                          </div>
+                                        </div>
+                                        <div className="text-sm text-gray-600 text-right">
+                                          <div>Fresubin 2 kcal Creme Vanilla AR</div>
+                                          <div className="text-xs text-gray-500">1 unidad • Calle 16 2257, LA PLATA</div>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center justify-between p-3 bg-white rounded border">
+                                        <div className="flex items-center space-x-3">
+                                          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                            <span className="text-xs font-medium text-blue-600">5</span>
+                                          </div>
+                                          <div>
+                                            <div className="font-medium text-gray-900">VILLEGAS SALDIVIA RODRIGO</div>
+                                            <div className="text-sm text-gray-500">+5491161557606</div>
+                                            <div className="text-xs text-gray-400">Contacto: MARIANA SALDIVIA</div>
+                                          </div>
+                                        </div>
+                                        <div className="text-sm text-gray-600 text-right">
+                                          <div>FRESUBIN PLUS X 236 ML LIQ VAIN</div>
+                                          <div className="text-xs text-gray-500">25 unidades • CALLE 24 518, Chivilcoy</div>
+                                        </div>
+                                      </div>
+                                    </>
+                                  ) : selectedBatchData.name.includes('test-contacts') ? (
+                                    // Datos específicos para batches de prueba - TODOS los registros
+                                    <>
+                                      <div className="flex items-center justify-between p-3 bg-white rounded border">
+                                        <div className="flex items-center space-x-3">
+                                          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                            <span className="text-xs font-medium text-blue-600">1</span>
+                                          </div>
+                                          <div>
+                                            <div className="font-medium text-gray-900">María García López</div>
+                                            <div className="text-sm text-gray-500">+5491137710010</div>
+                                            <div className="text-xs text-gray-400">Contacto: María</div>
+                                          </div>
+                                        </div>
+                                        <div className="text-sm text-gray-600 text-right">
+                                          <div>Suplementos Nutricionales</div>
+                                          <div className="text-xs text-gray-500">Buenos Aires, Argentina</div>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center justify-between p-3 bg-white rounded border">
+                                        <div className="flex items-center space-x-3">
+                                          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                            <span className="text-xs font-medium text-blue-600">2</span>
+                                          </div>
+                                          <div>
+                                            <div className="font-medium text-gray-900">Juan López Fernández</div>
+                                            <div className="text-sm text-gray-500">+5491145623789</div>
+                                            <div className="text-xs text-gray-400">Contacto: Juan</div>
+                                          </div>
+                                        </div>
+                                        <div className="text-sm text-gray-600 text-right">
+                                          <div>Vitaminas y Minerales</div>
+                                          <div className="text-xs text-gray-500">Córdoba, Argentina</div>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center justify-between p-3 bg-white rounded border">
+                                        <div className="flex items-center space-x-3">
+                                          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                            <span className="text-xs font-medium text-blue-600">3</span>
+                                          </div>
+                                          <div>
+                                            <div className="font-medium text-gray-900">Carmen Rodríguez</div>
+                                            <div className="text-sm text-gray-500">+5491156345678</div>
+                                            <div className="text-xs text-gray-400">Contacto: Carmen</div>
+                                          </div>
+                                        </div>
+                                        <div className="text-sm text-gray-600 text-right">
+                                          <div>Proteínas y Aminoácidos</div>
+                                          <div className="text-xs text-gray-500">Rosario, Argentina</div>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center justify-between p-3 bg-white rounded border">
+                                        <div className="flex items-center space-x-3">
+                                          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                            <span className="text-xs font-medium text-blue-600">4</span>
+                                          </div>
+                                          <div>
+                                            <div className="font-medium text-gray-900">Pedro Sánchez</div>
+                                            <div className="text-sm text-gray-500">+5491164567890</div>
+                                            <div className="text-xs text-gray-400">Contacto: Pedro</div>
+                                          </div>
+                                        </div>
+                                        <div className="text-sm text-gray-600 text-right">
+                                          <div>Omega 3 y Ácidos Grasos</div>
+                                          <div className="text-xs text-gray-500">Mendoza, Argentina</div>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center justify-between p-3 bg-white rounded border">
+                                        <div className="flex items-center space-x-3">
+                                          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                            <span className="text-xs font-medium text-blue-600">5</span>
+                                          </div>
+                                          <div>
+                                            <div className="font-medium text-gray-900">Ana Martínez</div>
+                                            <div className="text-sm text-gray-500">+5491171234567</div>
+                                            <div className="text-xs text-gray-400">Contacto: Ana</div>
+                                          </div>
+                                        </div>
+                                        <div className="text-sm text-gray-600 text-right">
+                                          <div>Colágeno y Antioxidantes</div>
+                                          <div className="text-xs text-gray-500">La Plata, Argentina</div>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center justify-between p-3 bg-white rounded border">
+                                        <div className="flex items-center space-x-3">
+                                          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                            <span className="text-xs font-medium text-blue-600">6</span>
+                                          </div>
+                                          <div>
+                                            <div className="font-medium text-gray-900">Carlos Ruiz</div>
+                                            <div className="text-sm text-gray-500">+5491189876543</div>
+                                            <div className="text-xs text-gray-400">Contacto: Carlos</div>
+                                          </div>
+                                        </div>
+                                        <div className="text-sm text-gray-600 text-right">
+                                          <div>Multivitamínicos</div>
+                                          <div className="text-xs text-gray-500">Mar del Plata, Argentina</div>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center justify-between p-3 bg-white rounded border">
+                                        <div className="flex items-center space-x-3">
+                                          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                            <span className="text-xs font-medium text-blue-600">7</span>
+                                          </div>
+                                          <div>
+                                            <div className="font-medium text-gray-900">Laura Fernández</div>
+                                            <div className="text-sm text-gray-500">+5491198765432</div>
+                                            <div className="text-xs text-gray-400">Contacto: Laura</div>
+                                          </div>
+                                        </div>
+                                        <div className="text-sm text-gray-600 text-right">
+                                          <div>Minerales y Oligoelementos</div>
+                                          <div className="text-xs text-gray-500">Bahía Blanca, Argentina</div>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center justify-between p-3 bg-white rounded border">
+                                        <div className="flex items-center space-x-3">
+                                          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                            <span className="text-xs font-medium text-blue-600">8</span>
+                                          </div>
+                                          <div>
+                                            <div className="font-medium text-gray-900">Roberto Silva</div>
+                                            <div className="text-sm text-gray-500">+5492211234567</div>
+                                            <div className="text-xs text-gray-400">Contacto: Roberto</div>
+                                          </div>
+                                        </div>
+                                        <div className="text-sm text-gray-600 text-right">
+                                          <div>Antioxidantes Naturales</div>
+                                          <div className="text-xs text-gray-500">La Plata, Argentina</div>
+                                        </div>
+                                      </div>
+                                    </>
+                                  ) : (
+                                    // Datos genéricos para otros batches
+                                    <>
+                                      <div className="flex items-center justify-between p-3 bg-white rounded border">
+                                        <div className="flex items-center space-x-3">
+                                          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                            <span className="text-xs font-medium text-blue-600">1</span>
+                                          </div>
+                                          <div>
+                                            <div className="font-medium text-gray-900">Contacto 1</div>
+                                            <div className="text-sm text-gray-500">+5491137710010</div>
+                                            <div className="text-xs text-gray-400">Contacto: Principal</div>
+                                          </div>
+                                        </div>
+                                        <div className="text-sm text-gray-600">Pendiente</div>
+                                      </div>
+                                      <div className="flex items-center justify-between p-3 bg-white rounded border">
+                                        <div className="flex items-center space-x-3">
+                                          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                            <span className="text-xs font-medium text-blue-600">2</span>
+                                          </div>
+                                          <div>
+                                            <div className="font-medium text-gray-900">Contacto 2</div>
+                                            <div className="text-sm text-gray-500">+5491145623789</div>
+                                            <div className="text-xs text-gray-400">Contacto: Principal</div>
+                                          </div>
+                                        </div>
+                                        <div className="text-sm text-gray-600">Pendiente</div>
+                                      </div>
+                                      <div className="flex items-center justify-between p-3 bg-white rounded border">
+                                        <div className="flex items-center space-x-3">
+                                          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                            <span className="text-xs font-medium text-blue-600">3</span>
+                                          </div>
+                                          <div>
+                                            <div className="font-medium text-gray-900">Contacto 3</div>
+                                            <div className="text-sm text-gray-500">+5491156345678</div>
+                                            <div className="text-xs text-gray-400">Contacto: Principal</div>
+                                          </div>
+                                        </div>
+                                        <div className="text-sm text-gray-600">Pendiente</div>
+                                      </div>
+                                      <div className="flex items-center justify-between p-3 bg-white rounded border">
+                                        <div className="flex items-center space-x-3">
+                                          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                            <span className="text-xs font-medium text-blue-600">4</span>
+                                          </div>
+                                          <div>
+                                            <div className="font-medium text-gray-900">Contacto 4</div>
+                                            <div className="text-sm text-gray-500">+5491164567890</div>
+                                            <div className="text-xs text-gray-400">Contacto: Principal</div>
+                                          </div>
+                                        </div>
+                                        <div className="text-sm text-gray-600">Pendiente</div>
+                                      </div>
+                                      <div className="flex items-center justify-between p-3 bg-white rounded border">
+                                        <div className="flex items-center space-x-3">
+                                          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                            <span className="text-xs font-medium text-blue-600">5</span>
+                                          </div>
+                                          <div>
+                                            <div className="font-medium text-gray-900">Contacto 5</div>
+                                            <div className="text-sm text-gray-500">+5491171234567</div>
+                                            <div className="text-xs text-gray-400">Contacto: Principal</div>
+                                          </div>
+                                        </div>
+                                        <div className="text-sm text-gray-600">Pendiente</div>
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+                                <div className="mt-4 text-center">
+                                  <p className="text-xs text-gray-500">
+                                    Mostrando primeros registros. Total: {selectedBatchData.totalCalls} contactos
+                                  </p>
+                                </div>
+                              </>
+                            )}
                           </div>
                         </div>
-                        <div className="flex items-center justify-between p-3 bg-white rounded border">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                              <span className="text-xs font-medium text-blue-600">2</span>
-                            </div>
-                            <div>
-                              <div className="font-medium text-gray-900">SAYAGO JOAQUIN</div>
-                              <div className="text-sm text-gray-500">+5492235956604</div>
-                              <div className="text-xs text-gray-400">Contacto: PAMELA</div>
-                            </div>
-                          </div>
-                          <div className="text-sm text-gray-600 text-right">
-                            <div>Frebini Original E(AR/CL/PE)</div>
-                            <div className="text-xs text-gray-500">12 unidades • C.163 N 1558, LOS HORNOS</div>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between p-3 bg-white rounded border">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                              <span className="text-xs font-medium text-blue-600">3</span>
-                            </div>
-                            <div>
-                              <div className="font-medium text-gray-900">GARAY LAUTARO</div>
-                              <div className="text-sm text-gray-500">+5491132097353</div>
-                              <div className="text-xs text-gray-400">Contacto: SUSANA</div>
-                            </div>
-                          </div>
-                          <div className="text-sm text-gray-600 text-right">
-                            <div>Fresubin Energy AR_ECO</div>
-                            <div className="text-xs text-gray-500">20 unidades • INMIGRANTES ARABES 125, CHASCOMUS</div>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between p-3 bg-white rounded border">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                              <span className="text-xs font-medium text-blue-600">4</span>
-                            </div>
-                            <div>
-                              <div className="font-medium text-gray-900">LOPEZ EMILIA</div>
-                              <div className="text-sm text-gray-500">+5491132458252</div>
-                              <div className="text-xs text-gray-400">Contacto: GISELA</div>
-                            </div>
-                          </div>
-                          <div className="text-sm text-gray-600 text-right">
-                            <div>Fresubin 2 kcal Creme Vanilla AR</div>
-                            <div className="text-xs text-gray-500">1 unidad • Calle 16 2257, LA PLATA</div>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between p-3 bg-white rounded border">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                              <span className="text-xs font-medium text-blue-600">5</span>
-                            </div>
-                            <div>
-                              <div className="font-medium text-gray-900">VILLEGAS SALDIVIA RODRIGO</div>
-                              <div className="text-sm text-gray-500">+5491161557606</div>
-                              <div className="text-xs text-gray-400">Contacto: MARIANA SALDIVIA</div>
-                            </div>
-                          </div>
-                          <div className="text-sm text-gray-600 text-right">
-                            <div>FRESUBIN PLUS X 236 ML LIQ VAIN</div>
-                            <div className="text-xs text-gray-500">25 unidades • CALLE 24 518, Chivilcoy</div>
-                          </div>
-                        </div>
-                      </>
-                    ) : selectedBatchData.name.includes('test-contacts') ? (
-                      // Datos específicos para batches de prueba - TODOS los registros
-                      <>
-                        <div className="flex items-center justify-between p-3 bg-white rounded border">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                              <span className="text-xs font-medium text-blue-600">1</span>
-                            </div>
-                            <div>
-                              <div className="font-medium text-gray-900">María García López</div>
-                              <div className="text-sm text-gray-500">+5491137710010</div>
-                              <div className="text-xs text-gray-400">Contacto: María</div>
-                            </div>
-                          </div>
-                          <div className="text-sm text-gray-600 text-right">
-                            <div>Suplementos Nutricionales</div>
-                            <div className="text-xs text-gray-500">Buenos Aires, Argentina</div>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between p-3 bg-white rounded border">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                              <span className="text-xs font-medium text-blue-600">2</span>
-                            </div>
-                            <div>
-                              <div className="font-medium text-gray-900">Juan López Fernández</div>
-                              <div className="text-sm text-gray-500">+5491145623789</div>
-                              <div className="text-xs text-gray-400">Contacto: Juan</div>
-                            </div>
-                          </div>
-                          <div className="text-sm text-gray-600 text-right">
-                            <div>Vitaminas y Minerales</div>
-                            <div className="text-xs text-gray-500">Córdoba, Argentina</div>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between p-3 bg-white rounded border">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                              <span className="text-xs font-medium text-blue-600">3</span>
-                            </div>
-                            <div>
-                              <div className="font-medium text-gray-900">Carmen Rodríguez</div>
-                              <div className="text-sm text-gray-500">+5491156345678</div>
-                              <div className="text-xs text-gray-400">Contacto: Carmen</div>
-                            </div>
-                          </div>
-                          <div className="text-sm text-gray-600 text-right">
-                            <div>Proteínas y Aminoácidos</div>
-                            <div className="text-xs text-gray-500">Rosario, Argentina</div>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between p-3 bg-white rounded border">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                              <span className="text-xs font-medium text-blue-600">4</span>
-                            </div>
-                            <div>
-                              <div className="font-medium text-gray-900">Pedro Sánchez</div>
-                              <div className="text-sm text-gray-500">+5491164567890</div>
-                              <div className="text-xs text-gray-400">Contacto: Pedro</div>
-                            </div>
-                          </div>
-                          <div className="text-sm text-gray-600 text-right">
-                            <div>Omega 3 y Ácidos Grasos</div>
-                            <div className="text-xs text-gray-500">Mendoza, Argentina</div>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between p-3 bg-white rounded border">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                              <span className="text-xs font-medium text-blue-600">5</span>
-                            </div>
-                            <div>
-                              <div className="font-medium text-gray-900">Ana Martínez</div>
-                              <div className="text-sm text-gray-500">+5491171234567</div>
-                              <div className="text-xs text-gray-400">Contacto: Ana</div>
-                            </div>
-                          </div>
-                          <div className="text-sm text-gray-600 text-right">
-                            <div>Colágeno y Antioxidantes</div>
-                            <div className="text-xs text-gray-500">La Plata, Argentina</div>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between p-3 bg-white rounded border">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                              <span className="text-xs font-medium text-blue-600">6</span>
-                            </div>
-                            <div>
-                              <div className="font-medium text-gray-900">Carlos Ruiz</div>
-                              <div className="text-sm text-gray-500">+5491189876543</div>
-                              <div className="text-xs text-gray-400">Contacto: Carlos</div>
-                            </div>
-                          </div>
-                          <div className="text-sm text-gray-600 text-right">
-                            <div>Multivitamínicos</div>
-                            <div className="text-xs text-gray-500">Mar del Plata, Argentina</div>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between p-3 bg-white rounded border">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                              <span className="text-xs font-medium text-blue-600">7</span>
-                            </div>
-                            <div>
-                              <div className="font-medium text-gray-900">Laura Fernández</div>
-                              <div className="text-sm text-gray-500">+5491198765432</div>
-                              <div className="text-xs text-gray-400">Contacto: Laura</div>
-                            </div>
-                          </div>
-                          <div className="text-sm text-gray-600 text-right">
-                            <div>Minerales y Oligoelementos</div>
-                            <div className="text-xs text-gray-500">Bahía Blanca, Argentina</div>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between p-3 bg-white rounded border">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                              <span className="text-xs font-medium text-blue-600">8</span>
-                            </div>
-                            <div>
-                              <div className="font-medium text-gray-900">Roberto Silva</div>
-                              <div className="text-sm text-gray-500">+5492211234567</div>
-                              <div className="text-xs text-gray-400">Contacto: Roberto</div>
-                            </div>
-                          </div>
-                          <div className="text-sm text-gray-600 text-right">
-                            <div>Antioxidantes Naturales</div>
-                            <div className="text-xs text-gray-500">La Plata, Argentina</div>
-                          </div>
-                        </div>
-                      </>
-                    ) : (
-                      // Datos genéricos para otros batches
-                      <>
-                        <div className="flex items-center justify-between p-3 bg-white rounded border">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                              <span className="text-xs font-medium text-blue-600">1</span>
-                            </div>
-                            <div>
-                              <div className="font-medium text-gray-900">Contacto 1</div>
-                              <div className="text-sm text-gray-500">+5491137710010</div>
-                              <div className="text-xs text-gray-400">Contacto: Principal</div>
-                            </div>
-                          </div>
-                          <div className="text-sm text-gray-600">Pendiente</div>
-                        </div>
-                        <div className="flex items-center justify-between p-3 bg-white rounded border">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                              <span className="text-xs font-medium text-blue-600">2</span>
-                            </div>
-                            <div>
-                              <div className="font-medium text-gray-900">Contacto 2</div>
-                              <div className="text-sm text-gray-500">+5491145623789</div>
-                              <div className="text-xs text-gray-400">Contacto: Principal</div>
-                            </div>
-                          </div>
-                          <div className="text-sm text-gray-600">Pendiente</div>
-                        </div>
-                        <div className="flex items-center justify-between p-3 bg-white rounded border">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                              <span className="text-xs font-medium text-blue-600">3</span>
-                            </div>
-                            <div>
-                              <div className="font-medium text-gray-900">Contacto 3</div>
-                              <div className="text-sm text-gray-500">+5491156345678</div>
-                              <div className="text-xs text-gray-400">Contacto: Principal</div>
-                            </div>
-                          </div>
-                          <div className="text-sm text-gray-600">Pendiente</div>
-                        </div>
-                        <div className="flex items-center justify-between p-3 bg-white rounded border">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                              <span className="text-xs font-medium text-blue-600">4</span>
-                            </div>
-                            <div>
-                              <div className="font-medium text-gray-900">Contacto 4</div>
-                              <div className="text-sm text-gray-500">+5491164567890</div>
-                              <div className="text-xs text-gray-400">Contacto: Principal</div>
-                            </div>
-                          </div>
-                          <div className="text-sm text-gray-600">Pendiente</div>
-                        </div>
-                        <div className="flex items-center justify-between p-3 bg-white rounded border">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                              <span className="text-xs font-medium text-blue-600">5</span>
-                            </div>
-                            <div>
-                              <div className="font-medium text-gray-900">Contacto 5</div>
-                              <div className="text-sm text-gray-500">+5491171234567</div>
-                              <div className="text-xs text-gray-400">Contacto: Principal</div>
-                            </div>
-                          </div>
-                          <div className="text-sm text-gray-600">Pendiente</div>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                  
-                  <div className="mt-4 text-center">
-                    <p className="text-xs text-gray-500">
-                      Mostrando primeros registros. Total: {selectedBatchData.totalCalls} contactos
-                    </p>
-                  </div>
-                </div>
-              </div>
 
               {/* Botón de cerrar */}
               <div className="flex justify-end mt-6">

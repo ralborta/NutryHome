@@ -522,51 +522,98 @@ router.post('/:id/batches/:batchId/upload', upload.single('file'), async (req, r
 });
 
 // GET /campaigns/:id/batches/:batchId/contacts - Obtener contactos de un batch
-router.get('/:id/batches/:batchId/contacts', async (req, res) => {
+router.get('/:campaignId/batches/:batchId/contacts', async (req, res) => {
   try {
-    const { id: campaignId, batchId } = req.params;
-    const { page = 1, limit = 50, estado } = req.query;
-    const skip = (page - 1) * limit;
+    const { campaignId, batchId } = req.params;
 
-    const where = { batchId };
-    if (estado) {
-      where.estado = estado;
+    // Verificar que la campaña existe
+    const campaign = await prisma.campaign.findUnique({
+      where: { id: campaignId }
+    });
+
+    if (!campaign) {
+      return res.status(404).json({ error: 'Campaña no encontrada' });
     }
 
-    const [contacts, total] = await Promise.all([
-      prisma.outboundCall.findMany({
-        where,
-        select: {
-          id: true,
-          telefono: true,
-          nombre: true,
-          email: true,
-          estado: true,
-          intentos: true,
-          resultado: true,
-          fechaProgramada: true,
-          fechaEjecutada: true,
-          createdAt: true
-        },
-        orderBy: { createdAt: 'desc' },
-        skip: parseInt(skip),
-        take: parseInt(limit)
-      }),
-      prisma.outboundCall.count({ where })
-    ]);
-
-    res.json({
-      contacts,
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total,
-        pages: Math.ceil(total / limit)
+    // Verificar que el batch existe y pertenece a la campaña
+    const batch = await prisma.batch.findFirst({
+      where: { 
+        id: batchId,
+        campaignId: campaignId
       }
     });
+
+    if (!batch) {
+      return res.status(404).json({ error: 'Batch no encontrado' });
+    }
+
+    // Obtener las llamadas outbound del batch (que son los contactos)
+    const contacts = await prisma.outboundCall.findMany({
+      where: { batchId: batchId },
+      select: {
+        id: true,
+        nombre: true,
+        telefono: true,
+        variables: true,
+        estado: true,
+        createdAt: true
+      },
+      orderBy: { createdAt: 'asc' }
+    });
+
+    // Procesar las variables JSON de cada contacto
+    const processedContacts = contacts.map(contact => {
+      let variables = {};
+      if (contact.variables) {
+        try {
+          variables = typeof contact.variables === 'string' 
+            ? JSON.parse(contact.variables) 
+            : contact.variables;
+        } catch (e) {
+          console.log('Error parsing variables for contact:', contact.id);
+          variables = {};
+        }
+      }
+
+      return {
+        id: contact.id,
+        nombre: contact.nombre || variables.nombre_paciente || 'Sin nombre',
+        telefono: contact.telefono,
+        nombre_contacto: variables.nombre_contacto || null,
+        nombre_paciente: variables.nombre_paciente || null,
+        domicilio_actual: variables.domicilio_actual || null,
+        localidad: variables.localidad || null,
+        producto1: variables.producto1 || null,
+        cantidad1: variables.cantidad1 || null,
+        producto2: variables.producto2 || null,
+        cantidad2: variables.cantidad2 || null,
+        producto3: variables.producto3 || null,
+        cantidad3: variables.cantidad3 || null,
+        estado: contact.estado,
+        variables: variables
+      };
+    });
+
+    res.json({
+      success: true,
+      batch: {
+        id: batch.id,
+        nombre: batch.nombre,
+        estado: batch.estado,
+        totalCalls: batch.totalCalls,
+        completedCalls: batch.completedCalls,
+        failedCalls: batch.failedCalls
+      },
+      contacts: processedContacts,
+      total: processedContacts.length
+    });
+
   } catch (error) {
-    console.error('Error obteniendo contactos:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
+    console.error('Error obteniendo contactos del batch:', error);
+    res.status(500).json({ 
+      error: 'Error interno del servidor',
+      details: process.env.NODE_ENV === 'development' ? error.message : 'Contacta al administrador'
+    });
   }
 });
 
