@@ -14,6 +14,7 @@
     "db:seed": "node src/database/seed.js",
     "db:setup": "node scripts/setup-database.js",
     "db:check": "node scripts/check-railway-config.js",
+    "db:railway": "node scripts/setup-railway-db.js",
     "postinstall": "prisma generate"
   },
   "keywords": [
