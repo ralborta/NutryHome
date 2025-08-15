@@ -1126,4 +1126,57 @@ router.get('/batch/:batchId/contacts', async (req, res) => {
   }
 });
 
+// DELETE /campaigns/batch/:batchId - Borrar un batch y todos sus contactos
+router.delete('/batch/:batchId', async (req, res) => {
+  try {
+    const { batchId } = req.params;
+
+    // Verificar que el batch existe
+    const batch = await prisma.batch.findUnique({
+      where: { id: batchId },
+      include: {
+        contacts: true,
+        outboundCalls: true
+      }
+    });
+
+    if (!batch) {
+      return res.status(404).json({ error: 'Batch no encontrado' });
+    }
+
+    // Verificar que no hay llamadas en progreso
+    const hasActiveCalls = batch.outboundCalls.some(call => 
+      call.estado === 'IN_PROGRESS' || call.estado === 'SCHEDULED'
+    );
+
+    if (hasActiveCalls) {
+      return res.status(400).json({ 
+        error: 'No se puede borrar un batch con llamadas en progreso o programadas' 
+      });
+    }
+
+    // Borrar el batch (esto borrará automáticamente contactos y llamadas por las relaciones en cascada)
+    await prisma.batch.delete({
+      where: { id: batchId }
+    });
+
+    res.json({
+      success: true,
+      message: `Batch "${batch.nombre}" eliminado correctamente`,
+      deletedItems: {
+        batch: 1,
+        contacts: batch.contacts.length,
+        outboundCalls: batch.outboundCalls.length
+      }
+    });
+
+  } catch (error) {
+    console.error('Error eliminando batch:', error);
+    res.status(500).json({ 
+      error: 'Error interno del servidor',
+      details: process.env.NODE_ENV === 'development' ? error.message : 'Contacta al administrador'
+    });
+  }
+});
+
 module.exports = router; 
