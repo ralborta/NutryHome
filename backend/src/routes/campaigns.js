@@ -1054,4 +1054,76 @@ router.get('/:campaignId/contacts', async (req, res) => {
   }
 });
 
+// GET /campaigns/batch/:batchId/contacts - Obtener contactos de un batch específico
+router.get('/batch/:batchId/contacts', async (req, res) => {
+  try {
+    const { batchId } = req.params;
+
+    // Verificar que el batch existe
+    const batch = await prisma.batch.findUnique({
+      where: { id: batchId },
+      include: {
+        contacts: true,
+        campaign: true
+      }
+    });
+
+    if (!batch) {
+      return res.status(404).json({ error: 'Batch no encontrado' });
+    }
+
+    // Obtener los contactos del batch
+    const contacts = batch.contacts.map(contact => ({
+      id: contact.id,
+      batchId: batch.id,
+      batchName: batch.nombre,
+      nombre: contact.nombre_paciente || contact.nombre_contacto || 'Sin nombre',
+      telefono: contact.phone_number,
+      nombre_contacto: contact.nombre_contacto,
+      nombre_paciente: contact.nombre_paciente,
+      domicilio_actual: contact.domicilio_actual,
+      localidad: contact.localidad,
+      delegacion: contact.delegacion,
+      fecha_envio: contact.fecha_envio,
+      producto1: contact.producto1,
+      cantidad1: contact.cantidad1,
+      producto2: contact.producto2,
+      cantidad2: contact.cantidad2,
+      producto3: contact.producto3,
+      cantidad3: contact.cantidad3,
+      producto4: contact.producto4,
+      cantidad4: contact.cantidad4,
+      producto5: contact.producto5,
+      cantidad5: contact.cantidad5,
+      observaciones: contact.observaciones,
+      prioridad: contact.prioridad,
+      estado_pedido: contact.estado_pedido,
+      estado_llamada: contact.estado_llamada,
+      resultado_llamada: contact.resultado_llamada,
+      fecha_llamada: contact.fecha_llamada,
+      duracion_llamada: contact.duracion_llamada,
+      createdAt: contact.createdAt
+    }));
+
+    res.json({
+      success: true,
+      batch: {
+        id: batch.id,
+        nombre: batch.nombre,
+        estado: batch.estado,
+        totalCalls: batch.totalCalls
+      },
+      contacts: contacts,
+      total: contacts.length
+    });
+
+  } catch (error) {
+    console.error('Error obteniendo contactos del batch:', error);
+    res.status(500).json({ 
+      error: 'Error interno del servidor',
+      details: process.env.NODE_ENV === 'development' ? error.message : 'Contacta al administrador'
+    });
+  }
+});
+
 module.exports = router; 
