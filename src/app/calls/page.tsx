@@ -27,7 +27,8 @@ import {
   FileText,
   Users,
   BarChart3,
-  RefreshCw
+  RefreshCw,
+  Trash2
 } from 'lucide-react';
 import { validatePhoneNumber, formatPhoneNumber, getPhoneNumberError } from '@/lib/phoneValidation';
 import React from 'react'; // Added missing import for React.useEffect
@@ -63,6 +64,11 @@ export default function CallsManagement() {
   const [selectedBatchData, setSelectedBatchData] = useState<Batch | null>(null);
   const [batchContacts, setBatchContacts] = useState<any[]>([]);
   const [loadingContacts, setLoadingContacts] = useState(false);
+  
+  // State para modal de confirmación de borrado
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [batchToDelete, setBatchToDelete] = useState<Batch | null>(null);
+  const [deletingBatch, setDeletingBatch] = useState(false);
   const [testPhoneNumber, setTestPhoneNumber] = useState('');
   const [testName, setTestName] = useState('');
   const [scheduleDate, setScheduleDate] = useState('');
@@ -195,6 +201,51 @@ export default function CallsManagement() {
     setShowBatchDetailsModal(false);
     setSelectedBatchData(null);
     setBatchContacts([]); // Limpiar datos de contactos al cerrar
+  };
+
+  // Función para abrir modal de confirmación de borrado
+  const openDeleteModal = (batch: Batch) => {
+    setBatchToDelete(batch);
+    setShowDeleteModal(true);
+  };
+
+  // Función para cerrar modal de confirmación de borrado
+  const closeDeleteModal = () => {
+    setShowDeleteModal(false);
+    setBatchToDelete(null);
+  };
+
+  // Función para borrar batch
+  const deleteBatch = async () => {
+    if (!batchToDelete) return;
+    
+    try {
+      setDeletingBatch(true);
+      
+      // Llamar al endpoint del backend para borrar el batch
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://nutryhome-production.up.railway.app'}/api/campaigns/batch/${batchToDelete.id}`, {
+        method: 'DELETE'
+      });
+      
+      if (response.ok) {
+        // Remover el batch de la lista local
+        setBatches(prevBatches => prevBatches.filter(b => b.id !== batchToDelete.id));
+        
+        // Cerrar modal y limpiar estado
+        closeDeleteModal();
+        
+        // Mostrar mensaje de éxito
+        alert('Batch eliminado correctamente');
+      } else {
+        const errorData = await response.json();
+        alert(`Error al eliminar batch: ${errorData.error || 'Error desconocido'}`);
+      }
+    } catch (error) {
+      console.error('Error eliminando batch:', error);
+      alert('Error al eliminar batch. Intenta nuevamente.');
+    } finally {
+      setDeletingBatch(false);
+    }
   };
 
   const calls: Call[] = [
@@ -588,6 +639,15 @@ export default function CallsManagement() {
                                   </button>
                                 </>
                               )}
+                              
+                              {/* Botón de borrar para todos los estados */}
+                              <button
+                                onClick={() => openDeleteModal(batch)}
+                                className="text-red-600 hover:text-red-900"
+                                title="Borrar Batch"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
                             </div>
                           </td>
                         </tr>
@@ -970,6 +1030,61 @@ export default function CallsManagement() {
                   className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
                 >
                   Cerrar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de confirmación de borrado */}
+      {showDeleteModal && batchToDelete && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3 text-center">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
+                <Trash2 className="h-6 w-6 text-red-600" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mt-4">
+                ¿Borrar Batch?
+              </h3>
+              <div className="mt-2 px-7 py-3">
+                <p className="text-sm text-gray-500">
+                  ¿Estás seguro de que quieres borrar el batch <strong>"{batchToDelete.name}"</strong>?
+                </p>
+                <p className="text-sm text-red-500 mt-2">
+                  Esta acción eliminará permanentemente:
+                </p>
+                <ul className="text-sm text-red-500 mt-1 text-left">
+                  <li>• El batch completo</li>
+                  <li>• Todos los contactos ({batchToDelete.totalCalls})</li>
+                  <li>• Todas las llamadas asociadas</li>
+                </ul>
+                <p className="text-sm text-red-500 mt-2">
+                  <strong>Esta acción no se puede deshacer.</strong>
+                </p>
+              </div>
+              <div className="flex justify-center space-x-3 mt-4">
+                <button
+                  onClick={closeDeleteModal}
+                  disabled={deletingBatch}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={deleteBatch}
+                  disabled={deletingBatch}
+                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50 flex items-center"
+                >
+                  {deletingBatch ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Borrando...
+                    </>
+                  ) : (
+                    'Sí, Borrar Batch'
+                  )}
                 </button>
               </div>
             </div>
