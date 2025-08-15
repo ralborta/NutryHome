@@ -547,50 +547,70 @@ router.get('/:campaignId/batches/:batchId/contacts', async (req, res) => {
       return res.status(404).json({ error: 'Batch no encontrado' });
     }
 
-    // Obtener las llamadas outbound del batch (que son los contactos)
-    const contacts = await prisma.outboundCall.findMany({
+    // Obtener los contactos del batch usando la nueva tabla Contact
+    const contacts = await prisma.contact.findMany({
       where: { batchId: batchId },
       select: {
         id: true,
-        nombre: true,
-        telefono: true,
-        variables: true,
-        estado: true,
+        nombre_contacto: true,
+        nombre_paciente: true,
+        phone_number: true,
+        domicilio_actual: true,
+        localidad: true,
+        delegacion: true,
+        fecha_envio: true,
+        producto1: true,
+        cantidad1: true,
+        producto2: true,
+        cantidad2: true,
+        producto3: true,
+        cantidad3: true,
+        producto4: true,
+        cantidad4: true,
+        producto5: true,
+        cantidad5: true,
+        observaciones: true,
+        prioridad: true,
+        estado_pedido: true,
+        estado_llamada: true,
+        resultado_llamada: true,
+        fecha_llamada: true,
+        duracion_llamada: true,
         createdAt: true
       },
       orderBy: { createdAt: 'asc' }
     });
 
-    // Procesar las variables JSON de cada contacto
+    // Procesar los contactos con la nueva estructura
     const processedContacts = contacts.map(contact => {
-      let variables = {};
-      if (contact.variables) {
-        try {
-          variables = typeof contact.variables === 'string' 
-            ? JSON.parse(contact.variables) 
-            : contact.variables;
-        } catch (e) {
-          console.log('Error parsing variables for contact:', contact.id);
-          variables = {};
-        }
-      }
-
       return {
         id: contact.id,
-        nombre: contact.nombre || variables.nombre_paciente || 'Sin nombre',
-        telefono: contact.telefono,
-        nombre_contacto: variables.nombre_contacto || null,
-        nombre_paciente: variables.nombre_paciente || null,
-        domicilio_actual: variables.domicilio_actual || null,
-        localidad: variables.localidad || null,
-        producto1: variables.producto1 || null,
-        cantidad1: variables.cantidad1 || null,
-        producto2: variables.producto2 || null,
-        cantidad2: variables.cantidad2 || null,
-        producto3: variables.producto3 || null,
-        cantidad3: variables.cantidad3 || null,
-        estado: contact.estado,
-        variables: variables
+        nombre: contact.nombre_paciente || contact.nombre_contacto || 'Sin nombre',
+        telefono: contact.phone_number,
+        nombre_contacto: contact.nombre_contacto,
+        nombre_paciente: contact.nombre_paciente,
+        domicilio_actual: contact.domicilio_actual,
+        localidad: contact.localidad,
+        delegacion: contact.delegacion,
+        fecha_envio: contact.fecha_envio,
+        producto1: contact.producto1,
+        cantidad1: contact.cantidad1,
+        producto2: contact.producto2,
+        cantidad2: contact.cantidad2,
+        producto3: contact.producto3,
+        cantidad3: contact.cantidad3,
+        producto4: contact.producto4,
+        cantidad4: contact.cantidad4,
+        producto5: contact.producto5,
+        cantidad5: contact.cantidad5,
+        observaciones: contact.observaciones,
+        prioridad: contact.prioridad,
+        estado_pedido: contact.estado_pedido,
+        estado_llamada: contact.estado_llamada,
+        resultado_llamada: contact.resultado_llamada,
+        fecha_llamada: contact.fecha_llamada,
+        duracion_llamada: contact.duracion_llamada,
+        createdAt: contact.createdAt
       };
     });
 
@@ -743,15 +763,36 @@ router.post('/upload', upload.single('file'), async (req, res) => {
           });
         }
 
-        // Crear llamadas outbound en batch
-        await prisma.outboundCall.createMany({
-          data: contacts.map(contact => ({
-            batchId: batch.id,
-            telefono: contact.telefono,
-            nombre: contact.nombre,
-            email: contact.email,
-            variables: contact.variables
-          }))
+        // Crear contactos en la nueva tabla Contact
+        await prisma.contact.createMany({
+          data: contacts.map(contact => {
+            // Mapear variables del Excel a la nueva estructura
+            const variables = contact.variables || {};
+            return {
+              batchId: batch.id,
+              phone_number: contact.telefono,
+              nombre_contacto: variables.nombre_contacto || contact.nombre || null,
+              nombre_paciente: variables.nombre_paciente || contact.nombre || null,
+              domicilio_actual: variables.domicilio_actual || null,
+              localidad: variables.localidad || null,
+              delegacion: variables.delegacion || null,
+              fecha_envio: variables.fecha_envio ? new Date(variables.fecha_envio) : null,
+              producto1: variables.producto1 || null,
+              cantidad1: variables.cantidad1 || null,
+              producto2: variables.producto2 || null,
+              cantidad2: variables.cantidad2 || null,
+              producto3: variables.producto3 || null,
+              cantidad3: variables.cantidad3 || null,
+              producto4: variables.producto4 || null,
+              cantidad4: variables.cantidad4 || null,
+              producto5: variables.producto5 || null,
+              cantidad5: variables.cantidad5 || null,
+              observaciones: variables.observaciones || null,
+              prioridad: variables.prioridad || 'MEDIA',
+              estado_pedido: variables.estado_pedido || 'PENDIENTE',
+              estado_llamada: 'PENDIENTE'
+            };
+          })
         });
 
         // Actualizar estadísticas del batch
@@ -826,15 +867,36 @@ router.post('/upload', upload.single('file'), async (req, res) => {
               });
             }
 
-            // Crear llamadas outbound en batch
-            await prisma.outboundCall.createMany({
-              data: contacts.map(contact => ({
-                batchId: batch.id,
-                telefono: contact.telefono,
-                nombre: contact.nombre,
-                email: contact.email,
-                variables: contact.variables
-              }))
+            // Crear contactos en la nueva tabla Contact
+            await prisma.contact.createMany({
+              data: contacts.map(contact => {
+                // Mapear variables del CSV a la nueva estructura
+                const variables = contact.variables || {};
+                return {
+                  batchId: batch.id,
+                  phone_number: contact.telefono,
+                  nombre_contacto: variables.nombre_contacto || contact.nombre || null,
+                  nombre_paciente: variables.nombre_paciente || contact.nombre || null,
+                  domicilio_actual: variables.domicilio_actual || null,
+                  localidad: variables.localidad || null,
+                  delegacion: variables.delegacion || null,
+                  fecha_envio: variables.fecha_envio ? new Date(variables.fecha_envio) : null,
+                  producto1: variables.producto1 || null,
+                  cantidad1: variables.cantidad1 || null,
+                  producto2: variables.producto2 || null,
+                  cantidad2: variables.cantidad2 || null,
+                  producto3: variables.producto3 || null,
+                  cantidad3: variables.cantidad3 || null,
+                  producto4: variables.producto4 || null,
+                  cantidad4: variables.cantidad4 || null,
+                  producto5: variables.producto5 || null,
+                  cantidad5: variables.cantidad5 || null,
+                  observaciones: variables.observaciones || null,
+                  prioridad: variables.prioridad || 'MEDIA',
+                  estado_pedido: variables.estado_pedido || 'PENDIENTE',
+                  estado_llamada: 'PENDIENTE'
+                };
+              })
             });
 
             // Actualizar estadísticas del batch
@@ -870,6 +932,85 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       fs.unlinkSync(req.file.path);
     }
     res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// GET /campaigns/:id/contacts - Obtener contactos de una campaña (endpoint simple)
+router.get('/:campaignId/contacts', async (req, res) => {
+  try {
+    const { campaignId } = req.params;
+
+    // Verificar que la campaña existe
+    const campaign = await prisma.campaign.findUnique({
+      where: { id: campaignId },
+      include: {
+        batches: {
+          include: {
+            contacts: true
+          }
+        }
+      }
+    });
+
+    if (!campaign) {
+      return res.status(404).json({ error: 'Campaña no encontrada' });
+    }
+
+    // Obtener todos los contactos de todos los batches de la campaña
+    const allContacts = [];
+    campaign.batches.forEach(batch => {
+      batch.contacts.forEach(contact => {
+        allContacts.push({
+          id: contact.id,
+          batchId: batch.id,
+          batchName: batch.nombre,
+          nombre: contact.nombre_paciente || contact.nombre_contacto || 'Sin nombre',
+          telefono: contact.phone_number,
+          nombre_contacto: contact.nombre_contacto,
+          nombre_paciente: contact.nombre_paciente,
+          domicilio_actual: contact.domicilio_actual,
+          localidad: contact.localidad,
+          delegacion: contact.delegacion,
+          fecha_envio: contact.fecha_envio,
+          producto1: contact.producto1,
+          cantidad1: contact.cantidad1,
+          producto2: contact.producto2,
+          cantidad2: contact.cantidad2,
+          producto3: contact.producto3,
+          cantidad3: contact.cantidad3,
+          producto4: contact.producto4,
+          cantidad4: contact.cantidad4,
+          producto5: contact.producto5,
+          cantidad5: contact.cantidad5,
+          observaciones: contact.observaciones,
+          prioridad: contact.prioridad,
+          estado_pedido: contact.estado_pedido,
+          estado_llamada: contact.estado_llamada,
+          resultado_llamada: contact.resultado_llamada,
+          fecha_llamada: contact.fecha_llamada,
+          duracion_llamada: contact.duracion_llamada,
+          createdAt: contact.createdAt
+        });
+      });
+    });
+
+    res.json({
+      success: true,
+      campaign: {
+        id: campaign.id,
+        nombre: campaign.nombre,
+        estado: campaign.estado
+      },
+      contacts: allContacts,
+      total: allContacts.length
+    });
+
+  } catch (error) {
+    console.error('Error obteniendo contactos de la campaña:', error);
+    res.status(500).json({ 
+      error: 'Error interno del servidor',
+      details: process.env.NODE_ENV === 'development' ? error.message : 'Contacta al administrador'
+    });
   }
 });
 
