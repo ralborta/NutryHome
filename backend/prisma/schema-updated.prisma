@@ -1,4 +1,4 @@
-// Nuevo esquema para NutryHome con estructura de Contact
+// Esquema actualizado para NutryHome con todas las variables del template
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,7 +8,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Modelo para campañas (mantiene compatibilidad)
+// Modelo para campañas outbound
 model Campaign {
   id          String   @id @default(cuid())
   nombre      String
@@ -16,20 +16,20 @@ model Campaign {
   estado      CampaignStatus @default(DRAFT)
   fechaInicio DateTime?
   fechaFin    DateTime?
-  tipo        String   @default("verificacion_stock")
+  tipo        String   @default("verificacion_stock") // Tipo de campaña
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  createdById String
 
   // Relaciones
   batches     Batch[]
   createdBy   User     @relation("CampaignCreator", fields: [createdById], references: [id])
+  createdById String
 
   @@map("campaigns")
 }
 
-// Modelo para batches (mantiene compatibilidad con frontend)
+// Modelo para batches de llamadas
 model Batch {
   id          String   @id @default(cuid())
   nombre      String
@@ -39,10 +39,37 @@ model Batch {
   completedCalls Int   @default(0)
   failedCalls Int      @default(0)
   
-  // Campos para compatibilidad con frontend
+  // Variables específicas del template Excel
+  nombre_contacto      String?  // Nombre del cuidador/contacto
+  nombre_paciente      String?  // Nombre completo del paciente
+  phone_number         String?  // Número de teléfono
+  domicilio_actual     String?  // Dirección del paciente
+  localidad            String?  // Localidad del paciente
+  delegacion           String?  // Delegación/región
+  fecha_envio          DateTime? // Fecha de envío programado
+  
+  // Productos y cantidades (hasta 5 productos)
+  producto1            String?
+  cantidad1            String?
+  producto2            String?
+  cantidad2            String?
+  producto3            String?
+  cantidad3            String?
+  producto4            String?
+  cantidad4            String?
+  producto5            String?
+  cantidad5            String?
+  
+  observaciones        String?  // Notas sobre el estado del paciente
+  prioridad            Priority @default(MEDIA)
+  estado_pedido        PedidoStatus @default(PENDIENTE)
+  
+  // Campo JSON flexible para variables adicionales
+  variables            Json?    // Variables extra que no están en el esquema
+  
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
+
   // Relaciones
   campaign    Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   contacts   Contact[]
@@ -51,7 +78,7 @@ model Batch {
   @@map("batches")
 }
 
-// NUEVO: Modelo para contactos individuales (cada fila del Excel)
+// Modelo para contactos específicos del batch
 model Contact {
   id          String   @id @default(cuid())
   batchId     String
@@ -97,47 +124,51 @@ model Contact {
   @@map("contacts")
 }
 
-// Modelo para llamadas outbound (mantiene compatibilidad)
+// Modelo para llamadas outbound
 model OutboundCall {
-  id              String   @id @default(cuid())
-  batchId         String
-  contactId       String?
-  telefono        String
-  nombre          String?
-  estado          OutboundCallStatus @default(PENDING)
-  intentos        Int      @default(0)
-  maxIntentos     Int      @default(3)
+  id          String   @id @default(cuid())
+  batchId     String
+  contactId   String?
+  telefono    String
+  nombre      String?
+  estado      OutboundCallStatus @default(PENDING)
+  intentos    Int      @default(0)
+  maxIntentos Int      @default(3)
   fechaProgramada DateTime?
-  fechaEjecutada  DateTime?
-  resultado       OutboundCallResult?
-  notas           String?
-  duracion        Int?     // Duración en segundos
+  fechaEjecutada DateTime?
+  resultado   OutboundCallResult?
+  notas       String?
+  duracion    Int?     // Duración en segundos
   
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  callId          String?  @unique
+  // Variables dinámicas específicas del contacto
+  variables   Json?    // Variables específicas de este contacto
   
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relación con Call (si se convierte en llamada real)
+  callId      String?  @unique
+  call        Call?    @relation(fields: [callId], references: [id])
+
   // Relaciones
-  batch           Batch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
-  contact         Contact? @relation(fields: [contactId], references: [id])
-  call            Call?    @relation(fields: [callId], references: [id])
+  batch       Batch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  contact     Contact? @relation(fields: [contactId], references: [id])
 
   @@map("outbound_calls")
 }
 
-// Modelo para llamadas (mantiene compatibilidad)
+// Modelo principal para las llamadas
 model Call {
   id              String   @id @default(cuid())
-  callId          String   @unique
+  callId          String   @unique // ID único de ElevenLabs
   fecha           DateTime @default(now())
   telefono        String
-  duracion        Int
+  duracion        Int      // Duración en segundos
   transcript      String   @db.Text
-  dataCollection  Json
-  criteriaResults Json
+  dataCollection  Json     // Datos adicionales de ElevenLabs
+  criteriaResults Json     // Resultados de criterios evaluados
   status          CallStatus @default(ACTIVE)
   tipo            CallType @default(INBOUND)
-  
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -149,7 +180,7 @@ model Call {
   @@map("calls")
 }
 
-// Modelo para derivaciones (mantiene compatibilidad)
+// Modelo para derivaciones
 model Derivation {
   id          String   @id @default(cuid())
   callId      String
@@ -163,7 +194,7 @@ model Derivation {
   @@map("derivations")
 }
 
-// Modelo para reclamos (mantiene compatibilidad)
+// Modelo para reclamos
 model Complaint {
   id          String   @id @default(cuid())
   callId      String
@@ -179,7 +210,7 @@ model Complaint {
   @@map("complaints")
 }
 
-// Modelo para usuarios (mantiene compatibilidad)
+// Modelo para usuarios del sistema
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
@@ -196,7 +227,7 @@ model User {
   @@map("users")
 }
 
-// Enums (mantienen compatibilidad)
+// Enums actualizados
 enum CallStatus {
   ACTIVE
   ARCHIVED
@@ -243,7 +274,6 @@ enum OutboundCallResult {
   ERROR
 }
 
-// NUEVOS enums para la estructura de Contact
 enum LlamadaStatus {
   PENDIENTE
   EN_PROGRESO
