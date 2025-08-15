@@ -764,36 +764,52 @@ router.post('/upload', upload.single('file'), async (req, res) => {
         }
 
         // Crear contactos en la nueva tabla Contact
-        await prisma.contact.createMany({
-          data: contacts.map(contact => {
-            // Mapear variables del Excel a la nueva estructura
-            const variables = contact.variables || {};
-            return {
-              batchId: batch.id,
-              phone_number: contact.telefono,
-              nombre_contacto: variables.nombre_contacto || contact.nombre || null,
-              nombre_paciente: variables.nombre_paciente || contact.nombre || null,
-              domicilio_actual: variables.domicilio_actual || null,
-              localidad: variables.localidad || null,
-              delegacion: variables.delegacion || null,
-              fecha_envio: variables.fecha_envio ? new Date(variables.fecha_envio) : null,
-              producto1: variables.producto1 || null,
-              cantidad1: variables.cantidad1 || null,
-              producto2: variables.producto2 || null,
-              cantidad2: variables.cantidad2 || null,
-              producto3: variables.producto3 || null,
-              cantidad3: variables.cantidad3 || null,
-              producto4: variables.producto4 || null,
-              cantidad4: variables.cantidad4 || null,
-              producto5: variables.producto5 || null,
-              cantidad5: variables.cantidad5 || null,
-              observaciones: variables.observaciones || null,
-              prioridad: variables.prioridad || 'MEDIA',
-              estado_pedido: variables.estado_pedido || 'PENDIENTE',
-              estado_llamada: 'PENDIENTE'
-            };
-          })
+        console.log('🔍 DEBUG: Intentando crear contactos:', {
+          batchId: batch.id,
+          totalContacts: contacts.length,
+          sampleContact: contacts[0]
         });
+
+        try {
+          const createdContacts = await prisma.contact.createMany({
+            data: contacts.map(contact => {
+              // Mapear variables del Excel a la nueva estructura
+              const variables = contact.variables || {};
+              const contactData = {
+                batchId: batch.id,
+                phone_number: contact.telefono,
+                nombre_contacto: variables.nombre_contacto || contact.nombre || null,
+                nombre_paciente: variables.nombre_paciente || contact.nombre || null,
+                domicilio_actual: variables.domicilio_actual || null,
+                localidad: variables.localidad || null,
+                delegacion: variables.delegacion || null,
+                fecha_envio: variables.fecha_envio ? new Date(variables.fecha_envio) : null,
+                producto1: variables.producto1 || null,
+                cantidad1: variables.cantidad1 || null,
+                producto2: variables.producto2 || null,
+                cantidad2: variables.cantidad2 || null,
+                producto3: variables.producto3 || null,
+                cantidad3: variables.cantidad3 || null,
+                producto4: variables.producto4 || null,
+                cantidad4: variables.cantidad4 || null,
+                producto5: variables.producto5 || null,
+                cantidad5: variables.cantidad5 || null,
+                observaciones: variables.observaciones || null,
+                prioridad: variables.prioridad || 'MEDIA',
+                estado_pedido: variables.estado_pedido || 'PENDIENTE',
+                estado_llamada: 'PENDIENTE'
+              };
+              
+              console.log('🔍 DEBUG: Contacto a crear:', contactData);
+              return contactData;
+            })
+          });
+          
+          console.log('✅ DEBUG: Contactos creados exitosamente:', createdContacts);
+        } catch (error) {
+          console.error('❌ DEBUG: Error creando contactos:', error);
+          throw error;
+        }
 
         // Actualizar estadísticas del batch
         await prisma.batch.update({
@@ -868,36 +884,52 @@ router.post('/upload', upload.single('file'), async (req, res) => {
             }
 
             // Crear contactos en la nueva tabla Contact
-            await prisma.contact.createMany({
-              data: contacts.map(contact => {
-                // Mapear variables del CSV a la nueva estructura
-                const variables = contact.variables || {};
-                return {
-                  batchId: batch.id,
-                  phone_number: contact.telefono,
-                  nombre_contacto: variables.nombre_contacto || contact.nombre || null,
-                  nombre_paciente: variables.nombre_paciente || contact.nombre || null,
-                  domicilio_actual: variables.domicilio_actual || null,
-                  localidad: variables.localidad || null,
-                  delegacion: variables.delegacion || null,
-                  fecha_envio: variables.fecha_envio ? new Date(variables.fecha_envio) : null,
-                  producto1: variables.producto1 || null,
-                  cantidad1: variables.cantidad1 || null,
-                  producto2: variables.producto2 || null,
-                  cantidad2: variables.cantidad2 || null,
-                  producto3: variables.producto3 || null,
-                  cantidad3: variables.cantidad3 || null,
-                  producto4: variables.producto4 || null,
-                  cantidad4: variables.cantidad4 || null,
-                  producto5: variables.producto5 || null,
-                  cantidad5: variables.cantidad5 || null,
-                  observaciones: variables.observaciones || null,
-                  prioridad: variables.prioridad || 'MEDIA',
-                  estado_pedido: variables.estado_pedido || 'PENDIENTE',
-                  estado_llamada: 'PENDIENTE'
-                };
-              })
+            console.log('🔍 DEBUG CSV: Intentando crear contactos:', {
+              batchId: batch.id,
+              totalContacts: contacts.length,
+              sampleContact: contacts[0]
             });
+
+            try {
+              const createdContacts = await prisma.contact.createMany({
+                data: contacts.map(contact => {
+                  // Mapear variables del CSV a la nueva estructura
+                  const variables = contact.variables || {};
+                  const contactData = {
+                    batchId: batch.id,
+                    phone_number: contact.telefono,
+                    nombre_contacto: variables.nombre_contacto || contact.nombre || null,
+                    nombre_paciente: variables.nombre_paciente || contact.nombre || null,
+                    domicilio_actual: variables.domicilio_actual || null,
+                    localidad: variables.localidad || null,
+                    delegacion: variables.delegacion || null,
+                    fecha_envio: variables.fecha_envio ? new Date(variables.fecha_envio) : null,
+                    producto1: variables.producto1 || null,
+                    cantidad1: variables.cantidad1 || null,
+                    producto2: variables.producto2 || null,
+                    cantidad2: variables.cantidad2 || null,
+                    producto3: variables.producto3 || null,
+                    cantidad3: variables.cantidad3 || null,
+                    producto4: variables.producto4 || null,
+                    cantidad4: variables.cantidad4 || null,
+                    producto5: variables.producto5 || null,
+                    cantidad5: variables.cantidad5 || null,
+                    observaciones: variables.observaciones || null,
+                    prioridad: variables.prioridad || 'MEDIA',
+                    estado_pedido: variables.estado_pedido || 'PENDIENTE',
+                    estado_llamada: 'PENDIENTE'
+                  };
+                  
+                  console.log('🔍 DEBUG CSV: Contacto a crear:', contactData);
+                  return contactData;
+                })
+              });
+              
+              console.log('✅ DEBUG CSV: Contactos creados exitosamente:', createdContacts);
+            } catch (error) {
+              console.error('❌ DEBUG CSV: Error creando contactos:', error);
+              throw error;
+            }
 
             // Actualizar estadísticas del batch
             await prisma.batch.update({
