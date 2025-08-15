@@ -75,7 +75,7 @@ export default function CallsManagement() {
   const fetchBatches = async () => {
     try {
       setLoading(true);
-      const response = await fetch('https://nutryhome-production.up.railway.app/api/campaigns');
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://nutryhome-production.up.railway.app'}/api/campaigns`);
       
       if (response.ok) {
         const data = await response.json();
@@ -173,7 +173,7 @@ export default function CallsManagement() {
     
     try {
       // Intentar obtener datos reales del backend
-      const response = await fetch(`https://nutryhome-production.up.railway.app/api/campaigns/${batch.id}/contacts`);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://nutryhome-production.up.railway.app'}/api/campaigns/${batch.id}/contacts`);
       if (response.ok) {
         const data = await response.json();
         setBatchContacts(data.contacts || []);

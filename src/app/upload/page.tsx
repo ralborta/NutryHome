@@ -87,7 +87,7 @@ export default function UploadPage() {
       formData.append('batchName', batchName.trim());
 
       // Conectar con el backend real
-      const response = await fetch('https://nutryhome-production.up.railway.app/api/campaigns/upload', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://nutryhome-production.up.railway.app'}/api/campaigns/upload`, {
         method: 'POST',
         body: formData,
       });
