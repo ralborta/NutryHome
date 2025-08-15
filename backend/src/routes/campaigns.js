@@ -783,7 +783,11 @@ router.post('/upload', upload.single('file'), async (req, res) => {
                 domicilio_actual: variables.domicilio_actual || null,
                 localidad: variables.localidad || null,
                 delegacion: variables.delegacion || null,
-                fecha_envio: variables.fecha_envio ? new Date(variables.fecha_envio) : null,
+                fecha_envio: (() => {
+                  if (!variables.fecha_envio) return null;
+                  const date = new Date(variables.fecha_envio);
+                  return isNaN(date.getTime()) ? null : date;
+                })(),
                 producto1: variables.producto1 || null,
                 cantidad1: variables.cantidad1 || null,
                 producto2: variables.producto2 || null,
@@ -903,7 +907,11 @@ router.post('/upload', upload.single('file'), async (req, res) => {
                     domicilio_actual: variables.domicilio_actual || null,
                     localidad: variables.localidad || null,
                     delegacion: variables.delegacion || null,
-                    fecha_envio: variables.fecha_envio ? new Date(variables.fecha_envio) : null,
+                    fecha_envio: (() => {
+                      if (!variables.fecha_envio) return null;
+                      const date = new Date(variables.fecha_envio);
+                      return isNaN(date.getTime()) ? null : date;
+                    })(),
                     producto1: variables.producto1 || null,
                     cantidad1: variables.cantidad1 || null,
                     producto2: variables.producto2 || null,
