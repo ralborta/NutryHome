@@ -84,10 +84,10 @@ async function executeBatchWithElevenLabs(batchId) {
     });
 
     // Llamar a ElevenLabs API
-    console.log(`📡 Llamando a ElevenLabs API: ${ELEVENLABS_BASE_URL}/convai/batch-calls`);
+    console.log(`📡 Llamando a ElevenLabs API: ${ELEVENLABS_BASE_URL}/v1/convai/batch-calls`);
     console.log(`📋 Request body:`, JSON.stringify(requestBody, null, 2));
     
-    const response = await fetch(`${ELEVENLABS_BASE_URL}/convai/batch-calls`, {
+    const response = await fetch(`${ELEVENLABS_BASE_URL}/v1/convai/batch-calls`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -1495,6 +1495,78 @@ router.delete('/batch/:batchId', async (req, res) => {
     res.status(500).json({ 
       error: 'Error interno del servidor',
       details: process.env.NODE_ENV === 'development' ? error.message : 'Contacta al administrador'
+    });
+  }
+});
+
+// GET /campaigns/test-elevenlabs - Test de configuración de ElevenLabs
+router.get('/test-elevenlabs', async (req, res) => {
+  try {
+    validateElevenLabsConfig();
+    
+    console.log('🧪 Probando configuración de ElevenLabs...');
+    
+    // Test Agent ID
+    console.log('🔍 Probando Agent ID...');
+    const agentResponse = await fetch(`${ELEVENLABS_BASE_URL}/v1/convai/agents`, {
+      headers: { 'xi-api-key': ELEVENLABS_API_KEY }
+    });
+    
+    if (!agentResponse.ok) {
+      throw new Error(`Agent API Error: ${agentResponse.status} - ${agentResponse.statusText}`);
+    }
+    
+    const agents = await agentResponse.json();
+    const targetAgent = agents.find(agent => agent.agent_id === ELEVENLABS_AGENT_ID);
+    
+    // Test Phone Numbers
+    console.log('🔍 Probando Phone Numbers...');
+    const phoneResponse = await fetch(`${ELEVENLABS_BASE_URL}/v1/convai/phone-numbers`, {
+      headers: { 'xi-api-key': ELEVENLABS_API_KEY }
+    });
+    
+    if (!phoneResponse.ok) {
+      throw new Error(`Phone Numbers API Error: ${phoneResponse.status} - ${phoneResponse.statusText}`);
+    }
+    
+    const phoneNumbers = await phoneResponse.json();
+    const targetPhone = phoneNumbers.find(phone => phone.phone_number_id === ELEVENLABS_PHONE_NUMBER_ID);
+    
+    res.json({
+      success: true,
+      message: 'Configuración de ElevenLabs verificada correctamente',
+      config: {
+        baseUrl: ELEVENLABS_BASE_URL,
+        agentId: ELEVENLABS_AGENT_ID,
+        phoneNumberId: ELEVENLABS_PHONE_NUMBER_ID,
+        projectId: ELEVENLABS_PROJECT_ID
+      },
+      testResults: {
+        agent: targetAgent ? {
+          found: true,
+          name: targetAgent.name,
+          status: targetAgent.status
+        } : {
+          found: false,
+          availableAgents: agents.map(a => ({ id: a.agent_id, name: a.name }))
+        },
+        phoneNumber: targetPhone ? {
+          found: true,
+          number: targetPhone.phone_number,
+          status: targetPhone.status
+        } : {
+          found: false,
+          availableNumbers: phoneNumbers.map(p => ({ id: p.phone_number_id, number: p.phone_number }))
+        }
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Error en test de ElevenLabs:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error verificando configuración de ElevenLabs',
+      details: error.message
     });
   }
 });
