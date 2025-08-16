@@ -754,14 +754,14 @@ export default function CallsManagement() {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex flex-col space-y-1">
-                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(batch.status)}`}>
-                                {batch.status === 'running' && 'En Progreso'}
-                                {batch.status === 'completed' && 'Completado'}
-                                {batch.status === 'pending' && 'Pendiente'}
-                                {batch.status === 'paused' && 'Pausado'}
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(batch.status)}`}>
+                              {batch.status === 'running' && 'En Progreso'}
+                              {batch.status === 'completed' && 'Completado'}
+                              {batch.status === 'pending' && 'Pendiente'}
+                              {batch.status === 'paused' && 'Pausado'}
                                 {batch.status === 'cancelled' && 'Cancelado'}
                                 {batch.status === 'failed' && 'Falló'}
-                              </span>
+                            </span>
                               {batch.status === 'running' && batchStatus?.batchId === batch.id && (
                                 <div className="text-xs text-gray-500">
                                   <div className="flex items-center space-x-2">
@@ -817,7 +817,7 @@ export default function CallsManagement() {
                                     {executingBatch === batch.id ? (
                                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
                                     ) : (
-                                      <Play className="w-4 h-4" />
+                                    <Play className="w-4 h-4" />
                                     )}
                                   </button>
                                 </>
@@ -840,13 +840,13 @@ export default function CallsManagement() {
                               )}
                               
                               {/* Botón de borrar para todos los estados */}
-                              <button
+                                  <button
                                 onClick={() => openDeleteModal(batch)}
-                                className="text-red-600 hover:text-red-900"
+                                    className="text-red-600 hover:text-red-900"
                                 title="Borrar Batch"
-                              >
+                                  >
                                 <Trash2 className="w-4 h-4" />
-                              </button>
+                                  </button>
                             </div>
                           </td>
                         </tr>
@@ -1219,8 +1219,8 @@ export default function CallsManagement() {
                                 No hay contactos disponibles para este batch.
                               </p>
                             )}
-                          </div>
-                        </div>
+                                          </div>
+                                          </div>
 
               {/* Botón de cerrar */}
               <div className="flex justify-end mt-6">
@@ -1230,10 +1230,10 @@ export default function CallsManagement() {
                 >
                   Cerrar
                 </button>
-              </div>
-            </div>
-          </div>
-        </div>
+                                        </div>
+                                        </div>
+                                      </div>
+                                          </div>
       )}
 
       {/* Modal de confirmación de borrado */}
@@ -1243,7 +1243,7 @@ export default function CallsManagement() {
             <div className="mt-3 text-center">
               <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
                 <Trash2 className="h-6 w-6 text-red-600" />
-              </div>
+                                </div>
               <h3 className="text-lg font-medium text-gray-900 mt-4">
                 ¿Borrar Batch?
               </h3>
@@ -1261,8 +1261,8 @@ export default function CallsManagement() {
                 </ul>
                 <p className="text-sm text-red-500 mt-2">
                   <strong>Esta acción no se puede deshacer.</strong>
-                </p>
-              </div>
+                                  </p>
+                                </div>
               <div className="flex justify-center space-x-3 mt-4">
                 <button
                   onClick={closeDeleteModal}
