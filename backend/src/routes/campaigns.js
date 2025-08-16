@@ -1330,7 +1330,7 @@ router.get('/batch/:batchId/status', async (req, res) => {
 
     const response = {
       batchId: batch.id,
-      status: batch.status,
+      status: batch.estado,
       progress,
       totalContacts,
       completedCalls,
@@ -1338,7 +1338,6 @@ router.get('/batch/:batchId/status', async (req, res) => {
       inProgressCalls,
       pendingCalls,
       calls: elevenLabsStatus?.calls || [],
-      startedAt: batch.startedAt,
       estimatedCompletion: batch.estado === 'PROCESSING' ? 
         new Date(Date.now() + (pendingCalls * 60000)) : undefined // Estimación: 1 minuto por llamada pendiente
     };
@@ -1400,8 +1399,7 @@ router.post('/batch/:batchId/cancel', async (req, res) => {
     await prisma.batch.update({
       where: { id: batchId },
       data: { 
-        estado: 'CANCELLED',
-        completedAt: new Date()
+        estado: 'CANCELLED'
       }
     });
 
