@@ -11,12 +11,111 @@ process.env.NODE_ENV = process.env.NODE_ENV || 'development';
 
 const router = express.Router();
 
-// Configuración ElevenLabs con sanitización
+// ———— ENV saneado ————
 const ELEVENLABS_API_KEY = (process.env.ELEVENLABS_API_KEY ?? '').trim();
+const ELEVENLABS_PROJECT_ID = (process.env.ELEVENLABS_PROJECT_ID ?? '').trim(); // opcional
 const ELEVENLABS_BASE_URL = ((process.env.ELEVENLABS_BASE_URL ?? 'https://api.elevenlabs.io').trim()).replace(/\/+$/, '');
 const ELEVENLABS_AGENT_ID = (process.env.ELEVENLABS_AGENT_ID ?? '').trim().replace(/^=+/, '');
 const ELEVENLABS_PHONE_NUMBER_ID = (process.env.ELEVENLABS_PHONE_NUMBER_ID ?? '').trim().replace(/^=+/, '');
-const ELEVENLABS_PROJECT_ID = process.env.ELEVENLABS_PROJECT_ID;
+
+// La validación se hace en validateElevenLabsConfig() cuando sea necesario
+
+// ———— Normalizadores de teléfono ————
+function toE164PlusAR(phone) {
+  if (!phone) return '';
+  let p = String(phone).replace(/[^\d]/g, '');
+  if (p.startsWith('0')) p = p.slice(1);
+  if (!p.startsWith('54')) p = '54' + p;
+  return '+' + p;
+}
+
+function dbPhoneKey(phone) {
+  // para buscar en tu DB (sin '+')
+  return String(phone).replace(/[^\d]/g, '').replace(/^0/, '').replace(/^(\d)$/, '$1').replace(/^\+/, '');
+}
+
+// ———— Fechas / casteos ————
+function toYMD(input) {
+  if (!input) return '';
+  const d = input instanceof Date ? input : new Date(input);
+  return Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
+}
+
+const NUMERIC_KEYS = new Set(['stock_teorico','cantidad1','cantidad2','cantidad3','cantidad4','cantidad5']);
+
+function castValue(key, val) {
+  if (val === null || typeof val === 'undefined') return '';
+  if (NUMERIC_KEYS.has(key)) {
+    const n = Number(val);
+    return Number.isFinite(n) ? n : 0;
+  }
+  return String(val);
+}
+
+function keepProduct(nombre, cantidad) {
+  const n = (nombre ?? '').trim();
+  if (!n || n.toUpperCase() === 'NA') return false;
+  const c = Number(cantidad ?? 0);
+  return Number.isFinite(c) && c > 0;
+}
+
+// ———— Builder de dynamic_variables (según tu modelo actual) ————
+function buildDynamicVariables(contact) {
+  const out = {
+    nombre_contacto: contact.nombre_contacto ?? '',
+    nombre_paciente: contact.nombre_paciente ?? '',
+    domicilio_actual: contact.domicilio_actual ?? '',
+    localidad: contact.localidad ?? '',
+    delegacion: contact.delegacion ?? '',
+    fecha_envio: toYMD(contact.fecha_envio),
+    observaciones: contact.observaciones ?? '',
+    stock_teorico: castValue('stock_teorico', contact.stock_teorico ?? ''),
+  };
+
+  for (let i = 1; i <= 5; i++) {
+    const p = contact[`producto${i}`];
+    const c = contact[`cantidad${i}`];
+    const u = contact[`unidad${i}`]; // si la tenés
+    if (keepProduct(p, c)) {
+      out[`producto${i}`] = castValue(`producto${i}`, p);
+      out[`cantidad${i}`] = castValue(`cantidad${i}`, c);
+      if (u) out[`unidad${i}`] = String(u);
+    }
+  }
+  return out;
+}
+
+// ———— Mapper al enum Prisma (ajusta a tu enum exacto si difiere) ————
+function mapStatusToPrisma(s = '') {
+  s = String(s).toLowerCase();
+  if (['success','completed','answered','ok'].some(x=>s.includes(x))) return 'COMPLETED';
+  if (['busy','line_busy'].some(x=>s.includes(x)))              return 'FAILED';
+  if (['rejected','declined','blocked'].some(x=>s.includes(x)))return 'FAILED';
+  if (['no_answer','timeout','ringout'].some(x=>s.includes(x)))return 'FAILED';
+  if (['queued','processing','ongoing','in_progress','pending'].some(x=>s.includes(x))) return 'IN_PROGRESS';
+  if (['failed','error'].some(x=>s.includes(x)))               return 'FAILED';
+  return 'FAILED'; // fallback seguro para evitar "Invalid value for argument `estado`"
+}
+
+// ———— Parser defensivo del status de batch ————
+function parseBatchResponse(raw) {
+  const root = raw?.data || raw?.batch || raw || {};
+  const rows = root.calls || root.recipients || root.results || root.items || [];
+  const batchStatus = root.status || root.state || 'unknown';
+
+  const normalized = Array.isArray(rows) ? rows.map(r => ({
+    call_id:      r.call_id || r.id || r.callId || null,
+    phone_number: toE164PlusAR(r.phone_number || r.to || r.recipient || r.phone || ''),
+    status_raw:   r.status || r.state || r.result || 'unknown',
+    status_norm:  mapStatusToPrisma(r.status || r.state || r.result || 'unknown'),
+    duration_sec: Number(r.duration_sec ?? r.duration ?? r.call_duration ?? 0),
+    started_at:   r.started_at || r.start_time || r.started || null,
+    ended_at:     r.ended_at   || r.end_time   || r.ended   || null,
+    _raw: r
+  })) : [];
+
+  return { batchStatus, rows: normalized };
+}
 
 // Validar configuración ElevenLabs
 function validateElevenLabsConfig() {
@@ -32,266 +131,68 @@ function validateElevenLabsConfig() {
   return true;
 }
 
-// Función para ejecutar batch con ElevenLabs
+// Función para ejecutar batch usando DB (tu función existente)
 async function executeBatchWithElevenLabs(batchId) {
   try {
-    validateElevenLabsConfig();
-    
-    // Obtener el batch y sus contactos
+    // 1) Traer batch + contactos desde **tu DB**
     const batch = await prisma.batch.findUnique({
       where: { id: batchId },
       include: { contacts: true }
     });
+    if (!batch) throw new Error('Batch no encontrado');
+    if (batch.estado !== 'PENDING') throw new Error('Batch no está en estado pendiente');
 
-    if (!batch) {
-      throw new Error(`Batch ${batchId} no encontrado`);
-    }
+    // 2) Armamos recipients desde contactos (DB → dynamic_variables correctas)
+    const recipients = batch.contacts.map(contact => ({
+      phone_number: toE164PlusAR(contact.phone_number),
+      dynamic_variables: buildDynamicVariables(contact)
+    }));
 
-    if (batch.estado !== 'PENDING') {
-      throw new Error(`Batch ${batchId} no está en estado pendiente`);
-    }
-
-    // Actualizar estado del batch
-    await prisma.batch.update({
-      where: { id: batchId },
-      data: { 
-        estado: 'PROCESSING'
-      }
-    });
-
-    // Preparar contactos para ElevenLabs (ahora se hace directamente en requestBody)
-
-    // Crear request para ElevenLabs
-    // Calcular scheduled_time_unix SIEMPRE como entero (segundos)
-    const nowSec = Math.floor(Date.now() / 1000);
-    const scheduled_time_unix = nowSec; // Llamada inmediata
-    
-    if (!Number.isInteger(scheduled_time_unix)) {
-      throw new Error('scheduled_time_unix must be integer (unix seconds)');
-    }
-    
-    const requestBody = {
+    // 3) Submit a ElevenLabs
+    const fullUrl = `${ELEVENLABS_BASE_URL}/v1/convai/batch-calling/submit`;
+    const body = {
       call_name: batch.nombre || `Entrega Médica - Batch ${batchId}`,
       agent_id: ELEVENLABS_AGENT_ID,
       agent_phone_number_id: ELEVENLABS_PHONE_NUMBER_ID,
-      scheduled_time_unix, // ← SIEMPRE presente y entero
-      recipients: batch.contacts.map(contact => ({
-        phone_number: formatPhoneNumber(contact.phone_number),
-        // Variables van DIRECTAMENTE aquí, NO anidadas
-        nombre_contacto: contact.nombre_contacto || "",
-        nombre_paciente: contact.nombre_paciente || "",
-        domicilio_actual: contact.domicilio_actual || "",
-        localidad: contact.localidad || "",
-        delegacion: contact.delegacion || "",
-        fecha_envio: formatDate(contact.fecha_envio) || "",
-        observaciones: contact.observaciones || "",
-        producto1: contact.producto1 || "",
-        cantidad1: contact.cantidad1 || "",
-        producto2: contact.producto2 || "",
-        cantidad2: contact.cantidad2 || "",
-        producto3: contact.producto3 || "",
-        cantidad3: contact.cantidad3 || "",
-        producto4: contact.producto4 || "",
-        cantidad4: contact.cantidad4 || "",
-        producto5: contact.producto5 || "",
-        cantidad5: contact.cantidad5 || ""
-      }))
+      scheduled_time_unix: Math.floor(Date.now() / 1000),
+      recipients
     };
-
-    console.log(`🚀 Ejecutando batch ${batchId} con ${batch.contacts.length} contactos`);
-    console.log(`🔑 Configuración ElevenLabs:`);
-    console.log(`  - ELEVENLABS_BASE_URL: ${ELEVENLABS_BASE_URL}`);
-    console.log(`  - ELEVENLABS_AGENT_ID: ${ELEVENLABS_AGENT_ID}`);
-    console.log(`  - ELEVENLABS_PHONE_NUMBER_ID: ${ELEVENLABS_PHONE_NUMBER_ID}`);
-    console.log(`  - ELEVENLABS_PROJECT_ID: ${ELEVENLABS_PROJECT_ID}`);
-    console.log(`  - API Key: ${ELEVENLABS_API_KEY ? '✅ Configurada' : '❌ No configurada'}`);
-    console.log(`  - Agent ID: ${ELEVENLABS_AGENT_ID ? '✅ Configurado' : '❌ No configurado'}`);
-    console.log(`  - Phone Number ID: ${ELEVENLABS_PHONE_NUMBER_ID ? '✅ Configurado' : '❌ No configurado'}`);
-    console.log(`  - Project ID: ${ELEVENLABS_PROJECT_ID ? '✅ Configurado' : '❌ No configurado'}`);
-    
-    // Debug logs para detectar saltos de línea ocultos
-    console.log('🔍 Debug variables (longitud/hex):');
-    console.log('  - API Key len/hex:', ELEVENLABS_API_KEY.length, Buffer.from(ELEVENLABS_API_KEY).toString('hex'));
-    console.log('  - Agent ID len/hex:', ELEVENLABS_AGENT_ID.length, Buffer.from(ELEVENLABS_AGENT_ID).toString('hex'));
-    console.log('  - Phone Number ID len/hex:', ELEVENLABS_PHONE_NUMBER_ID.length, Buffer.from(ELEVENLABS_PHONE_NUMBER_ID).toString('hex'));
-
-    // Test básico de conectividad - Verificar API key
-    console.log(`🧪 Probando conectividad básica...`);
-    try {
-      const testResponse = await fetch(`${ELEVENLABS_BASE_URL}/v1/user`, {
-        headers: { 'xi-api-key': ELEVENLABS_API_KEY }
-      });
-      console.log(`✅ API Key test status: ${testResponse.status}`);
-      if (!testResponse.ok) {
-        throw new Error(`API Key test failed: ${testResponse.status} - ${testResponse.statusText}`);
-      }
-      const userData = await testResponse.json();
-      console.log(`✅ Usuario autenticado: ${userData.first_name || 'N/A'}`);
-    } catch (error) {
-      console.warn(`⚠️ API Key test warning: ${error.message}`);
-    }
-
-    // Llamar a ElevenLabs API
-    const fullUrl = `${ELEVENLABS_BASE_URL}/v1/convai/batch-calling/submit`;
-    console.log(`🔍 Debug URLs:`);
-    console.log(`  - ELEVENLABS_BASE_URL: ${ELEVENLABS_BASE_URL}`);
-    console.log(`  - URL completa: ${fullUrl}`);
-    console.log(`  - API Key: ${ELEVENLABS_API_KEY?.substring(0, 10)}...`);
-    console.log(`📡 Llamando a ElevenLabs API: ${fullUrl}`);
-    console.log(`📋 Request body:`, JSON.stringify(requestBody, null, 2));
-    
-    // Verificar que el payload tenga todos los campos requeridos
-    console.log('🔍 Verificación del payload:');
-    console.log('  - call_name:', !!requestBody.call_name);
-    console.log('  - agent_id:', !!requestBody.agent_id);
-    console.log('  - agent_phone_number_id:', !!requestBody.agent_phone_number_id);
-    console.log('  - scheduled_time_unix:', requestBody.scheduled_time_unix, typeof requestBody.scheduled_time_unix);
-    console.log('  - recipients count:', requestBody.recipients?.length);
-    console.log('  - first recipient phone:', requestBody.recipients?.[0]?.phone_number);
-    
-    // Debug del scheduled_time_unix
-    console.log('📅 Batch payload debug:', {
-      scheduled_time_unix,
-      iso: new Date(scheduled_time_unix * 1000).toISOString(),
-      first_recipient: requestBody.recipients?.[0]?.phone_number
-    });
-    
-    const response = await fetch(fullUrl, {
+    const res = await fetch(fullUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'xi-api-key': ELEVENLABS_API_KEY
+        'xi-api-key': ELEVENLABS_API_KEY,
+        ...(ELEVENLABS_PROJECT_ID ? { 'xi-project-id': ELEVENLABS_PROJECT_ID } : {})
       },
-      body: JSON.stringify(requestBody)
+      body: JSON.stringify(body)
     });
+    const raw = await res.text();
+    let data; try { data = JSON.parse(raw); } catch { data = { raw }; }
+    if (!res.ok) throw new Error(`ElevenLabs API Error ${res.status}: ${JSON.stringify(data)}`);
+    if (!data?.id) throw new Error('Respuesta ElevenLabs sin id');
 
-    if (!response.ok) {
-      const raw = await response.text();
-      let parsed; 
-      try { 
-        parsed = JSON.parse(raw); 
-      } catch { 
-        parsed = { raw }; 
-      }
-      throw new Error(`ElevenLabs API Error ${response.status}: ${JSON.stringify(parsed)}`);
-    }
-
-    const elevenLabsResponse = await response.json();
-    console.log(`✅ Batch ${batchId} iniciado exitosamente en ElevenLabs:`, elevenLabsResponse);
-
-    // Crear registros de llamadas en la base de datos
-    const outboundCalls = batch.contacts.map(contact => ({
-      batchId: batchId,
-      contactId: contact.id,
-      telefono: contact.phone_number, // ← Usar telefono (campo real en DB)
-      estado: 'QUEUED', // ← Valor válido del enum
-      elevenlabsCallId: elevenLabsResponse.calls?.find(c => c.phone_number === formatPhoneNumber(contact.phone_number))?.call_id,
-      variables: contact,
-      retryCount: 0
-    }));
-
-    // Crear registros de llamadas en la base de datos
-    await prisma.outboundCall.createMany({ data: outboundCalls });
-
-    return {
-      success: true,
-      batchId: batchId,
-      elevenLabsBatchId: elevenLabsResponse.id, // Usar .id en lugar de .batch_id
-      totalCalls: batch.contacts.length,
-      message: 'Batch ejecutado exitosamente'
-    };
-
-  } catch (error) {
-    console.error(`❌ Error ejecutando batch ${batchId}:`, error);
-    
-    // Revertir estado del batch
+    // 4) Guardar en DB: estado + id de ElevenLabs
     await prisma.batch.update({
       where: { id: batchId },
-      data: { estado: 'FAILED' }
+      data: { estado: 'PROCESSING', elevenLabsBatchId: data.id }
     });
 
-    throw error;
-  }
-}
+    // 5) Pre-crear outboundCall por cada contacto (DB como fuente)
+    const outboundCalls = batch.contacts.map(contact => ({
+      batchId,
+      contactId: contact.id,
+      telefono: dbPhoneKey(contact.phone_number), // sin '+'
+      estado: 'SCHEDULED',
+      variables: buildDynamicVariables(contact),
+      intentos: 0
+    }));
+    await prisma.outboundCall.createMany({ data: outboundCalls });
 
-// Función para preparar variables para ElevenLabs
-function prepareVariablesForElevenLabs(contact) {
-  const base = {
-    nombre_contacto: contact.nombre_contacto || '',
-    nombre_paciente: contact.nombre_paciente || '',
-    domicilio_actual: contact.domicilio_actual || '',
-    localidad: contact.localidad || '',
-    delegacion: contact.delegacion || '',
-    fecha_envio: contact.fecha_envio ? new Date(contact.fecha_envio).toISOString().split('T')[0] : '',
-    observaciones: contact.observaciones || ''
-  };
-
-  // Agregar productos solo si existen y son válidos
-  for (let i = 1; i <= 5; i++) {
-    const prod = (contact[`producto${i}`] || '').trim();
-    const cant = Number(contact[`cantidad${i}`] ?? 0);
-    
-    if (prod && prod.toUpperCase() !== 'NA' && cant > 0) {
-      base[`producto${i}`] = prod;
-      base[`cantidad${i}`] = cant;
-    }
+    return { success: true, elevenLabsBatchId: data.id, total: recipients.length };
+  } catch (err) {
+    await prisma.batch.update({ where: { id: batchId }, data: { estado: 'FAILED', errorMessage: String(err) } });
+    throw err;
   }
-
-  return base;
-}
-
-// Función para formatear número de teléfono
-function formatPhoneNumber(phone) {
-  if (!phone) return '';
-  
-  let cleaned = String(phone).replace(/[\s\-\(\)\.]/g, '');
-  
-  if (cleaned.startsWith('0')) {
-    cleaned = cleaned.substring(1);
-  }
-  
-  if (!cleaned.startsWith('54') && !cleaned.startsWith('+54')) {
-    cleaned = '54' + cleaned;
-  }
-  
-  if (!cleaned.startsWith('+')) {
-    cleaned = '+' + cleaned;
-  }
-  
-  return cleaned;
-}
-
-// Función para formatear fecha
-function formatDate(dateString) {
-  if (!dateString) return '';
-  
-  try {
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) {
-      return 'Fecha no especificada';
-    }
-    return date.toLocaleDateString('es-AR', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-      });
-  } catch (error) {
-    return 'Fecha no especificada';
-  }
-}
-
-// Función para mapear estados a valores válidos de Prisma
-function mapStatusToPrisma(status = '') {
-  const s = String(status).toLowerCase();
-  
-  if (['success', 'completed', 'answered', 'ok'].some(x => s.includes(x))) return 'ANSWERED';
-  if (['busy', 'line_busy'].some(x => s.includes(x))) return 'BUSY';
-  if (['rejected', 'declined', 'blocked'].some(x => s.includes(x))) return 'REJECTED';
-  if (['no_answer', 'timeout', 'ringout'].some(x => s.includes(x))) return 'NO_ANSWER';
-  if (['queued', 'processing', 'ongoing', 'in_progress', 'pending'].some(x => s.includes(x))) return 'ONGOING';
-  if (['failed', 'error'].some(x => s.includes(x))) return 'FAILED';
-  
-  return 'FAILED'; // fallback seguro
 }
 
 // Configuración de multer para archivos Excel y CSV
@@ -1367,6 +1268,150 @@ router.post('/batch/:batchId/execute', async (req, res) => {
       success: false, 
       error: 'Error iniciando ejecución del batch',
       details: error.message 
+    });
+  }
+});
+
+// GET /campaigns/batch/:batchId/sync - Sincronizar estado del batch con ElevenLabs
+router.get('/campaigns/batch/:batchId/sync', async (req, res) => {
+  const { batchId } = req.params;
+  try {
+    const batch = await prisma.batch.findUnique({ where: { id: batchId } });
+    if (!batch?.elevenLabsBatchId) return res.status(400).json({ ok:false, error:'Falta elevenLabsBatchId' });
+
+    const r = await fetch(`${ELEVENLABS_BASE_URL}/v1/convai/batch-calling/${batch.elevenLabsBatchId}`, {
+      headers: {
+        'xi-api-key': ELEVENLABS_API_KEY,
+        ...(ELEVENLABS_PROJECT_ID ? { 'xi-project-id': ELEVENLABS_PROJECT_ID } : {})
+      }
+    });
+    const txt = await r.text();
+    let json; try { json = JSON.parse(txt); } catch { json = { raw: txt }; }
+    if (!r.ok) return res.status(r.status).json({ ok:false, payload: json });
+
+    const { batchStatus, rows } = parseBatchResponse(json);
+
+    for (const row of rows) {
+      const whereByPhone = { batchId, telefono: dbPhoneKey(row.phone_number) };
+      const data = {
+        estado: mapStatusToPrisma(row.status_raw),
+        duracion: row.duration_sec,
+        fechaEjecutada: row.started_at ? new Date(row.started_at) : undefined,
+        callId: row.call_id ?? undefined,
+        resultado: row.status_raw
+      };
+
+      // intenta por call_id si ya existe
+      if (row.call_id) {
+        const updById = await prisma.outboundCall.updateMany({
+          where: { ...whereByPhone, callId: row.call_id },
+          data
+        });
+        if (updById.count > 0) continue;
+      }
+
+      // sino por phone (lo más confiable en este flujo)
+      const updByPhone = await prisma.outboundCall.updateMany({ where: whereByPhone, data });
+      if (updByPhone.count === 0) {
+        // opcional: crear si no existía
+        await prisma.outboundCall.create({
+          data: { batchId, telefono: dbPhoneKey(row.phone_number), ...data, variables: {}, intentos: 0 }
+        });
+      }
+    }
+
+    await prisma.batch.update({
+      where: { id: batchId },
+      data: { estado: mapStatusToPrisma(batchStatus), updatedAt: new Date() }
+    });
+
+    const counts = rows.reduce((acc, r) => (acc[mapStatusToPrisma(r.status_raw)] = (acc[mapStatusToPrisma(r.status_raw)]||0) + 1, acc), {});
+    res.json({ ok:true, batchId, batchStatus: mapStatusToPrisma(batchStatus), counts });
+  } catch (e) {
+    res.status(500).json({ ok:false, error: String(e) });
+  }
+});
+
+// GET /campaigns/batch/:batchId/calls - Obtener llamadas de un batch específico
+router.get('/campaigns/batch/:batchId/calls', async (req, res) => {
+  try {
+    const { batchId } = req.params;
+    
+    const batch = await prisma.batch.findUnique({
+      where: { id: batchId },
+      include: {
+        contacts: true,
+        outboundCalls: {
+          include: {
+            contact: {
+              select: {
+                nombre_contacto: true,
+                nombre_paciente: true,
+                phone_number: true
+              }
+            }
+          },
+          orderBy: { createdAt: 'asc' }
+        }
+      }
+    });
+
+    if (!batch) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Batch no encontrado' 
+      });
+    }
+
+    // Mapear las llamadas con información del contacto
+    const callsWithContactInfo = batch.outboundCalls.map(call => ({
+      id: call.id,
+      telefono: call.telefono,
+      estado: call.estado,
+      duracion: call.duracion,
+      fechaEjecutada: call.fechaEjecutada,
+      resultado: call.resultado,
+      intentos: call.intentos,
+      callId: call.callId,
+      variables: call.variables,
+      createdAt: call.createdAt,
+      contact: call.contact ? {
+        nombre_contacto: call.contact.nombre_contacto,
+        nombre_paciente: call.contact.nombre_paciente,
+        phone_number: call.contact.phone_number
+      } : null
+    }));
+
+    // Calcular estadísticas
+    const totalCalls = batch.outboundCalls.length;
+    const completedCalls = batch.outboundCalls.filter(call => call.estado === 'COMPLETED').length;
+    const failedCalls = batch.outboundCalls.filter(call => call.estado === 'FAILED').length;
+    const inProgressCalls = batch.outboundCalls.filter(call => call.estado === 'IN_PROGRESS').length;
+    const pendingCalls = batch.outboundCalls.filter(call => call.estado === 'SCHEDULED').length;
+
+    res.json({
+      success: true,
+      batch: {
+        id: batch.id,
+        nombre: batch.nombre,
+        estado: batch.estado,
+        elevenLabsBatchId: batch.elevenLabsBatchId,
+        totalCalls,
+        completedCalls,
+        failedCalls,
+        inProgressCalls,
+        pendingCalls
+      },
+      calls: callsWithContactInfo,
+      total: totalCalls
+    });
+
+  } catch (error) {
+    console.error('Error obteniendo llamadas del batch:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Error interno del servidor',
+      details: process.env.NODE_ENV === 'development' ? error.message : 'Contacta al administrador'
     });
   }
 });
