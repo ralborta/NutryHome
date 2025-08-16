@@ -56,20 +56,34 @@ async function executeBatchWithElevenLabs(batchId) {
       }
     });
 
-    // Preparar contactos para ElevenLabs
-    const contactsForElevenLabs = batch.contacts.map(contact => ({
-      phone_number: formatPhoneNumber(contact.phone_number),
-      variables: prepareVariablesForElevenLabs(contact)
-    }));
+    // Preparar contactos para ElevenLabs (ahora se hace directamente en requestBody)
 
     // Crear request para ElevenLabs
     const requestBody = {
-      call_name: `Entrega Médica - Batch ${batchId}`,
+      call_name: batch.nombre || `Entrega Médica - Batch ${batchId}`,
       agent_id: ELEVENLABS_AGENT_ID,
       agent_phone_number_id: ELEVENLABS_PHONE_NUMBER_ID,
-      recipients: contactsForElevenLabs.map(contact => ({
-        phone_number: contact.phone_number,
-        variables: contact.variables
+      recipients: batch.contacts.map(contact => ({
+        phone_number: formatPhoneNumber(contact.phone_number),
+        variables: {
+          nombre_contacto: contact.nombre_contacto || "",
+          nombre_paciente: contact.nombre_paciente || "",
+          domicilio_actual: contact.domicilio_actual || "",
+          localidad: contact.localidad || "",
+          delegacion: contact.delegacion || "",
+          fecha_envio: formatDate(contact.fecha_envio) || "",
+          observaciones: contact.observaciones || "",
+          producto1: contact.producto1 || "",
+          cantidad1: contact.cantidad1 || "",
+          producto2: contact.producto2 || "",
+          cantidad2: contact.cantidad2 || "",
+          producto3: contact.producto3 || "",
+          cantidad3: contact.cantidad3 || "",
+          producto4: contact.producto4 || "",
+          cantidad4: contact.cantidad4 || "",
+          producto5: contact.producto5 || "",
+          cantidad5: contact.cantidad5 || ""
+        }
       }))
     };
 
