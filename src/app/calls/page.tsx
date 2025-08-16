@@ -39,7 +39,7 @@ interface Batch {
   totalCalls: number;
   completedCalls: number;
   failedCalls: number;
-  status: 'pending' | 'running' | 'completed' | 'paused';
+  status: 'pending' | 'running' | 'completed' | 'paused' | 'cancelled' | 'failed';
   createdAt: string;
   scheduledFor?: string;
 }
@@ -76,6 +76,11 @@ export default function CallsManagement() {
   const [batches, setBatches] = useState<Batch[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Estados para ElevenLabs
+  const [executingBatch, setExecutingBatch] = useState<string | null>(null);
+  const [batchStatus, setBatchStatus] = useState<any>(null);
+  const [cancellingBatch, setCancellingBatch] = useState<string | null>(null);
 
   // Función para obtener batches del backend
   const fetchBatches = async () => {
@@ -117,16 +122,21 @@ export default function CallsManagement() {
   };
 
   // Función para mapear estados del backend al frontend
-  const mapBatchStatus = (backendStatus: string): 'pending' | 'running' | 'completed' | 'paused' => {
+  const mapBatchStatus = (backendStatus: string): 'pending' | 'running' | 'completed' | 'paused' | 'cancelled' | 'failed' => {
     switch (backendStatus) {
       case 'PENDING':
         return 'pending';
       case 'RUNNING':
+      case 'PROCESSING':
         return 'running';
       case 'COMPLETED':
         return 'completed';
       case 'PAUSED':
         return 'paused';
+      case 'CANCELLED':
+        return 'cancelled';
+      case 'FAILED':
+        return 'failed';
       default:
         return 'pending';
     }
@@ -248,6 +258,157 @@ export default function CallsManagement() {
     }
   };
 
+  // Función para ejecutar batch con ElevenLabs
+  const executeBatch = async (batchId: string) => {
+    try {
+      setExecutingBatch(batchId);
+      setError(null);
+      
+      console.log(`🚀 Ejecutando batch ${batchId} con ElevenLabs...`);
+      
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://nutryhome-production.up.railway.app'}/api/campaigns/batch/${batchId}/execute`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Batch iniciado exitosamente:', result);
+        
+        // Mostrar mensaje de éxito
+        alert(`✅ Batch iniciado exitosamente!\n\n${result.message}\nTotal de llamadas: ${result.totalCalls}`);
+        
+        // Iniciar monitoreo del batch
+        startBatchMonitoring(batchId);
+        
+        // Actualizar estado del batch en la lista
+        setBatches(prevBatches => 
+          prevBatches.map(batch => 
+            batch.id === batchId 
+              ? { ...batch, status: 'running' as const }
+              : batch
+          )
+        );
+        
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error desconocido al ejecutar batch');
+      }
+      
+    } catch (error) {
+      console.error('❌ Error ejecutando batch:', error);
+      setError(`Error al ejecutar batch: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+      alert(`❌ Error al ejecutar batch:\n\n${error instanceof Error ? error.message : 'Error desconocido'}`);
+    } finally {
+      setExecutingBatch(null);
+    }
+  };
+
+  // Función para monitorear el estado del batch
+  const startBatchMonitoring = async (batchId: string) => {
+    try {
+      // Polling cada 5 segundos para obtener estado actualizado
+      const interval = setInterval(async () => {
+        try {
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://nutryhome-production.up.railway.app'}/api/campaigns/batch/${batchId}/status`);
+          
+          if (response.ok) {
+            const status = await response.json();
+            setBatchStatus(status);
+            
+            // Si el batch está completado o falló, detener el monitoreo
+            if (status.status === 'completed' || status.status === 'failed' || status.status === 'cancelled') {
+              clearInterval(interval);
+              
+              // Actualizar estado en la lista de batches
+              setBatches(prevBatches => 
+                prevBatches.map(batch => 
+                  batch.id === batchId 
+                    ? { 
+                        ...batch, 
+                        status: status.status === 'completed' ? 'completed' : 'failed',
+                        completedCalls: status.completedCalls,
+                        failedCalls: status.failedCalls
+                      }
+                    : batch
+                )
+              );
+              
+              // Mostrar mensaje de finalización
+              if (status.status === 'completed') {
+                alert(`✅ Batch completado exitosamente!\n\nLlamadas completadas: ${status.completedCalls}\nLlamadas fallidas: ${status.failedCalls}`);
+              } else if (status.status === 'failed') {
+                alert(`❌ Batch falló!\n\nLlamadas completadas: ${status.completedCalls}\nLlamadas fallidas: ${status.failedCalls}`);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error obteniendo estado del batch:', error);
+        }
+      }, 5000);
+      
+      // Limpiar intervalo después de 10 minutos (tiempo máximo de ejecución)
+      setTimeout(() => {
+        clearInterval(interval);
+      }, 10 * 60 * 1000);
+      
+    } catch (error) {
+      console.error('Error iniciando monitoreo del batch:', error);
+    }
+  };
+
+  // Función para cancelar batch en progreso
+  const cancelBatch = async (batchId: string) => {
+    try {
+      setCancellingBatch(batchId);
+      setError(null);
+      
+      console.log(`🛑 Cancelando batch ${batchId}...`);
+      
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://nutryhome-production.up.railway.app'}/api/campaigns/batch/${batchId}/cancel`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Batch cancelado exitosamente:', result);
+        
+        // Mostrar mensaje de éxito
+        alert(`✅ Batch cancelado exitosamente!\n\n${result.message}`);
+        
+        // Actualizar estado del batch en la lista
+        setBatches(prevBatches => 
+          prevBatches.map(batch => 
+            batch.id === batchId 
+              ? { ...batch, status: 'cancelled' as const }
+              : batch
+          )
+        );
+        
+        // Limpiar estado del batch
+        if (batchStatus?.batchId === batchId) {
+          setBatchStatus(null);
+        }
+        
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error desconocido al cancelar batch');
+      }
+      
+    } catch (error) {
+      console.error('❌ Error cancelando batch:', error);
+      setError(`Error al cancelar batch: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+      alert(`❌ Error al cancelar batch:\n\n${error instanceof Error ? error.message : 'Error desconocido'}`);
+    } finally {
+      setCancellingBatch(null);
+    }
+  };
+
   const calls: Call[] = [
     {
       id: '1',
@@ -274,6 +435,8 @@ export default function CallsManagement() {
       case 'completed': return 'text-blue-600 bg-blue-100';
       case 'pending': return 'text-yellow-600 bg-yellow-100';
       case 'paused': return 'text-orange-600 bg-orange-100';
+      case 'cancelled': return 'text-red-600 bg-red-100';
+      case 'failed': return 'text-red-600 bg-red-100';
       default: return 'text-gray-600 bg-gray-100';
     }
   };
@@ -566,22 +729,55 @@ export default function CallsManagement() {
                             <div className="flex items-center">
                               <div className="w-full bg-gray-200 rounded-full h-2 mr-2">
                                 <div 
-                                  className="bg-blue-600 h-2 rounded-full" 
-                                  style={{ width: `${(batch.completedCalls / batch.totalCalls) * 100}%` }}
+                                  className={`h-2 rounded-full transition-all duration-500 ${
+                                    batch.status === 'running' ? 'bg-green-500' : 'bg-blue-600'
+                                  }`}
+                                  style={{ 
+                                    width: `${(batch.completedCalls / batch.totalCalls) * 100}%`,
+                                    background: batch.status === 'running' ? 
+                                      'linear-gradient(90deg, #10b981 0%, #3b82f6 100%)' : undefined
+                                  }}
                                 ></div>
                               </div>
                               <span className="text-sm text-gray-500">
-                                {Math.round((batch.completedCalls / batch.totalCalls) * 100)}%
+                                {batch.status === 'running' && batchStatus?.batchId === batch.id ? 
+                                  `${batchStatus.progress}%` : 
+                                  `${Math.round((batch.completedCalls / batch.totalCalls) * 100)}%`
+                                }
                               </span>
+                              {batch.status === 'running' && batchStatus?.batchId === batch.id && (
+                                <div className="ml-2 animate-pulse">
+                                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                </div>
+                              )}
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(batch.status)}`}>
-                              {batch.status === 'running' && 'En Progreso'}
-                              {batch.status === 'completed' && 'Completado'}
-                              {batch.status === 'pending' && 'Pendiente'}
-                              {batch.status === 'paused' && 'Pausado'}
-                            </span>
+                            <div className="flex flex-col space-y-1">
+                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(batch.status)}`}>
+                                {batch.status === 'running' && 'En Progreso'}
+                                {batch.status === 'completed' && 'Completado'}
+                                {batch.status === 'pending' && 'Pendiente'}
+                                {batch.status === 'paused' && 'Pausado'}
+                                {batch.status === 'cancelled' && 'Cancelado'}
+                                {batch.status === 'failed' && 'Falló'}
+                              </span>
+                              {batch.status === 'running' && batchStatus?.batchId === batch.id && (
+                                <div className="text-xs text-gray-500">
+                                  <div className="flex items-center space-x-2">
+                                    <span>✅ {batchStatus.completedCalls}</span>
+                                    <span>❌ {batchStatus.failedCalls}</span>
+                                    <span>⏳ {batchStatus.inProgressCalls}</span>
+                                    <span>⏸️ {batchStatus.pendingCalls}</span>
+                                  </div>
+                                  {batchStatus.estimatedCompletion && (
+                                    <div className="text-xs text-blue-600 mt-1">
+                                      ⏰ {new Date(batchStatus.estimatedCompletion).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {new Date(batch.createdAt).toLocaleDateString('es-ES')}
@@ -613,29 +809,32 @@ export default function CallsManagement() {
                                     <Calendar className="w-4 h-4" />
                                   </button>
                                   <button
-                                    onClick={() => console.log('Iniciar batch:', batch.id)}
-                                    className="text-green-600 hover:text-green-900"
-                                    title="Iniciar"
+                                    onClick={() => executeBatch(batch.id)}
+                                    disabled={executingBatch === batch.id}
+                                    className="text-green-600 hover:text-green-900 disabled:opacity-50"
+                                    title="Ejecutar Batch con ElevenLabs"
                                   >
-                                    <Play className="w-4 h-4" />
+                                    {executingBatch === batch.id ? (
+                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
+                                    ) : (
+                                      <Play className="w-4 h-4" />
+                                    )}
                                   </button>
                                 </>
                               )}
                               {batch.status === 'running' && (
                                 <>
                                   <button
-                                    onClick={() => console.log('Pausar batch:', batch.id)}
-                                    className="text-yellow-600 hover:text-yellow-900"
-                                    title="Pausar"
+                                    onClick={() => cancelBatch(batch.id)}
+                                    disabled={cancellingBatch === batch.id}
+                                    className="text-red-600 hover:text-red-900 disabled:opacity-50"
+                                    title="Cancelar Batch"
                                   >
-                                    <Pause className="w-4 h-4" />
-                                  </button>
-                                  <button
-                                    onClick={() => console.log('Detener batch:', batch.id)}
-                                    className="text-red-600 hover:text-red-900"
-                                    title="Detener"
-                                  >
-                                    <Square className="w-4 h-4" />
+                                    {cancellingBatch === batch.id ? (
+                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
+                                    ) : (
+                                      <Square className="w-4 h-4" />
+                                    )}
                                   </button>
                                 </>
                               )}
