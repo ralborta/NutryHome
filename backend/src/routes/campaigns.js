@@ -77,8 +77,17 @@ async function executeBatchWithElevenLabs(batchId) {
     };
 
     console.log(`🚀 Ejecutando batch ${batchId} con ${batch.contacts.length} contactos`);
+    console.log(`🔑 Configuración ElevenLabs:`, {
+      apiKey: ELEVENLABS_API_KEY ? '✅ Configurada' : '❌ No configurada',
+      agentId: ELEVENLABS_AGENT_ID ? '✅ Configurado' : '❌ No configurado',
+      phoneNumberId: ELEVENLABS_PHONE_NUMBER_ID ? '✅ Configurado' : '❌ No configurado',
+      baseUrl: ELEVENLABS_BASE_URL
+    });
 
     // Llamar a ElevenLabs API
+    console.log(`📡 Llamando a ElevenLabs API: ${ELEVENLABS_BASE_URL}/convai/batch-calls`);
+    console.log(`📋 Request body:`, JSON.stringify(requestBody, null, 2));
+    
     const response = await fetch(`${ELEVENLABS_BASE_URL}/convai/batch-calls`, {
       method: 'POST',
       headers: {
@@ -107,8 +116,9 @@ async function executeBatchWithElevenLabs(batchId) {
       retryCount: 0
     }));
 
-    // Nota: Esto necesitará ser actualizado para coincidir con el esquema Prisma real
-    // await prisma.batchCall.createMany({ data: batchCalls });
+    // Crear registros de llamadas en la base de datos
+    // Nota: Por ahora solo actualizamos el estado del batch
+    // Los registros de llamadas se crearán cuando implementemos el modelo BatchCall
 
     return {
       success: true,
