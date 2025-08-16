@@ -184,7 +184,7 @@ async function executeBatchWithElevenLabs(batchId) {
       batchId: batchId,
       contactId: contact.id,
       telefono: contact.phone_number, // ← Usar telefono (campo real en DB)
-      estado: 'QUEUED',
+      estado: 'QUEUED', // ← Valor válido del enum
       elevenlabsCallId: elevenLabsResponse.calls?.find(c => c.phone_number === formatPhoneNumber(contact.phone_number))?.call_id,
       variables: contact,
       retryCount: 0
@@ -216,28 +216,28 @@ async function executeBatchWithElevenLabs(batchId) {
 
 // Función para preparar variables para ElevenLabs
 function prepareVariablesForElevenLabs(contact) {
-  const variables = {
-    nombre_contacto: contact.nombre_contacto,
-    nombre_paciente: contact.nombre_paciente,
-    domicilio_actual: contact.domicilio_actual,
-    localidad: contact.localidad,
-    delegacion: contact.delegacion,
-    fecha_envio: formatDate(contact.fecha_envio),
+  const base = {
+    nombre_contacto: contact.nombre_contacto || '',
+    nombre_paciente: contact.nombre_paciente || '',
+    domicilio_actual: contact.domicilio_actual || '',
+    localidad: contact.localidad || '',
+    delegacion: contact.delegacion || '',
+    fecha_envio: contact.fecha_envio ? new Date(contact.fecha_envio).toISOString().split('T')[0] : '',
     observaciones: contact.observaciones || ''
   };
 
-  // Agregar productos solo si existen
+  // Agregar productos solo si existen y son válidos
   for (let i = 1; i <= 5; i++) {
-    const producto = contact[`producto${i}`];
-    const cantidad = contact[`cantidad${i}`];
+    const prod = (contact[`producto${i}`] || '').trim();
+    const cant = Number(contact[`cantidad${i}`] ?? 0);
     
-    if (producto && cantidad) {
-      variables[`producto${i}`] = producto;
-      variables[`cantidad${i}`] = cantidad;
+    if (prod && prod.toUpperCase() !== 'NA' && cant > 0) {
+      base[`producto${i}`] = prod;
+      base[`cantidad${i}`] = cant;
     }
   }
 
-  return variables;
+  return base;
 }
 
 // Función para formatear número de teléfono
@@ -278,6 +278,20 @@ function formatDate(dateString) {
   } catch (error) {
     return 'Fecha no especificada';
   }
+}
+
+// Función para mapear estados a valores válidos de Prisma
+function mapStatusToPrisma(status = '') {
+  const s = String(status).toLowerCase();
+  
+  if (['success', 'completed', 'answered', 'ok'].some(x => s.includes(x))) return 'ANSWERED';
+  if (['busy', 'line_busy'].some(x => s.includes(x))) return 'BUSY';
+  if (['rejected', 'declined', 'blocked'].some(x => s.includes(x))) return 'REJECTED';
+  if (['no_answer', 'timeout', 'ringout'].some(x => s.includes(x))) return 'NO_ANSWER';
+  if (['queued', 'processing', 'ongoing', 'in_progress', 'pending'].some(x => s.includes(x))) return 'ONGOING';
+  if (['failed', 'error'].some(x => s.includes(x))) return 'FAILED';
+  
+  return 'FAILED'; // fallback seguro
 }
 
 // Configuración de multer para archivos Excel y CSV

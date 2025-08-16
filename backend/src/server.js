@@ -16,6 +16,7 @@ const webhooksRoutes = require('./routes/webhooks');
 const authRoutes = require('./routes/auth');
 const campaignsRoutes = require('./routes/campaigns');
 const variablesRoutes = require('./routes/variables');
+const elevenLabsRoutes = require('./routes/elevenlabs');
 
 // Importar middleware
 const errorHandler = require('./middleware/errorHandler');
@@ -125,6 +126,7 @@ app.use('/api/webhooks', webhooksRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/campaigns', campaignsRoutes);
 app.use('/api/variables', variablesRoutes);
+app.use('/api/elevenlabs', elevenLabsRoutes);
 
 // API Documentation endpoint
 app.get('/api', (req, res) => {
@@ -137,6 +139,7 @@ app.get('/api', (req, res) => {
       auth: '/api/auth',
       campaigns: '/api/campaigns',
       variables: '/api/variables',
+      elevenlabs: '/api/elevenlabs',
     },
     documentation: 'Ver README.md para documentación completa',
   });
