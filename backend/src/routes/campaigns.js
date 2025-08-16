@@ -64,15 +64,13 @@ async function executeBatchWithElevenLabs(batchId) {
 
     // Crear request para ElevenLabs
     const requestBody = {
+      call_name: `Entrega Médica - Batch ${batchId}`,
       agent_id: ELEVENLABS_AGENT_ID,
-      phone_number_id: ELEVENLABS_PHONE_NUMBER_ID,
-      contacts: contactsForElevenLabs,
-      project_id: ELEVENLABS_PROJECT_ID,
-      metadata: {
-        batch_id: batchId,
-        campaign_type: 'medical_delivery_confirmation',
-        timestamp: new Date().toISOString()
-      }
+      agent_phone_number_id: ELEVENLABS_PHONE_NUMBER_ID,
+      recipients: contactsForElevenLabs.map(contact => ({
+        phone_number: contact.phone_number,
+        variables: contact.variables
+      }))
     };
 
     console.log(`🚀 Ejecutando batch ${batchId} con ${batch.contacts.length} contactos`);
