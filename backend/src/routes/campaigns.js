@@ -62,11 +62,19 @@ async function executeBatchWithElevenLabs(batchId) {
     // Preparar contactos para ElevenLabs (ahora se hace directamente en requestBody)
 
     // Crear request para ElevenLabs
+    // Calcular scheduled_time_unix SIEMPRE como entero (segundos)
+    const nowSec = Math.floor(Date.now() / 1000);
+    const scheduled_time_unix = nowSec; // Llamada inmediata
+    
+    if (!Number.isInteger(scheduled_time_unix)) {
+      throw new Error('scheduled_time_unix must be integer (unix seconds)');
+    }
+    
     const requestBody = {
       call_name: batch.nombre || `Entrega Médica - Batch ${batchId}`,
       agent_id: ELEVENLABS_AGENT_ID,
       agent_phone_number_id: ELEVENLABS_PHONE_NUMBER_ID,
-      scheduled_time_unix: null, // ← ¡Campo obligatorio! null = inmediato
+      scheduled_time_unix, // ← SIEMPRE presente y entero
       recipients: batch.contacts.map(contact => ({
         phone_number: formatPhoneNumber(contact.phone_number),
         // Variables van DIRECTAMENTE aquí, NO anidadas
@@ -140,6 +148,13 @@ async function executeBatchWithElevenLabs(batchId) {
     console.log('  - scheduled_time_unix:', requestBody.scheduled_time_unix, typeof requestBody.scheduled_time_unix);
     console.log('  - recipients count:', requestBody.recipients?.length);
     console.log('  - first recipient phone:', requestBody.recipients?.[0]?.phone_number);
+    
+    // Debug del scheduled_time_unix
+    console.log('📅 Batch payload debug:', {
+      scheduled_time_unix,
+      iso: new Date(scheduled_time_unix * 1000).toISOString(),
+      first_recipient: requestBody.recipients?.[0]?.phone_number
+    });
     
     const response = await fetch(fullUrl, {
       method: 'POST',
