@@ -183,7 +183,7 @@ async function executeBatchWithElevenLabs(batchId) {
       contactId: contact.id,
       telefono: dbPhoneKey(contact.phone_number), // sin '+'
       estado: 'SCHEDULED',
-      variables: buildDynamicVariables(contact),
+      nombre: contact.nombre_paciente || contact.nombre_contacto || 'Sin nombre',
       intentos: 0
     }));
     await prisma.outboundCall.createMany({ data: outboundCalls });
@@ -1315,7 +1315,17 @@ router.get('/campaigns/batch/:batchId/sync', async (req, res) => {
       if (updByPhone.count === 0) {
         // opcional: crear si no existía
         await prisma.outboundCall.create({
-          data: { batchId, telefono: dbPhoneKey(row.phone_number), ...data, variables: {}, intentos: 0 }
+          data: { 
+            batchId, 
+            telefono: dbPhoneKey(row.phone_number), 
+            estado: mapStatusToPrisma(row.status_raw),
+            duracion: row.duration_sec,
+            fechaEjecutada: row.started_at ? new Date(row.started_at) : undefined,
+            callId: row.call_id ?? undefined,
+            resultado: row.status_raw,
+            nombre: 'Contacto sincronizado',
+            intentos: 0
+          }
         });
       }
     }
