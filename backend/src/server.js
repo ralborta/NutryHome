@@ -18,6 +18,7 @@ const campaignsRoutes = require('./routes/campaigns');
 const variablesRoutes = require('./routes/variables');
 const elevenLabsRoutes = require('./routes/elevenlabs');
 const elevenLabsWebhooksRoutes = require('./routes/elevenlabs-webhooks');
+const elevenLabsIntegrationsRoutes = require('./routes/elevenlabs-integrations');
 
 // Importar middleware
 const errorHandler = require('./middleware/errorHandler');
@@ -129,6 +130,7 @@ app.use('/api/campaigns', campaignsRoutes);
 app.use('/api/variables', variablesRoutes);
 app.use('/api/elevenlabs', elevenLabsRoutes);
 app.use('/api', elevenLabsWebhooksRoutes);
+app.use('/api', elevenLabsIntegrationsRoutes);
 
 // API Documentation endpoint
 app.get('/api', (req, res) => {
@@ -142,6 +144,8 @@ app.get('/api', (req, res) => {
       campaigns: '/api/campaigns',
       variables: '/api/variables',
       elevenlabs: '/api/elevenlabs',
+      'elevenlabs-webhooks': '/api/elevenlabs/webhooks/post-call',
+      'elevenlabs-sync': '/api/elevenlabs/conversations/sync',
     },
     documentation: 'Ver README.md para documentación completa',
   });
