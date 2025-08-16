@@ -76,15 +76,34 @@ async function executeBatchWithElevenLabs(batchId) {
     };
 
     console.log(`🚀 Ejecutando batch ${batchId} con ${batch.contacts.length} contactos`);
-    console.log(`🔑 Configuración ElevenLabs:`, {
-      apiKey: ELEVENLABS_API_KEY ? '✅ Configurada' : '❌ No configurada',
-      agentId: ELEVENLABS_AGENT_ID ? '✅ Configurado' : '❌ No configurado',
-      phoneNumberId: ELEVENLABS_PHONE_NUMBER_ID ? '✅ Configurado' : '❌ No configurado',
-      baseUrl: ELEVENLABS_BASE_URL
-    });
+    console.log(`🔑 Configuración ElevenLabs:`);
+    console.log(`  - ELEVENLABS_BASE_URL: ${ELEVENLABS_BASE_URL}`);
+    console.log(`  - ELEVENLABS_AGENT_ID: ${ELEVENLABS_AGENT_ID}`);
+    console.log(`  - ELEVENLABS_PHONE_NUMBER_ID: ${ELEVENLABS_PHONE_NUMBER_ID}`);
+    console.log(`  - ELEVENLABS_PROJECT_ID: ${ELEVENLABS_PROJECT_ID}`);
+    console.log(`  - API Key: ${ELEVENLABS_API_KEY ? '✅ Configurada' : '❌ No configurada'}`);
+    console.log(`  - Agent ID: ${ELEVENLABS_AGENT_ID ? '✅ Configurado' : '❌ No configurado'}`);
+    console.log(`  - Phone Number ID: ${ELEVENLABS_PHONE_NUMBER_ID ? '✅ Configurado' : '❌ No configurado'}`);
+    console.log(`  - Project ID: ${ELEVENLABS_PROJECT_ID ? '✅ Configurado' : '❌ No configurado'}`);
+
+    // Test básico de conectividad - Verificar API key
+    console.log(`🧪 Probando conectividad básica...`);
+    try {
+      const testResponse = await fetch(`${ELEVENLABS_BASE_URL}/v1/user`, {
+        headers: { 'xi-api-key': ELEVENLABS_API_KEY }
+      });
+      console.log(`✅ API Key test status: ${testResponse.status}`);
+      if (!testResponse.ok) {
+        throw new Error(`API Key test failed: ${testResponse.status} - ${testResponse.statusText}`);
+      }
+      const userData = await testResponse.json();
+      console.log(`✅ Usuario autenticado: ${userData.first_name || 'N/A'}`);
+    } catch (error) {
+      console.warn(`⚠️ API Key test warning: ${error.message}`);
+    }
 
     // Llamar a ElevenLabs API
-    const fullUrl = `${ELEVENLABS_BASE_URL}/v1/convai/batch-calls`;
+    const fullUrl = `${ELEVENLABS_BASE_URL}/v1/batch-calls`;
     console.log(`🔍 Debug URLs:`);
     console.log(`  - ELEVENLABS_BASE_URL: ${ELEVENLABS_BASE_URL}`);
     console.log(`  - URL completa: ${fullUrl}`);
@@ -1513,7 +1532,7 @@ router.get('/test-elevenlabs', async (req, res) => {
     
     // Test Agent ID
     console.log('🔍 Probando Agent ID...');
-    const agentResponse = await fetch(`${ELEVENLABS_BASE_URL}/v1/convai/agents`, {
+    const agentResponse = await fetch(`${ELEVENLABS_BASE_URL}/v1/agents`, {
       headers: { 'xi-api-key': ELEVENLABS_API_KEY }
     });
     
@@ -1526,7 +1545,7 @@ router.get('/test-elevenlabs', async (req, res) => {
     
     // Test Phone Numbers
     console.log('🔍 Probando Phone Numbers...');
-    const phoneResponse = await fetch(`${ELEVENLABS_BASE_URL}/v1/convai/phone-numbers`, {
+    const phoneResponse = await fetch(`${ELEVENLABS_BASE_URL}/v1/phone-numbers`, {
       headers: { 'xi-api-key': ELEVENLABS_API_KEY }
     });
     
