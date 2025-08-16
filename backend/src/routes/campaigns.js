@@ -10,7 +10,7 @@ const router = express.Router();
 
 // Configuración ElevenLabs
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
-const ELEVENLABS_BASE_URL = process.env.ELEVENLABS_BASE_URL || 'https://api.elevenlabs.io/v1';
+const ELEVENLABS_BASE_URL = process.env.ELEVENLABS_BASE_URL || 'https://api.elevenlabs.io';
 const ELEVENLABS_AGENT_ID = process.env.ELEVENLABS_AGENT_ID;
 const ELEVENLABS_PHONE_NUMBER_ID = process.env.ELEVENLABS_PHONE_NUMBER_ID;
 const ELEVENLABS_PROJECT_ID = process.env.ELEVENLABS_PROJECT_ID;
@@ -84,10 +84,15 @@ async function executeBatchWithElevenLabs(batchId) {
     });
 
     // Llamar a ElevenLabs API
-    console.log(`📡 Llamando a ElevenLabs API: ${ELEVENLABS_BASE_URL}/v1/convai/batch-calls`);
+    const fullUrl = `${ELEVENLABS_BASE_URL}/v1/convai/batch-calls`;
+    console.log(`🔍 Debug URLs:`);
+    console.log(`  - ELEVENLABS_BASE_URL: ${ELEVENLABS_BASE_URL}`);
+    console.log(`  - URL completa: ${fullUrl}`);
+    console.log(`  - API Key: ${ELEVENLABS_API_KEY?.substring(0, 10)}...`);
+    console.log(`📡 Llamando a ElevenLabs API: ${fullUrl}`);
     console.log(`📋 Request body:`, JSON.stringify(requestBody, null, 2));
     
-    const response = await fetch(`${ELEVENLABS_BASE_URL}/v1/convai/batch-calls`, {
+    const response = await fetch(fullUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
