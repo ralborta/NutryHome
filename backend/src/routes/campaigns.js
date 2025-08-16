@@ -115,7 +115,7 @@ async function executeBatchWithElevenLabs(batchId) {
     }
 
     // Llamar a ElevenLabs API
-    const fullUrl = `${ELEVENLABS_BASE_URL}/v1/batch-calls`;
+    const fullUrl = `${ELEVENLABS_BASE_URL}/v1/convai/batch-calling/submit`;
     console.log(`🔍 Debug URLs:`);
     console.log(`  - ELEVENLABS_BASE_URL: ${ELEVENLABS_BASE_URL}`);
     console.log(`  - URL completa: ${fullUrl}`);
