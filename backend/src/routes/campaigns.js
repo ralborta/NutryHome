@@ -1162,186 +1162,6 @@ router.post('/upload', upload.single('file'), async (req, res) => {
   }
 });
 
-// GET /campaigns/:id/contacts - Obtener contactos de una campaña (endpoint simple)
-router.get('/:campaignId/contacts', async (req, res) => {
-  try {
-    const { campaignId } = req.params;
-
-    // Verificar que la campaña existe
-    const campaign = await prisma.campaign.findUnique({
-      where: { id: campaignId },
-      include: {
-        batches: {
-          include: {
-            contacts: true
-          }
-        }
-      }
-    });
-
-    if (!campaign) {
-      return res.status(404).json({ error: 'Campaña no encontrada' });
-    }
-
-    // Obtener todos los contactos de todos los batches de la campaña
-    const allContacts = [];
-    campaign.batches.forEach(batch => {
-      batch.contacts.forEach(contact => {
-        allContacts.push({
-          id: contact.id,
-          batchId: batch.id,
-          batchName: batch.nombre,
-          nombre: contact.nombre_paciente || contact.nombre_contacto || 'Sin nombre',
-          telefono: contact.phone_number,
-          nombre_contacto: contact.nombre_contacto,
-          nombre_paciente: contact.nombre_paciente,
-          domicilio_actual: contact.domicilio_actual,
-          localidad: contact.localidad,
-          delegacion: contact.delegacion,
-          fecha_envio: contact.fecha_envio,
-          producto1: contact.producto1,
-          cantidad1: contact.cantidad1,
-          producto2: contact.producto2,
-          cantidad2: contact.cantidad2,
-          producto3: contact.producto3,
-          cantidad3: contact.cantidad3,
-          producto4: contact.producto4,
-          cantidad4: contact.cantidad4,
-          producto5: contact.producto5,
-          cantidad5: contact.cantidad5,
-          observaciones: contact.observaciones,
-          prioridad: contact.prioridad,
-          estado_pedido: contact.estado_pedido,
-          estado_llamada: contact.estado_llamada,
-          resultado_llamada: contact.resultado_llamada,
-          fecha_llamada: contact.fecha_llamada,
-          duracion_llamada: contact.duracion_llamada,
-          createdAt: contact.createdAt
-        });
-      });
-    });
-
-    res.json({
-      success: true,
-      campaign: {
-        id: campaign.id,
-        nombre: campaign.nombre,
-        estado: campaign.estado
-      },
-      contacts: allContacts,
-      total: allContacts.length
-    });
-
-  } catch (error) {
-    console.error('Error obteniendo contactos de la campaña:', error);
-    res.status(500).json({ 
-      error: 'Error interno del servidor',
-      details: process.env.NODE_ENV === 'development' ? error.message : 'Contacta al administrador'
-    });
-  }
-});
-
-// POST /campaigns/batch/:batchId/execute - Ejecutar un batch completo
-router.post('/batch/:batchId/execute', async (req, res) => {
-  try {
-    const { batchId } = req.params;
-    
-    // Ejecutar batch de forma asíncrona
-    executeBatchWithElevenLabs(batchId)
-      .then(result => {
-        console.log(`✅ Batch ${batchId} ejecutado exitosamente:`, result);
-      })
-      .catch(error => {
-        console.error(`❌ Error ejecutando batch ${batchId}:`, error);
-      });
-
-    res.json({ 
-      success: true, 
-      message: 'Ejecución del batch iniciada', 
-      batchId: batchId, 
-      status: 'PROCESSING' 
-    });
-
-  } catch (error) {
-    console.error('Error iniciando ejecución del batch:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Error iniciando ejecución del batch',
-      details: error.message 
-    });
-  }
-});
-
-// GET /campaigns/batch/:batchId/sync - Sincronizar estado del batch con ElevenLabs
-router.get('/campaigns/batch/:batchId/sync', async (req, res) => {
-  const { batchId } = req.params;
-  try {
-    const batch = await prisma.batch.findUnique({ where: { id: batchId } });
-    if (!batch?.elevenLabsBatchId) return res.status(400).json({ ok:false, error:'Falta elevenLabsBatchId' });
-
-    const r = await fetch(`${ELEVENLABS_BASE_URL}/v1/convai/batch-calling/${batch.elevenLabsBatchId}`, {
-      headers: {
-        'xi-api-key': ELEVENLABS_API_KEY,
-        ...(ELEVENLABS_PROJECT_ID ? { 'xi-project-id': ELEVENLABS_PROJECT_ID } : {})
-      }
-    });
-    const txt = await r.text();
-    let json; try { json = JSON.parse(txt); } catch { json = { raw: txt }; }
-    if (!r.ok) return res.status(r.status).json({ ok:false, payload: json });
-
-    const { batchStatus, rows } = parseBatchResponse(json);
-
-    for (const row of rows) {
-      const whereByPhone = { batchId, telefono: dbPhoneKey(row.phone_number) };
-      const data = {
-        estado: mapStatusToPrisma(row.status_raw),
-        duracion: row.duration_sec,
-        fechaEjecutada: row.started_at ? new Date(row.started_at) : undefined,
-        callId: row.call_id ?? undefined,
-        resultado: row.status_raw
-      };
-
-      // intenta por call_id si ya existe
-      if (row.call_id) {
-        const updById = await prisma.outboundCall.updateMany({
-          where: { ...whereByPhone, callId: row.call_id },
-          data
-        });
-        if (updById.count > 0) continue;
-      }
-
-      // sino por phone (lo más confiable en este flujo)
-      const updByPhone = await prisma.outboundCall.updateMany({ where: whereByPhone, data });
-      if (updByPhone.count === 0) {
-        // opcional: crear si no existía
-        await prisma.outboundCall.create({
-          data: { 
-            batchId, 
-            telefono: dbPhoneKey(row.phone_number), 
-            estado: mapStatusToPrisma(row.status_raw),
-            duracion: row.duration_sec,
-            fechaEjecutada: row.started_at ? new Date(row.started_at) : undefined,
-            callId: row.call_id ?? undefined,
-            resultado: row.status_raw,
-            nombre: 'Contacto sincronizado',
-            intentos: 0
-          }
-        });
-      }
-    }
-
-    await prisma.batch.update({
-      where: { id: batchId },
-      data: { estado: mapStatusToPrisma(batchStatus), updatedAt: new Date() }
-    });
-
-    const counts = rows.reduce((acc, r) => (acc[mapStatusToPrisma(r.status_raw)] = (acc[mapStatusToPrisma(r.status_raw)]||0) + 1, acc), {});
-    res.json({ ok:true, batchId, batchStatus: mapStatusToPrisma(batchStatus), counts });
-  } catch (e) {
-    res.status(500).json({ ok:false, error: String(e) });
-  }
-});
-
 // GET /campaigns/batch/:batchId/calls - Obtener llamadas de un batch específico
 router.get('/campaigns/batch/:batchId/calls', async (req, res) => {
   try {
@@ -1711,6 +1531,214 @@ router.get('/test-elevenlabs', async (req, res) => {
       success: false,
       error: 'Error verificando configuración de ElevenLabs',
       details: error.message
+    });
+  }
+});
+
+// GET /campaigns/batch/:batchId/sync - Sincronizar estado del batch con ElevenLabs (OPTIMIZADO)
+router.get('/campaigns/batch/:batchId/sync', async (req, res) => {
+  const { batchId } = req.params;
+  try {
+    console.log(`🔄 Iniciando sincronización del batch ${batchId}`);
+    
+    const batch = await prisma.batch.findUnique({ 
+      where: { id: batchId },
+      include: { contacts: true }
+    });
+    
+    if (!batch?.elevenLabsBatchId) {
+      return res.status(400).json({ 
+        ok: false, 
+        error: 'Falta elevenLabsBatchId. Ejecuta primero el batch.' 
+      });
+    }
+
+    console.log(`📡 Sincronizando con ElevenLabs batch: ${batch.elevenLabsBatchId}`);
+
+    // 1. Obtener estado del batch desde ElevenLabs
+    const batchResponse = await fetch(`${ELEVENLABS_BASE_URL}/v1/convai/batch-calling/${batch.elevenLabsBatchId}`, {
+      headers: {
+        'xi-api-key': ELEVENLABS_API_KEY,
+        ...(ELEVENLABS_PROJECT_ID ? { 'xi-project-id': ELEVENLABS_PROJECT_ID } : {})
+      }
+    });
+    
+    if (!batchResponse.ok) {
+      console.error(`❌ Error obteniendo batch desde ElevenLabs: ${batchResponse.status}`);
+      return res.status(batchResponse.status).json({ 
+        ok: false, 
+        error: `Error ElevenLabs: ${batchResponse.status}`,
+        details: await batchResponse.text()
+      });
+    }
+
+    const batchData = await batchResponse.json();
+    console.log(`✅ Batch obtenido desde ElevenLabs:`, {
+      id: batchData.id,
+      status: batchData.status,
+      total_calls: batchData.total_calls
+    });
+
+    // 2. Obtener conversaciones individuales
+    const conversationsResponse = await fetch(`${ELEVENLABS_BASE_URL}/v1/convai/conversations?batch_id=${batch.elevenLabsBatchId}`, {
+      headers: {
+        'xi-api-key': ELEVENLABS_API_KEY,
+        ...(ELEVENLABS_PROJECT_ID ? { 'xi-project-id': ELEVENLABS_PROJECT_ID } : {})
+      }
+    });
+
+    if (!conversationsResponse.ok) {
+      console.error(`❌ Error obteniendo conversaciones: ${conversationsResponse.status}`);
+      return res.status(conversationsResponse.status).json({ 
+        ok: false, 
+        error: `Error obteniendo conversaciones: ${conversationsResponse.status}` 
+      });
+    }
+
+    const conversationsData = await conversationsResponse.json();
+    const conversations = conversationsData.conversations || [];
+    
+    console.log(`📞 Procesando ${conversations.length} conversaciones`);
+
+    // 3. Procesar cada conversación y actualizar DB
+    let updatedCalls = 0;
+    let newCalls = 0;
+    const statusCounts = {};
+
+    for (const conv of conversations) {
+      try {
+        const conversationId = conv.conversation_id;
+        const phoneNumber = conv.metadata?.phone_number;
+        const status = conv.status || 'unknown';
+        const callResult = conv.analysis?.call_result || 'unknown';
+        const duration = conv.metadata?.call_duration_secs;
+        const startTime = conv.metadata?.start_time_unix_secs;
+
+        // Mapear estado a tu enum
+        const mappedStatus = mapStatusToPrisma(status);
+        statusCounts[mappedStatus] = (statusCounts[mappedStatus] || 0) + 1;
+
+        // Buscar y actualizar outboundCall
+        const whereClause = { batchId };
+        
+        // Intentar por conversation_id primero
+        if (conversationId) {
+          whereClause.callId = conversationId;
+        }
+        
+        // Fallback por número de teléfono
+        if (phoneNumber && !conversationId) {
+          whereClause.telefono = dbPhoneKey(phoneNumber);
+        }
+
+        if (whereClause.callId || whereClause.telefono) {
+          const updateResult = await prisma.outboundCall.updateMany({
+            where: whereClause,
+            data: {
+              estado: mappedStatus,
+              duracion: duration || undefined,
+              fechaEjecutada: startTime ? new Date(startTime * 1000) : undefined,
+              resultado: callResult,
+              callId: conversationId || undefined
+            }
+          });
+
+          if (updateResult.count > 0) {
+            updatedCalls++;
+            console.log(`✅ Actualizada llamada: ${conversationId || phoneNumber} → ${mappedStatus}`);
+          } else {
+            // Crear nueva llamada si no existe
+            const newCall = await prisma.outboundCall.create({
+              data: {
+                batchId,
+                telefono: dbPhoneKey(phoneNumber || 'unknown'),
+                estado: mappedStatus,
+                duracion: duration || undefined,
+                fechaEjecutada: startTime ? new Date(startTime * 1000) : undefined,
+                resultado: callResult,
+                callId: conversationId || undefined,
+                nombre: 'Llamada sincronizada',
+                intentos: 0
+              }
+            });
+            newCalls++;
+            console.log(`🆕 Nueva llamada creada: ${conversationId || phoneNumber}`);
+          }
+        }
+
+      } catch (convError) {
+        console.error(`❌ Error procesando conversación:`, convError);
+      }
+    }
+
+    // 4. Actualizar estado del batch
+    const batchStatus = mapStatusToPrisma(batchData.status);
+    await prisma.batch.update({
+      where: { id: batchId },
+      data: { 
+        estado: batchStatus, 
+        updatedAt: new Date(),
+        lastSyncedAt: new Date()
+      }
+    });
+
+    console.log(`✅ Sincronización completada:`, {
+      batchId,
+      batchStatus,
+      updatedCalls,
+      newCalls,
+      statusCounts
+    });
+
+    res.json({ 
+      ok: true, 
+      batchId, 
+      batchStatus,
+      summary: {
+        totalConversations: conversations.length,
+        updatedCalls,
+        newCalls,
+        statusCounts
+      }
+    });
+
+  } catch (e) {
+    console.error('❌ Error en sincronización:', e);
+    res.status(500).json({ 
+      ok: false, 
+      error: String(e),
+      batchId 
+    });
+  }
+});
+
+// POST /campaigns/batch/:batchId/execute - Ejecutar un batch completo
+router.post('/batch/:batchId/execute', async (req, res) => {
+  try {
+    const { batchId } = req.params;
+    
+    // Ejecutar batch de forma asíncrona
+    executeBatchWithElevenLabs(batchId)
+      .then(result => {
+        console.log(`✅ Batch ${batchId} ejecutado exitosamente:`, result);
+      })
+      .catch(error => {
+        console.error(`❌ Error ejecutando batch ${batchId}:`, error);
+      });
+
+    res.json({ 
+      success: true, 
+      message: 'Ejecución del batch iniciada', 
+      batchId: batchId, 
+      status: 'PROCESSING' 
+    });
+
+  } catch (error) {
+    console.error('Error iniciando ejecución del batch:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Error iniciando ejecución del batch',
+      details: error.message 
     });
   }
 });
