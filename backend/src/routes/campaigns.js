@@ -6,25 +6,28 @@ const { body, validationResult } = require('express-validator');
 const { prisma } = require('../database/client');
 const xlsx = require('xlsx');
 
+// Forzar runtime Node.js para evitar Edge Runtime
+process.env.NODE_ENV = process.env.NODE_ENV || 'development';
+
 const router = express.Router();
 
-// Configuración ElevenLabs
-const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
-const ELEVENLABS_BASE_URL = process.env.ELEVENLABS_BASE_URL || 'https://api.elevenlabs.io';
-const ELEVENLABS_AGENT_ID = process.env.ELEVENLABS_AGENT_ID;
-const ELEVENLABS_PHONE_NUMBER_ID = process.env.ELEVENLABS_PHONE_NUMBER_ID;
+// Configuración ElevenLabs con sanitización
+const ELEVENLABS_API_KEY = (process.env.ELEVENLABS_API_KEY ?? '').trim();
+const ELEVENLABS_BASE_URL = ((process.env.ELEVENLABS_BASE_URL ?? 'https://api.elevenlabs.io').trim()).replace(/\/+$/, '');
+const ELEVENLABS_AGENT_ID = (process.env.ELEVENLABS_AGENT_ID ?? '').trim().replace(/^=+/, '');
+const ELEVENLABS_PHONE_NUMBER_ID = (process.env.ELEVENLABS_PHONE_NUMBER_ID ?? '').trim().replace(/^=+/, '');
 const ELEVENLABS_PROJECT_ID = process.env.ELEVENLABS_PROJECT_ID;
 
 // Validar configuración ElevenLabs
 function validateElevenLabsConfig() {
   if (!ELEVENLABS_API_KEY) {
-    throw new Error('ELEVENLABS_API_KEY no configurada');
+    throw new Error('ELEVENLABS_API_KEY vacío');
   }
   if (!ELEVENLABS_AGENT_ID) {
-    throw new Error('ELEVENLABS_AGENT_ID no configurado');
+    throw new Error('ELEVENLABS_AGENT_ID vacío');
   }
   if (!ELEVENLABS_PHONE_NUMBER_ID) {
-    throw new Error('ELEVENLABS_PHONE_NUMBER_ID no configurado');
+    throw new Error('ELEVENLABS_PHONE_NUMBER_ID vacío');
   }
   return true;
 }
@@ -96,6 +99,12 @@ async function executeBatchWithElevenLabs(batchId) {
     console.log(`  - Agent ID: ${ELEVENLABS_AGENT_ID ? '✅ Configurado' : '❌ No configurado'}`);
     console.log(`  - Phone Number ID: ${ELEVENLABS_PHONE_NUMBER_ID ? '✅ Configurado' : '❌ No configurado'}`);
     console.log(`  - Project ID: ${ELEVENLABS_PROJECT_ID ? '✅ Configurado' : '❌ No configurado'}`);
+    
+    // Debug logs para detectar saltos de línea ocultos
+    console.log('🔍 Debug variables (longitud/hex):');
+    console.log('  - API Key len/hex:', ELEVENLABS_API_KEY.length, Buffer.from(ELEVENLABS_API_KEY).toString('hex'));
+    console.log('  - Agent ID len/hex:', ELEVENLABS_AGENT_ID.length, Buffer.from(ELEVENLABS_AGENT_ID).toString('hex'));
+    console.log('  - Phone Number ID len/hex:', ELEVENLABS_PHONE_NUMBER_ID.length, Buffer.from(ELEVENLABS_PHONE_NUMBER_ID).toString('hex'));
 
     // Test básico de conectividad - Verificar API key
     console.log(`🧪 Probando conectividad básica...`);
@@ -132,8 +141,14 @@ async function executeBatchWithElevenLabs(batchId) {
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(`ElevenLabs API Error: ${response.status} - ${errorData.detail || 'Unknown error'}`);
+      const raw = await response.text();
+      let parsed; 
+      try { 
+        parsed = JSON.parse(raw); 
+      } catch { 
+        parsed = { raw }; 
+      }
+      throw new Error(`ElevenLabs API Error ${response.status}: ${JSON.stringify(parsed)}`);
     }
 
     const elevenLabsResponse = await response.json();
@@ -156,7 +171,7 @@ async function executeBatchWithElevenLabs(batchId) {
     return {
       success: true,
       batchId: batchId,
-      elevenLabsBatchId: elevenLabsResponse.batch_id,
+      elevenLabsBatchId: elevenLabsResponse.id, // Usar .id en lugar de .batch_id
       totalCalls: batch.contacts.length,
       message: 'Batch ejecutado exitosamente'
     };
