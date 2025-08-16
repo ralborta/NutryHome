@@ -105,19 +105,18 @@ async function executeBatchWithElevenLabs(batchId) {
     console.log(`✅ Batch ${batchId} iniciado exitosamente en ElevenLabs:`, elevenLabsResponse);
 
     // Crear registros de llamadas en la base de datos
-    const batchCalls = batch.contacts.map(contact => ({
+    const outboundCalls = batch.contacts.map(contact => ({
       batchId: batchId,
       contactId: contact.id,
       phoneNumber: contact.phone_number,
-      status: 'queued',
+      estado: 'QUEUED',
       elevenlabsCallId: elevenLabsResponse.calls?.find(c => c.phone_number === formatPhoneNumber(contact.phone_number))?.call_id,
       variables: contact,
       retryCount: 0
     }));
 
     // Crear registros de llamadas en la base de datos
-    // Nota: Por ahora solo actualizamos el estado del batch
-    // Los registros de llamadas se crearán cuando implementemos el modelo BatchCall
+    await prisma.outboundCall.createMany({ data: outboundCalls });
 
     return {
       success: true,
@@ -1404,12 +1403,12 @@ router.post('/batch/:batchId/cancel', async (req, res) => {
     });
 
     // Cancelar llamadas pendientes
-    await prisma.batchCall.updateMany({
+    await prisma.outboundCall.updateMany({
       where: { 
         batchId: batchId,
-        status: { in: ['pending', 'queued'] }
+        estado: { in: ['PENDING', 'QUEUED'] }
       },
-      data: { status: 'cancelled' }
+      data: { estado: 'CANCELLED' }
     });
 
     res.json({ 
