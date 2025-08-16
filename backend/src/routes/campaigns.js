@@ -1282,8 +1282,7 @@ router.get('/batch/:batchId/status', async (req, res) => {
     const batch = await prisma.batch.findUnique({
       where: { id: batchId },
       include: { 
-        contacts: true,
-        batchCalls: true
+        contacts: true
       }
     });
 
@@ -1294,31 +1293,25 @@ router.get('/batch/:batchId/status', async (req, res) => {
       });
     }
 
-    // Calcular progreso
+    // Calcular progreso basado en el estado del batch
     const totalContacts = batch.contacts.length;
-    const completedCalls = batch.batchCalls.filter(call => call.status === 'completed').length;
-    const failedCalls = batch.batchCalls.filter(call => call.status === 'failed').length;
-    const inProgressCalls = batch.batchCalls.filter(call => call.status === 'in_progress').length;
-    const pendingCalls = batch.batchCalls.filter(call => call.status === 'pending' || call.status === 'queued').length;
+    const completedCalls = batch.status === 'completed' ? totalContacts : 0;
+    const failedCalls = batch.status === 'failed' ? totalContacts : 0;
+    const inProgressCalls = batch.status === 'processing' ? totalContacts : 0;
+    const pendingCalls = batch.status === 'pending' ? totalContacts : 0;
     
     const progress = totalContacts > 0 ? Math.round(((completedCalls + failedCalls) / totalContacts) * 100) : 0;
 
     // Obtener estado de ElevenLabs si está en progreso
     let elevenLabsStatus = null;
-    if (batch.status === 'processing' && batch.batchCalls.length > 0) {
+    if (batch.status === 'processing') {
       try {
-        // validateElevenLabsConfig(); // This function is not defined in the original file, so it's commented out
-        
-        // Aquí podrías hacer polling a ElevenLabs para obtener estado actualizado
-        // Por ahora usamos el estado de la base de datos
+        // Por ahora usamos el estado del batch
         elevenLabsStatus = {
-          calls: batch.batchCalls.map(call => ({
-            call_id: call.elevenlabsCallId || call.id,
-            status: call.status,
-            duration: call.duration,
-            result: call.result,
-            error: call.error,
-            variables: call.variables
+          calls: batch.contacts.map(contact => ({
+            call_id: contact.id,
+            status: 'queued',
+            variables: contact
           }))
         };
       } catch (error) {
