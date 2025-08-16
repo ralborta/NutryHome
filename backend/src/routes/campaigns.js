@@ -44,7 +44,7 @@ async function executeBatchWithElevenLabs(batchId) {
       throw new Error(`Batch ${batchId} no encontrado`);
     }
 
-    if (batch.status !== 'pending') {
+    if (batch.estado !== 'PENDING') {
       throw new Error(`Batch ${batchId} no está en estado pendiente`);
     }
 
