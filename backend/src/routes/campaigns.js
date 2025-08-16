@@ -51,10 +51,9 @@ async function executeBatchWithElevenLabs(batchId) {
     // Actualizar estado del batch
     await prisma.batch.update({
       where: { id: batchId },
-              data: { 
-          estado: 'PROCESSING',
-          startedAt: new Date()
-        }
+      data: { 
+        estado: 'PROCESSING'
+      }
     });
 
     // Preparar contactos para ElevenLabs
