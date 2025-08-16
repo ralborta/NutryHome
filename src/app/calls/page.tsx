@@ -192,7 +192,7 @@ export default function CallsManagement() {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://nutryhome-production.up.railway.app'}/api/campaigns/batch/${batch.id}/contacts`);
       if (response.ok) {
         const data = await response.json();
-        setBatchContacts(data.contacts || []);
+        setBatchContacts(data || []);
       } else {
         // Si no hay datos reales, usar datos de ejemplo basados en el nombre del batch
         console.log('No se pudieron obtener datos reales, usando datos de ejemplo');
