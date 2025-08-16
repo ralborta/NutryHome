@@ -65,25 +65,24 @@ async function executeBatchWithElevenLabs(batchId) {
       agent_phone_number_id: ELEVENLABS_PHONE_NUMBER_ID,
       recipients: batch.contacts.map(contact => ({
         phone_number: formatPhoneNumber(contact.phone_number),
-        variables: {
-          nombre_contacto: contact.nombre_contacto || "",
-          nombre_paciente: contact.nombre_paciente || "",
-          domicilio_actual: contact.domicilio_actual || "",
-          localidad: contact.localidad || "",
-          delegacion: contact.delegacion || "",
-          fecha_envio: formatDate(contact.fecha_envio) || "",
-          observaciones: contact.observaciones || "",
-          producto1: contact.producto1 || "",
-          cantidad1: contact.cantidad1 || "",
-          producto2: contact.producto2 || "",
-          cantidad2: contact.cantidad2 || "",
-          producto3: contact.producto3 || "",
-          cantidad3: contact.cantidad3 || "",
-          producto4: contact.producto4 || "",
-          cantidad4: contact.cantidad4 || "",
-          producto5: contact.producto5 || "",
-          cantidad5: contact.cantidad5 || ""
-        }
+        // Variables van DIRECTAMENTE aquí, NO anidadas
+        nombre_contacto: contact.nombre_contacto || "",
+        nombre_paciente: contact.nombre_paciente || "",
+        domicilio_actual: contact.domicilio_actual || "",
+        localidad: contact.localidad || "",
+        delegacion: contact.delegacion || "",
+        fecha_envio: formatDate(contact.fecha_envio) || "",
+        observaciones: contact.observaciones || "",
+        producto1: contact.producto1 || "",
+        cantidad1: contact.cantidad1 || "",
+        producto2: contact.producto2 || "",
+        cantidad2: contact.cantidad2 || "",
+        producto3: contact.producto3 || "",
+        cantidad3: contact.cantidad3 || "",
+        producto4: contact.producto4 || "",
+        cantidad4: contact.cantidad4 || "",
+        producto5: contact.producto5 || "",
+        cantidad5: contact.cantidad5 || ""
       }))
     };
 
