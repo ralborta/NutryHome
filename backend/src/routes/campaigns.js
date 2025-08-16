@@ -66,6 +66,7 @@ async function executeBatchWithElevenLabs(batchId) {
       call_name: batch.nombre || `Entrega Médica - Batch ${batchId}`,
       agent_id: ELEVENLABS_AGENT_ID,
       agent_phone_number_id: ELEVENLABS_PHONE_NUMBER_ID,
+      scheduled_time_unix: null, // ← ¡Campo obligatorio! null = inmediato
       recipients: batch.contacts.map(contact => ({
         phone_number: formatPhoneNumber(contact.phone_number),
         // Variables van DIRECTAMENTE aquí, NO anidadas
@@ -130,6 +131,15 @@ async function executeBatchWithElevenLabs(batchId) {
     console.log(`  - API Key: ${ELEVENLABS_API_KEY?.substring(0, 10)}...`);
     console.log(`📡 Llamando a ElevenLabs API: ${fullUrl}`);
     console.log(`📋 Request body:`, JSON.stringify(requestBody, null, 2));
+    
+    // Verificar que el payload tenga todos los campos requeridos
+    console.log('🔍 Verificación del payload:');
+    console.log('  - call_name:', !!requestBody.call_name);
+    console.log('  - agent_id:', !!requestBody.agent_id);
+    console.log('  - agent_phone_number_id:', !!requestBody.agent_phone_number_id);
+    console.log('  - scheduled_time_unix:', requestBody.scheduled_time_unix, typeof requestBody.scheduled_time_unix);
+    console.log('  - recipients count:', requestBody.recipients?.length);
+    console.log('  - first recipient phone:', requestBody.recipients?.[0]?.phone_number);
     
     const response = await fetch(fullUrl, {
       method: 'POST',
