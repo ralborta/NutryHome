@@ -183,7 +183,7 @@ async function executeBatchWithElevenLabs(batchId) {
     const outboundCalls = batch.contacts.map(contact => ({
       batchId: batchId,
       contactId: contact.id,
-      phoneNumber: contact.phone_number,
+      telefono: contact.phone_number, // ← Usar telefono (campo real en DB)
       estado: 'QUEUED',
       elevenlabsCallId: elevenLabsResponse.calls?.find(c => c.phone_number === formatPhoneNumber(contact.phone_number))?.call_id,
       variables: contact,
