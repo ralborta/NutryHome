@@ -142,6 +142,16 @@ app.get('/api', (req, res) => {
   });
 });
 
+// Health check simple para Railway
+app.get('/', (req, res) => {
+  res.json({
+    status: 'OK',
+    service: 'NutryHome API',
+    timestamp: new Date().toISOString(),
+    message: 'Servidor funcionando correctamente'
+  });
+});
+
 // Middleware para manejo de errores
 app.use(notFound);
 app.use(errorHandler);
@@ -196,15 +206,27 @@ process.on('uncaughtException', (err) => {
 
 // Manejo de cierre graceful
 process.on('SIGTERM', async () => {
-  console.log('🔄 Cerrando servidor...');
-  await prisma.$disconnect();
-  process.exit(0);
+  console.log('🔄 Señal SIGTERM recibida, cerrando servidor gracefulmente...');
+  try {
+    await prisma.$disconnect();
+    console.log('✅ Base de datos desconectada correctamente');
+    process.exit(0);
+  } catch (error) {
+    console.error('❌ Error durante cierre graceful:', error);
+    process.exit(1);
+  }
 });
 
 process.on('SIGINT', async () => {
-  console.log('🔄 Cerrando servidor...');
-  await prisma.$disconnect();
-  process.exit(0);
+  console.log('🔄 Señal SIGINT recibida, cerrando servidor gracefulmente...');
+  try {
+    await prisma.$disconnect();
+    console.log('✅ Base de datos desconectada correctamente');
+    process.exit(0);
+  } catch (error) {
+    console.error('❌ Error durante cierre graceful:', error);
+    process.exit(1);
+  }
 });
 
 // Iniciar el servidor
