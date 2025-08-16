@@ -162,9 +162,9 @@ class CSVProcessor {
       // Procesar productos (hasta 5)
       for (let i = 1; i <= 5; i++) {
         if (cleanHeader.includes(`producto${i}`) || cleanHeader.includes(`medicamento${i}`)) {
-          contact[`producto${i}` as keyof ContactData] = String(value).trim();
+          (contact as any)[`producto${i}`] = String(value).trim();
         } else if (cleanHeader.includes(`cantidad${i}`) || cleanHeader.includes(`qty${i}`)) {
-          contact[`cantidad${i}` as keyof ContactData] = String(value).trim();
+          (contact as any)[`cantidad${i}`] = String(value).trim();
         }
       }
     });
