@@ -51,10 +51,10 @@ async function executeBatchWithElevenLabs(batchId) {
     // Actualizar estado del batch
     await prisma.batch.update({
       where: { id: batchId },
-      data: { 
-        status: 'processing',
-        startedAt: new Date()
-      }
+              data: { 
+          estado: 'PROCESSING',
+          startedAt: new Date()
+        }
     });
 
     // Preparar contactos para ElevenLabs
@@ -134,7 +134,7 @@ async function executeBatchWithElevenLabs(batchId) {
     // Revertir estado del batch
     await prisma.batch.update({
       where: { id: batchId },
-      data: { status: 'failed' }
+      data: { estado: 'FAILED' }
     });
 
     throw error;
@@ -1305,16 +1305,16 @@ router.get('/batch/:batchId/status', async (req, res) => {
 
     // Calcular progreso basado en el estado del batch
     const totalContacts = batch.contacts.length;
-    const completedCalls = batch.status === 'completed' ? totalContacts : 0;
-    const failedCalls = batch.status === 'failed' ? totalContacts : 0;
-    const inProgressCalls = batch.status === 'processing' ? totalContacts : 0;
-    const pendingCalls = batch.status === 'pending' ? totalContacts : 0;
+    const completedCalls = batch.estado === 'COMPLETED' ? totalContacts : 0;
+    const failedCalls = batch.estado === 'FAILED' ? totalContacts : 0;
+    const inProgressCalls = batch.estado === 'PROCESSING' ? totalContacts : 0;
+    const pendingCalls = batch.estado === 'PENDING' ? totalContacts : 0;
     
     const progress = totalContacts > 0 ? Math.round(((completedCalls + failedCalls) / totalContacts) * 100) : 0;
 
     // Obtener estado de ElevenLabs si está en progreso
     let elevenLabsStatus = null;
-    if (batch.status === 'processing') {
+    if (batch.estado === 'PROCESSING') {
       try {
         // Por ahora usamos el estado del batch
         elevenLabsStatus = {
@@ -1340,7 +1340,7 @@ router.get('/batch/:batchId/status', async (req, res) => {
       pendingCalls,
       calls: elevenLabsStatus?.calls || [],
       startedAt: batch.startedAt,
-      estimatedCompletion: batch.status === 'processing' ? 
+      estimatedCompletion: batch.estado === 'PROCESSING' ? 
         new Date(Date.now() + (pendingCalls * 60000)) : undefined // Estimación: 1 minuto por llamada pendiente
     };
 
@@ -1372,7 +1372,7 @@ router.post('/batch/:batchId/cancel', async (req, res) => {
       });
     }
 
-    if (batch.status !== 'processing') {
+    if (batch.estado !== 'PROCESSING') {
       return res.status(400).json({ 
         success: false, 
         error: 'Solo se pueden cancelar batches en progreso' 
@@ -1401,7 +1401,7 @@ router.post('/batch/:batchId/cancel', async (req, res) => {
     await prisma.batch.update({
       where: { id: batchId },
       data: { 
-        status: 'cancelled',
+        estado: 'CANCELLED',
         completedAt: new Date()
       }
     });
