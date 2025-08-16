@@ -19,6 +19,8 @@ export interface ContactData {
   producto5?: string;
   cantidad5?: string;
   observaciones?: string;
+  prioridad?: 'BAJA' | 'MEDIA' | 'ALTA';
+  estado_pedido?: 'PENDIENTE' | 'EN_PROCESO' | 'COMPLETADO' | 'CANCELADO';
 }
 
 export interface BatchCall {
