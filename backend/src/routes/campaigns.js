@@ -15,23 +15,32 @@ const ELEVENLABS_AGENT_ID = (process.env.ELEVENLABS_AGENT_ID || '').trim().repla
 const ELEVENLABS_PHONE_NUMBER_ID = (process.env.ELEVENLABS_PHONE_NUMBER_ID || '').trim().replace(/^=+/, '');
 const ELEVENLABS_PROJECT_ID = (process.env.ELEVENLABS_PROJECT_ID || '').trim().replace(/^=+/, '');
 
-// Validar configuración ElevenLabs
+// 🔧 FUNCIÓN PARA VALIDAR CONFIGURACIÓN DE ELEVENLABS
 function validateElevenLabsConfig() {
-  if (!ELEVENLABS_API_KEY) {
-    throw new Error('ELEVENLABS_API_KEY no configurada');
+  const requiredVars = {
+    ELEVENLABS_API_KEY,
+    ELEVENLABS_AGENT_ID,
+    ELEVENLABS_PHONE_NUMBER_ID,
+    ELEVENLABS_BASE_URL
+  };
+  
+  const missing = Object.entries(requiredVars)
+    .filter(([name, value]) => !value)
+    .map(([name]) => name);
+  
+  if (missing.length > 0) {
+    throw new Error(`❌ Configuración de ElevenLabs incompleta. Variables faltantes: ${missing.join(', ')}`);
   }
-  if (!ELEVENLABS_AGENT_ID) {
-    throw new Error('ELEVENLABS_AGENT_ID no configurado');
-  }
-  if (!ELEVENLABS_PHONE_NUMBER_ID) {
-    throw new Error('ELEVENLABS_PHONE_NUMBER_ID no configurado');
-  }
-  return true;
+  
+  console.log('✅ Configuración de ElevenLabs validada');
 }
 
-// Función para ejecutar batch con ElevenLabs
+// 🔧 FUNCIÓN PRINCIPAL CORREGIDA para ElevenLabs Batch Calling
 async function executeBatchWithElevenLabs(batchId) {
   try {
+    console.log(`🚀 Iniciando ejecución de batch ${batchId}`);
+    
+    // Validar configuración de ElevenLabs
     validateElevenLabsConfig();
     
     // Obtener el batch y sus contactos
@@ -45,183 +54,256 @@ async function executeBatchWithElevenLabs(batchId) {
     }
 
     if (batch.estado !== 'PENDING') {
-      throw new Error(`Batch ${batchId} no está en estado pendiente`);
+      throw new Error(`Batch ${batchId} no está en estado PENDING (estado actual: ${batch.estado})`);
     }
 
-    // Actualizar estado del batch
+    if (!batch.contacts || batch.contacts.length === 0) {
+      throw new Error(`Batch ${batchId} no tiene contactos asociados`);
+    }
+
+    console.log(`📞 Procesando ${batch.contacts.length} contactos`);
+
+    // Actualizar estado del batch a PROCESSING
     await prisma.batch.update({
       where: { id: batchId },
       data: { 
-        estado: 'PROCESSING'
+        estado: 'PROCESSING',
+        updatedAt: new Date()
       }
     });
 
-    // Preparar contactos para ElevenLabs (ahora se hace directamente en requestBody)
-
-    // Crear request para ElevenLabs
+    // 🔥 ESTRUCTURA CORREGIDA para ElevenLabs API
     const requestBody = {
       call_name: batch.nombre || `Entrega Médica - Batch ${batchId}`,
       agent_id: ELEVENLABS_AGENT_ID,
       agent_phone_number_id: ELEVENLABS_PHONE_NUMBER_ID,
-      scheduled_time_unix: Math.floor(Date.now() / 1000),
-      recipients: batch.contacts.map(contact => ({
-        phone_number: formatPhoneNumber(contact.phone_number),
-        dynamic_variables: prepareVariablesForElevenLabs(contact)
-      }))
+      scheduled_time_unix: Math.floor(Date.now() / 1000), // Timestamp actual
+      recipients: batch.contacts.map(contact => {
+        // ✅ FORMATO CORRECTO de dynamic_variables como objeto plano
+        const dynamicVars = prepareVariablesForElevenLabs(contact);
+        
+        return {
+          phone_number: formatPhoneNumber(contact.phoneNumber), // Usar phoneNumber del schema
+          // Las variables dinámicas van directamente como propiedades del objeto recipient
+          ...dynamicVars
+        };
+      })
     };
 
-    console.log(`🚀 Ejecutando batch ${batchId} con ${batch.contacts.length} contactos`);
-    console.log(`🔑 Configuración ElevenLabs:`);
-    console.log(`  - ELEVENLABS_BASE_URL: ${ELEVENLABS_BASE_URL}`);
-    console.log(`  - ELEVENLABS_AGENT_ID: ${ELEVENLABS_AGENT_ID}`);
-    console.log(`  - ELEVENLABS_PHONE_NUMBER_ID: ${ELEVENLABS_PHONE_NUMBER_ID}`);
-    console.log(`  - ELEVENLABS_PROJECT_ID: ${ELEVENLABS_PROJECT_ID}`);
-    console.log(`  - API Key: ${ELEVENLABS_API_KEY ? '✅ Configurada' : '❌ No configurada'}`);
-    console.log(`  - Agent ID: ${ELEVENLABS_AGENT_ID ? '✅ Configurado' : '❌ No configurado'}`);
-    console.log(`  - Phone Number ID: ${ELEVENLABS_PHONE_NUMBER_ID ? '✅ Configurado' : '❌ No configurado'}`);
-    console.log(`  - Project ID: ${ELEVENLABS_PROJECT_ID ? '✅ Configurado' : '❌ No configurado'}`);
-
-    // Test básico de conectividad - Verificar API key
-    console.log(`🧪 Probando conectividad básica...`);
-    try {
-      const testResponse = await fetch(`${ELEVENLABS_BASE_URL}/v1/user`, {
-        headers: { 'xi-api-key': ELEVENLABS_API_KEY }
-      });
-      console.log(`✅ API Key test status: ${testResponse.status}`);
-      if (!testResponse.ok) {
-        throw new Error(`API Key test failed: ${testResponse.status} - ${testResponse.statusText}`);
-      }
-      const userData = await testResponse.json();
-      console.log(`✅ Usuario autenticado: ${userData.first_name || 'N/A'}`);
-    } catch (error) {
-      console.warn(`⚠️ API Key test warning: ${error.message}`);
-    }
+    console.log(`📤 Enviando request a ElevenLabs:`, {
+      call_name: requestBody.call_name,
+      agent_id: requestBody.agent_id,
+      agent_phone_number_id: requestBody.agent_phone_number_id,
+      recipients_count: requestBody.recipients.length,
+      first_recipient_sample: requestBody.recipients[0] || {}
+    });
 
     // Llamar a ElevenLabs API
     const fullUrl = `${ELEVENLABS_BASE_URL}/v1/convai/batch-calling/submit`;
-    console.log(`🔍 Debug URLs:`);
-    console.log(`  - ELEVENLABS_BASE_URL: ${ELEVENLABS_BASE_URL}`);
-    console.log(`  - URL completa: ${fullUrl}`);
-    console.log(`  - API Key: ${ELEVENLABS_API_KEY?.substring(0, 10)}...`);
-    console.log(`📡 Llamando a ElevenLabs API: ${fullUrl}`);
-    console.log(`📋 Request body:`, JSON.stringify(requestBody, null, 2));
     
     const response = await fetch(fullUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'xi-api-key': ELEVENLABS_API_KEY
+        'xi-api-key': ELEVENLABS_API_KEY,
+        'User-Agent': 'MedicalDelivery/1.0'
       },
       body: JSON.stringify(requestBody)
     });
 
+    console.log(`📥 ElevenLabs response status: ${response.status}`);
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(`ElevenLabs API Error: ${response.status} - ${errorData.detail || 'Unknown error'}`);
+      console.error('❌ ElevenLabs API Error Details:', {
+        status: response.status,
+        statusText: response.statusText,
+        errorData: errorData,
+        requestBody: JSON.stringify(requestBody, null, 2)
+      });
+      
+      throw new Error(`ElevenLabs API Error: ${response.status} - ${errorData.detail || errorData.message || 'Unknown error'}`);
     }
 
     const elevenLabsResponse = await response.json();
-    console.log(`✅ Batch ${batchId} iniciado exitosamente en ElevenLabs:`, elevenLabsResponse);
+    console.log(`✅ ElevenLabs response:`, elevenLabsResponse);
 
     // Crear registros de llamadas en la base de datos
-    const outboundCalls = batch.contacts.map(contact => ({
-      batchId: batchId,
-      contactId: contact.id,
-      phoneNumber: contact.phone_number,
-      estado: 'QUEUED',
-      elevenlabsCallId: elevenLabsResponse.calls?.find(c => c.phone_number === formatPhoneNumber(contact.phone_number))?.call_id,
-      variables: contact,
-      retryCount: 0
-    }));
+    const outboundCallsData = batch.contacts.map((contact, index) => {
+      // Buscar el call_id correspondiente en la respuesta
+      const elevenLabsCall = elevenLabsResponse.calls?.find(
+        call => call.phone_number === formatPhoneNumber(contact.phoneNumber)
+      );
 
-    // Crear registros de llamadas en la base de datos
-    await prisma.outboundCall.createMany({ data: outboundCalls });
+      return {
+        batchId: batchId,
+        contactId: contact.id,
+        phoneNumber: contact.phoneNumber,
+        estado: 'QUEUED',
+        elevenlabsCallId: elevenLabsCall?.call_id || null,
+        variables: contact, // Guardar las variables originales
+        retryCount: 0,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+    });
+
+    // Insertar las llamadas en la base de datos
+    await prisma.outboundCall.createMany({ 
+      data: outboundCallsData,
+      skipDuplicates: true
+    });
+
+    // Actualizar el batch con el ID de ElevenLabs
+    await prisma.batch.update({
+      where: { id: batchId },
+      data: { 
+        estado: 'PROCESSING',
+        elevenLabsBatchId: elevenLabsResponse.batch_id || elevenLabsResponse.id,
+        updatedAt: new Date()
+      }
+    });
+
+    console.log(`🎉 Batch ${batchId} ejecutado exitosamente`);
 
     return {
       success: true,
       batchId: batchId,
-      elevenLabsBatchId: elevenLabsResponse.id,
+      elevenLabsBatchId: elevenLabsResponse.batch_id || elevenLabsResponse.id,
       totalCalls: batch.contacts.length,
-      message: 'Batch ejecutado exitosamente'
+      callsCreated: outboundCallsData.length,
+      message: 'Batch ejecutado exitosamente con ElevenLabs'
     };
 
   } catch (error) {
     console.error(`❌ Error ejecutando batch ${batchId}:`, error);
     
-    // Revertir estado del batch
-    await prisma.batch.update({
-      where: { id: batchId },
-      data: { estado: 'FAILED' }
-    });
-
+    // Actualizar batch a estado FAILED
+    try {
+      await prisma.batch.update({
+        where: { id: batchId },
+        data: { 
+          estado: 'FAILED',
+          updatedAt: new Date()
+        }
+      });
+    } catch (updateError) {
+      console.error('Error actualizando batch a FAILED:', updateError);
+    }
+    
     throw error;
   }
 }
 
-// Función para preparar variables para ElevenLabs
+// 🔧 FUNCIÓN PARA PREPARAR VARIABLES DINÁMICAS (FORMATO PLANO)
 function prepareVariablesForElevenLabs(contact) {
+  // ✅ ElevenLabs espera las variables como propiedades directas del objeto
   const variables = {
-    nombre_contacto: contact.nombre_contacto || "",
-    nombre_paciente: contact.nombre_paciente || "",
-    domicilio_actual: contact.domicilio_actual || "",
-    localidad: contact.localidad || "",
-    delegacion: contact.delegacion || "",
-    fecha_envio: formatDate(contact.fecha_envio) || "",
-    observaciones: contact.observaciones || "",
-    producto1: contact.producto1 || "",
-    cantidad1: contact.cantidad1 || "",
-    producto2: contact.producto2 || "",
-    cantidad2: contact.cantidad2 || "",
-    producto3: contact.producto3 || "",
-    cantidad3: contact.cantidad3 || "",
-    producto4: contact.producto4 || "",
-    cantidad4: contact.cantidad4 || "",
-    producto5: contact.producto5 || "",
-    cantidad5: contact.cantidad5 || ""
+    // Información del contacto
+    nombre_contacto: sanitizeString(contact.nombre_contacto),
+    nombre_paciente: sanitizeString(contact.nombre_paciente),
+    
+    // Dirección
+    domicilio_actual: sanitizeString(contact.domicilio_actual),
+    localidad: sanitizeString(contact.localidad),
+    delegacion: sanitizeString(contact.delegacion),
+    
+    // Fechas y observaciones
+    fecha_envio: formatDateForElevenLabs(contact.fecha_envio),
+    observaciones: sanitizeString(contact.observaciones),
+    
+    // Productos (hasta 5 productos como está definido en tu schema)
+    producto1: sanitizeString(contact.producto1),
+    cantidad1: sanitizeString(contact.cantidad1),
+    producto2: sanitizeString(contact.producto2),
+    cantidad2: sanitizeString(contact.cantidad2),
+    producto3: sanitizeString(contact.producto3),
+    cantidad3: sanitizeString(contact.cantidad3),
+    producto4: sanitizeString(contact.producto4),
+    cantidad4: sanitizeString(contact.cantidad4),
+    producto5: sanitizeString(contact.producto5),
+    cantidad5: sanitizeString(contact.cantidad5)
   };
 
-  // Asegurar que todas las variables estén presentes (ElevenLabs requiere todas)
-  for (let i = 1; i <= 5; i++) {
-    if (!variables[`producto${i}`]) variables[`producto${i}`] = "";
-    if (!variables[`cantidad${i}`]) variables[`cantidad${i}`] = "";
-  }
+  // 🔍 Log para debugging
+  console.log(`📋 Variables preparadas para ${contact.nombre_contacto}:`, variables);
 
   return variables;
 }
 
-// Función para formatear número de teléfono
+// 🔧 FUNCIÓN PARA SANITIZAR STRINGS
+function sanitizeString(value) {
+  if (value === null || value === undefined) return '';
+  
+  // Convertir a string y limpiar
+  return String(value)
+    .trim()
+    .replace(/[\r\n\t]/g, ' ') // Reemplazar saltos de línea por espacios
+    .replace(/\s+/g, ' ') // Múltiples espacios por uno solo
+    .substring(0, 500); // Limitar longitud
+}
+
+// 🔧 FUNCIÓN PARA FORMATEAR TELÉFONO (ARGENTINA)
 function formatPhoneNumber(phone) {
   if (!phone) return '';
   
+  // Limpiar el número
   let cleaned = String(phone).replace(/[\s\-\(\)\.]/g, '');
   
+  // Remover 0 inicial si existe
   if (cleaned.startsWith('0')) {
     cleaned = cleaned.substring(1);
   }
   
+  // Agregar código de país de Argentina si no lo tiene
   if (!cleaned.startsWith('54') && !cleaned.startsWith('+54')) {
     cleaned = '54' + cleaned;
   }
   
+  // Agregar + si no lo tiene
   if (!cleaned.startsWith('+')) {
     cleaned = '+' + cleaned;
   }
   
+  console.log(`📞 Número formateado: ${phone} -> ${cleaned}`);
   return cleaned;
 }
 
-// Función para formatear fecha para ElevenLabs (YYYY-MM-DD)
-function formatDate(dateString) {
-  if (!dateString) return '';
+// 🔧 FUNCIÓN PARA FORMATEAR FECHA
+function formatDateForElevenLabs(dateValue) {
+  if (!dateValue) return '';
   
   try {
-    const date = new Date(dateString);
+    let date;
+    
+    // Si ya es un objeto Date
+    if (dateValue instanceof Date) {
+      date = dateValue;
+    } 
+    // Si es un string, parsearlo
+    else if (typeof dateValue === 'string') {
+      date = new Date(dateValue);
+    }
+    // Si es otro tipo, intentar convertir
+    else {
+      date = new Date(dateValue);
+    }
+    
+    // Verificar que la fecha sea válida
     if (isNaN(date.getTime())) {
+      console.warn(`⚠️ Fecha inválida: ${dateValue}`);
       return '';
     }
-    // Formato ISO para ElevenLabs: YYYY-MM-DD
-    return date.toISOString().split('T')[0];
+    
+    // Formatear como DD/MM/YYYY para Argentina
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    
+    return `${day}/${month}/${year}`;
+    
   } catch (error) {
+    console.error(`❌ Error formateando fecha ${dateValue}:`, error);
     return '';
   }
 }
@@ -1272,29 +1354,56 @@ router.get('/:campaignId/contacts', async (req, res) => {
   }
 });
 
-// POST /campaigns/batch/:batchId/execute - Ejecutar un batch completo
+// 🔧 ENDPOINT PARA EJECUTAR BATCH
 router.post('/batch/:batchId/execute', async (req, res) => {
   try {
     const { batchId } = req.params;
     
-    // Ejecutar batch de forma asíncrona
-    executeBatchWithElevenLabs(batchId)
-      .then(result => {
-        console.log(`✅ Batch ${batchId} ejecutado exitosamente:`, result);
-      })
-      .catch(error => {
-        console.error(`❌ Error ejecutando batch ${batchId}:`, error);
+    console.log(`🎯 Recibida solicitud para ejecutar batch: ${batchId}`);
+    
+    // Verificar que el batch existe antes de procesar
+    const batch = await prisma.batch.findUnique({
+      where: { id: batchId },
+      include: { _count: { select: { contacts: true } } }
+    });
+    
+    if (!batch) {
+      return res.status(404).json({
+        success: false,
+        error: 'Batch no encontrado',
+        batchId: batchId
       });
-
+    }
+    
+    if (batch.estado === 'PROCESSING') {
+      return res.status(400).json({
+        success: false,
+        error: 'El batch ya está siendo procesado',
+        batchId: batchId,
+        currentStatus: batch.estado
+      });
+    }
+    
+    // Responder inmediatamente al frontend
     res.json({ 
       success: true, 
       message: 'Ejecución del batch iniciada', 
       batchId: batchId, 
-      status: 'PROCESSING' 
+      status: 'PROCESSING',
+      totalContacts: batch._count.contacts
     });
-
+    
+    // Ejecutar batch de forma asíncrona
+    executeBatchWithElevenLabs(batchId)
+      .then(result => {
+        console.log(`✅ Batch ${batchId} completado exitosamente:`, result);
+      })
+      .catch(error => {
+        console.error(`❌ Error ejecutando batch ${batchId}:`, error);
+      });
+      
   } catch (error) {
-    console.error('Error iniciando ejecución del batch:', error);
+    console.error('❌ Error iniciando ejecución del batch:', error);
     res.status(500).json({ 
       success: false, 
       error: 'Error iniciando ejecución del batch',
@@ -1303,69 +1412,63 @@ router.post('/batch/:batchId/execute', async (req, res) => {
   }
 });
 
-// GET /campaigns/batch/:id/status - Obtener estado del batch desde ElevenLabs
-router.get('/batch/:id/status', async (req, res) => {
+// 🔧 ENDPOINT PARA OBTENER ESTADO DEL BATCH
+router.get('/batch/:batchId/status', async (req, res) => {
   try {
-    const { id } = req.params;
+    const { batchId } = req.params;
     
     const batch = await prisma.batch.findUnique({
-      where: { id: id }
+      where: { id: batchId },
+      include: {
+        _count: {
+          select: {
+            contacts: true,
+            outboundCalls: true
+          }
+        },
+        outboundCalls: {
+          select: {
+            estado: true,
+            elevenlabsCallId: true
+          }
+        }
+      }
     });
-
-    if (!batch) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Batch no encontrado' 
-      });
-    }
-
-    // Si no tiene elevenLabsBatchId, no podemos obtener status
-    if (!batch.elevenLabsBatchId) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Batch no tiene ID de ElevenLabs' 
-      });
-    }
-
-    // Obtener estado desde ElevenLabs
-    const response = await fetch(`${ELEVENLABS_BASE_URL}/v1/convai/batch-calling/${batch.elevenLabsBatchId}`, {
-      headers: { 'xi-api-key': ELEVENLABS_API_KEY }
-    });
-
-    if (!response.ok) {
-      throw new Error(`ElevenLabs API Error: ${response.status} - ${response.statusText}`);
-    }
-
-    const elevenLabsData = await response.json();
     
-    // Parsear progreso por destinatario
-    const calls = elevenLabsData.calls || elevenLabsData.recipients || [];
-    const progress = calls.map(call => ({
-      phone_number: call.phone_number,
-      status: call.status || call.state || 'unknown',
-      duration: call.duration_sec || call.call_duration || 0,
-      started_at: call.started_at || call.start_time,
-      ended_at: call.ended_at || call.end_time
-    }));
-
+    if (!batch) {
+      return res.status(404).json({
+        success: false,
+        error: 'Batch no encontrado'
+      });
+    }
+    
+    // Calcular estadísticas
+    const callStats = batch.outboundCalls.reduce((acc, call) => {
+      acc[call.estado] = (acc[call.estado] || 0) + 1;
+      return acc;
+    }, {});
+    
     res.json({
       success: true,
-      batchId: id,
-      elevenLabsBatchId: batch.elevenLabsBatchId,
-      status: elevenLabsData.status || elevenLabsData.state,
-      progress,
-      totalCalls: calls.length,
-      completedCalls: calls.filter(c => c.status === 'completed' || c.status === 'success').length,
-      failedCalls: calls.filter(c => c.status === 'failed' || c.status === 'error').length,
-      inProgressCalls: calls.filter(c => c.status === 'in_progress' || c.status === 'ongoing').length
+      batch: {
+        id: batch.id,
+        nombre: batch.nombre,
+        estado: batch.estado,
+        elevenLabsBatchId: batch.elevenLabsBatchId,
+        createdAt: batch.createdAt,
+        updatedAt: batch.updatedAt,
+        totalContacts: batch._count.contacts,
+        totalCalls: batch._count.outboundCalls,
+        callStats
+      }
     });
-
+    
   } catch (error) {
-    console.error('Error obteniendo estado del batch desde ElevenLabs:', error);
-    res.status(500).json({ 
-      success: false, 
+    console.error('❌ Error obteniendo estado del batch:', error);
+    res.status(500).json({
+      success: false,
       error: 'Error obteniendo estado del batch',
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -1588,4 +1691,5 @@ router.get('/test-elevenlabs', async (req, res) => {
   }
 });
 
+module.exports = router; 
 module.exports = router; 
