@@ -55,26 +55,53 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 /** 1) Orígenes permitidos (limpios) */
 const allowedOrigins = [
   "http://localhost:3000",
-  "https://nutry-home.vercel.app",                               // prod
-  // Regex corregida para capturar el patrón real de Vercel: nutry-home-[hash]-nivel-41.vercel.app
+  "https://nutry-home.vercel.app", // tu dominio de producción
+  // Patrón más robusto para capturar cualquier hash de Vercel: nutry-home-[hash]-nivel-41.vercel.app
   /^https:\/\/nutry-home-[a-z0-9]+-nivel-41\.vercel\.app$/      // previews del proyecto
 ];
 
-// DEBUG: Agrega esto temporalmente para ver qué origin está llegando
+// DEBUG COMPLETO: Agrega esto temporalmente para debuggear CORS
 app.use((req, res, next) => {
-  if (req.headers.origin) {
-    console.log('🔍 Origin recibido:', req.headers.origin);
+  const origin = req.headers.origin;
+  
+  if (origin) {
+    console.log('🔍 Origin recibido:', origin);
+    console.log('🔍 Method:', req.method);
+    console.log('🔍 URL:', req.url);
     
-    // Test manual de tu regex
+    // Test de cada patrón en allowedOrigins
+    allowedOrigins.forEach((pattern, index) => {
+      if (typeof pattern === 'string') {
+        console.log(`✅ String ${index}: ${pattern === origin ? 'MATCH' : 'NO MATCH'}`);
+      } else {
+        console.log(`✅ Regex ${index}: ${pattern.test(origin) ? 'MATCH' : 'NO MATCH'} - Pattern: ${pattern}`);
+      }
+    });
+    
+    // Test específico para tu caso
     const testRegex = /^https:\/\/nutry-home-[a-z0-9]+-nivel-41\.vercel\.app$/;
-    console.log('✅ Regex match:', testRegex.test(req.headers.origin));
+    console.log('🧪 Test regex específica:', testRegex.test(origin));
     
     // Verificar si está en la lista permitida
     const isAllowed = allowedOrigins.some((o) =>
-      typeof o === "string" ? o === req.headers.origin : o.test(req.headers.origin)
+      typeof o === "string" ? o === origin : o.test(origin)
     );
     console.log('🔒 Origin permitido:', isAllowed);
   }
+  
+  next();
+});
+
+// También logguea las respuestas CORS
+app.use((req, res, next) => {
+  const originalSend = res.send;
+  res.send = function(data) {
+    console.log('📤 Response headers:', {
+      'access-control-allow-origin': res.get('Access-Control-Allow-Origin'),
+      'access-control-allow-credentials': res.get('Access-Control-Allow-Credentials'),
+    });
+    return originalSend.call(this, data);
+  };
   next();
 });
 
