@@ -1530,6 +1530,145 @@ router.get('/batch/:batchId/status', async (req, res) => {
   }
 });
 
+// 🔄 ENDPOINT PARA SINCRONIZAR CON ELEVENLABS
+router.get('/batch/:batchId/sync', async (req, res) => {
+  try {
+    const { batchId } = req.params;
+    console.log(`🔄 Iniciando sincronización del batch ${batchId}`);
+    
+    // Obtener el batch
+    const batch = await prisma.batch.findUnique({
+      where: { id: batchId },
+      include: { outboundCalls: true }
+    });
+    
+    if (!batch) {
+      return res.status(404).json({
+        success: false,
+        error: 'Batch no encontrado'
+      });
+    }
+    
+    if (!batch.elevenLabsBatchId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Batch no tiene elevenLabsBatchId'
+      });
+    }
+    
+    console.log(`🔍 Sincronizando batch ElevenLabs: ${batch.elevenLabsBatchId}`);
+    
+    // 1️⃣ Obtener estado del batch desde ElevenLabs
+    const batchResponse = await fetch(`${ELEVENLABS_BASE_URL}/v1/convai/batch-calling/${batch.elevenLabsBatchId}`, {
+      headers: {
+        'xi-api-key': ELEVENLABS_API_KEY
+      }
+    });
+    
+    if (!batchResponse.ok) {
+      throw new Error(`ElevenLabs batch API error: ${batchResponse.status}`);
+    }
+    
+    const batchData = await batchResponse.json();
+    console.log(`📥 Batch data desde ElevenLabs:`, batchData);
+    
+    // 2️⃣ Obtener conversaciones para este batch
+    const conversationsResponse = await fetch(`${ELEVENLABS_BASE_URL}/v1/convai/conversations?batch_id=${batch.elevenLabsBatchId}`, {
+      headers: {
+        'xi-api-key': ELEVENLABS_API_KEY
+      }
+    });
+    
+    if (!conversationsResponse.ok) {
+      throw new Error(`ElevenLabs conversations API error: ${conversationsResponse.status}`);
+    }
+    
+    const conversationsData = await conversationsResponse.json();
+    console.log(`📥 Conversations data:`, conversationsData);
+    
+    // 3️⃣ Actualizar cada llamada con los datos de ElevenLabs
+    let updatedCalls = 0;
+    let failedCalls = 0;
+    
+    for (const conversation of conversationsData.conversations || []) {
+      try {
+        // Buscar la llamada por phone_number
+        const phoneNumber = conversation.phone_number;
+        const outboundCall = batch.outboundCalls.find(call => 
+          formatPhoneNumber(call.telefono) === phoneNumber
+        );
+        
+        if (outboundCall) {
+          // Actualizar con datos de ElevenLabs
+          const updateData = {
+            estado: mapElevenLabsStatus(conversation.status),
+            elevenlabsCallId: conversation.conversation_id,
+            resultado: conversation.analysis?.call_result || 'UNKNOWN',
+            duracion: conversation.metadata?.call_duration_secs || 0,
+            fechaEjecutada: conversation.metadata?.start_time_unix_secs ? 
+              new Date(conversation.metadata.start_time_unix_secs * 1000) : null,
+            updatedAt: new Date()
+          };
+          
+          await prisma.outboundCall.update({
+            where: { id: outboundCall.id },
+            data: updateData
+          });
+          
+          updatedCalls++;
+          console.log(`✅ Llamada actualizada: ${outboundCall.id} -> ${updateData.estado}`);
+        }
+      } catch (callError) {
+        console.error(`❌ Error actualizando llamada:`, callError);
+        failedCalls++;
+      }
+    }
+    
+    // 4️⃣ Actualizar estado del batch
+    const batchStatus = mapElevenLabsStatus(batchData.status);
+    await prisma.batch.update({
+      where: { id: batchId },
+      data: { 
+        estado: batchStatus,
+        updatedAt: new Date()
+      }
+    });
+    
+    console.log(`🎉 Sincronización completada: ${updatedCalls} llamadas actualizadas, ${failedCalls} fallidas`);
+    
+    res.json({
+      success: true,
+      message: 'Sincronización completada',
+      batchId: batchId,
+      elevenLabsBatchId: batch.elevenLabsBatchId,
+      updatedCalls,
+      failedCalls,
+      batchStatus
+    });
+    
+  } catch (error) {
+    console.error(`❌ Error sincronizando batch ${batchId}:`, error);
+    res.status(500).json({
+      success: false,
+      error: 'Error en sincronización',
+      details: error.message
+    });
+  }
+});
+
+// 🔧 FUNCIÓN PARA MAPEAR ESTADOS DE ELEVENLABS A PRISMA
+function mapElevenLabsStatus(elevenLabsStatus) {
+  const status = String(elevenLabsStatus || '').toLowerCase();
+  
+  if (['completed', 'success', 'answered'].includes(status)) return 'COMPLETED';
+  if (['failed', 'error'].includes(status)) return 'FAILED';
+  if (['in_progress', 'ongoing'].includes(status)) return 'IN_PROGRESS';
+  if (['pending', 'queued'].includes(status)) return 'PENDING';
+  if (['cancelled', 'canceled'].includes(status)) return 'CANCELLED';
+  
+  return 'FAILED'; // fallback
+}
+
 // POST /campaigns/batch/:batchId/cancel - Cancelar un batch en progreso
 router.post('/batch/:batchId/cancel', async (req, res) => {
   try {
