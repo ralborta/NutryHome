@@ -210,22 +210,19 @@ function formatPhoneNumber(phone) {
   return cleaned;
 }
 
-// Función para formatear fecha
+// Función para formatear fecha para ElevenLabs (YYYY-MM-DD)
 function formatDate(dateString) {
   if (!dateString) return '';
   
   try {
     const date = new Date(dateString);
     if (isNaN(date.getTime())) {
-      return 'Fecha no especificada';
+      return '';
     }
-    return date.toLocaleDateString('es-AR', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-      });
+    // Formato ISO para ElevenLabs: YYYY-MM-DD
+    return date.toISOString().split('T')[0];
   } catch (error) {
-    return 'Fecha no especificada';
+    return '';
   }
 }
 
