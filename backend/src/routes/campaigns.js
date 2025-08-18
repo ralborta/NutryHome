@@ -1452,8 +1452,21 @@ router.post('/batch/:batchId/execute', async (req, res) => {
     
     // Ejecutar batch de forma asíncrona
     executeBatchWithElevenLabs(batchId)
-      .then(result => {
+      .then(async (result) => {
         console.log(`✅ Batch ${batchId} completado exitosamente:`, result);
+        
+        // 🔧 SYNC AUTOMÁTICO: Sincronizar con ElevenLabs después de ejecutar
+        try {
+          console.log(`🔄 Iniciando sync automático para batch ${batchId}...`);
+          
+          // Hacer sync automático usando la función local
+          await syncBatchWithElevenLabs(batchId);
+          console.log(`✅ Sync automático completado para batch ${batchId}`);
+          
+        } catch (syncError) {
+          console.error(`⚠️ Error en sync automático para batch ${batchId}:`, syncError);
+          // No fallar la ejecución por error de sync
+        }
       })
       .catch(error => {
         console.error(`❌ Error ejecutando batch ${batchId}:`, error);
@@ -1529,6 +1542,139 @@ router.get('/batch/:batchId/status', async (req, res) => {
     });
   }
 });
+
+// 🔄 FUNCIÓN PARA SINCRONIZAR BATCH CON ELEVENLABS (reutilizable)
+async function syncBatchWithElevenLabs(batchId) {
+  try {
+    console.log(`🔄 Iniciando sincronización del batch ${batchId}`);
+    
+    // Obtener el batch
+    const batch = await prisma.batch.findUnique({
+      where: { id: batchId },
+      include: { outboundCalls: true }
+    });
+    
+    if (!batch) {
+      throw new Error('Batch no encontrado');
+    }
+    
+    if (!batch.elevenLabsBatchId) {
+      throw new Error('Batch no tiene elevenLabsBatchId');
+    }
+    
+    console.log(`🔍 Sincronizando batch ElevenLabs: ${batch.elevenLabsBatchId}`);
+    
+    // 1️⃣ Obtener estado del batch desde ElevenLabs
+    const batchResponse = await fetch(`${ELEVENLABS_BASE_URL}/v1/convai/batch-calling/${batch.elevenLabsBatchId}`, {
+      headers: {
+        'xi-api-key': ELEVENLABS_API_KEY
+      }
+    });
+    
+    if (!batchResponse.ok) {
+      throw new Error(`ElevenLabs batch API error: ${batchResponse.status}`);
+    }
+    
+    const batchData = await batchResponse.json();
+    console.log(`📥 Batch data desde ElevenLabs:`, batchData);
+    
+    // 2️⃣ Obtener conversaciones para este batch
+    const conversationsResponse = await fetch(`${ELEVENLABS_BASE_URL}/v1/convai/conversations?batch_id=${batch.elevenLabsBatchId}`, {
+      headers: {
+        'xi-api-key': ELEVENLABS_API_KEY
+      }
+    });
+    
+    if (!conversationsResponse.ok) {
+      throw new Error(`ElevenLabs conversations API error: ${conversationsResponse.status}`);
+    }
+    
+    const conversationsData = await conversationsResponse.json();
+    console.log(`📥 Conversations data:`, conversationsData);
+    
+    // 3️⃣ Obtener detalles completos de cada conversación
+    const detailedConversations = [];
+    for (const conversation of conversationsData.conversations || []) {
+      try {
+        console.log(`🔍 Obteniendo detalles de conversación: ${conversation.conversation_id}`);
+        
+        // Obtener detalles completos de la conversación
+        const detailResponse = await fetch(`${ELEVENLABS_BASE_URL}/v1/convai/conversations/${conversation.conversation_id}`, {
+          headers: {
+            'xi-api-key': ELEVENLABS_API_KEY
+          }
+        });
+        
+        if (detailResponse.ok) {
+          const detailData = await detailResponse.json();
+          detailedConversations.push({
+            ...conversation,
+            ...detailData
+          });
+          console.log(`✅ Detalles obtenidos para: ${conversation.conversation_id}`);
+        } else {
+          console.warn(`⚠️ No se pudieron obtener detalles para: ${conversation.conversation_id}`);
+          detailedConversations.push(conversation);
+        }
+      } catch (detailError) {
+        console.error(`❌ Error obteniendo detalles de conversación:`, detailError);
+        detailedConversations.push(conversation);
+      }
+    }
+    
+    // 4️⃣ Actualizar cada llamada con los datos completos de ElevenLabs
+    let updatedCalls = 0;
+    let failedCalls = 0;
+    
+    for (const conversation of detailedConversations) {
+      try {
+        // Buscar la llamada por phone_number
+        const phoneNumber = conversation.phone_number;
+        const outboundCall = batch.outboundCalls.find(call => 
+          formatPhoneNumber(call.telefono) === phoneNumber
+        );
+        
+        if (outboundCall) {
+          // Actualizar con datos COMPLETOS de ElevenLabs
+          await prisma.outboundCall.update({
+            where: { id: outboundCall.id },
+            data: {
+              estado: mapElevenLabsStatus(conversation.status),
+              elevenlabsCallId: conversation.conversation_id,
+              resultado: conversation.summary?.text || conversation.status,
+              duracion: conversation.duration || 0,
+              fechaEjecutada: conversation.created_at ? new Date(conversation.created_at) : null,
+              resumen: conversation.summary?.text || null,
+              transcriptCompleto: conversation.transcript || null,
+              variablesDinamicas: conversation.dynamic_variables || null,
+              audioUrl: conversation.audio_url || null
+            }
+          });
+          
+          updatedCalls++;
+          console.log(`✅ Llamada actualizada: ${outboundCall.id}`);
+        }
+      } catch (updateError) {
+        console.error(`❌ Error actualizando llamada:`, updateError);
+        failedCalls++;
+      }
+    }
+    
+    // 5️⃣ Actualizar estado del batch
+    const batchStatus = batchData.status || 'unknown';
+    await prisma.batch.update({
+      where: { id: batchId },
+      data: { estado: mapElevenLabsStatus(batchStatus) }
+    });
+    
+    console.log(`✅ Sync completado: ${updatedCalls} llamadas actualizadas, ${failedCalls} fallidas`);
+    return { success: true, updatedCalls, failedCalls };
+    
+  } catch (error) {
+    console.error(`❌ Error en sync automático:`, error);
+    throw error;
+  }
+}
 
 // 🔄 ENDPOINT PARA SINCRONIZAR CON ELEVENLABS
 router.get('/batch/:batchId/sync', async (req, res) => {
