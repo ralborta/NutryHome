@@ -9,11 +9,11 @@ const xlsx = require('xlsx');
 const router = express.Router();
 
 // Configuración ElevenLabs
-const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
-const ELEVENLABS_BASE_URL = process.env.ELEVENLABS_BASE_URL || 'https://api.elevenlabs.io';
-const ELEVENLABS_AGENT_ID = process.env.ELEVENLABS_AGENT_ID;
-const ELEVENLABS_PHONE_NUMBER_ID = process.env.ELEVENLABS_PHONE_NUMBER_ID;
-const ELEVENLABS_PROJECT_ID = process.env.ELEVENLABS_PROJECT_ID;
+const ELEVENLABS_API_KEY = (process.env.ELEVENLABS_API_KEY || '').trim();
+const ELEVENLABS_BASE_URL = ((process.env.ELEVENLABS_BASE_URL || 'https://api.elevenlabs.io').trim()).replace(/\/+$/, '');
+const ELEVENLABS_AGENT_ID = (process.env.ELEVENLABS_AGENT_ID || '').trim().replace(/^=+/, '');
+const ELEVENLABS_PHONE_NUMBER_ID = (process.env.ELEVENLABS_PHONE_NUMBER_ID || '').trim().replace(/^=+/, '');
+const ELEVENLABS_PROJECT_ID = (process.env.ELEVENLABS_PROJECT_ID || '').trim().replace(/^=+/, '');
 
 // Validar configuración ElevenLabs
 function validateElevenLabsConfig() {
