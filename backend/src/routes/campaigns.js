@@ -24,14 +24,30 @@ async function assertElevenLabsConfig() {
   const u = (p) => `${ELEVENLABS_BASE_URL}/v1${p.startsWith("/") ? p : `/${p}`}`;
 
   console.log('🔍 Verificando configuración ElevenLabs...');
+  console.log('📋 Configuración actual:', {
+    base_url: ELEVENLABS_BASE_URL,
+    agent_id: ELEVENLABS_AGENT_ID,
+    phone_number_id: ELEVENLABS_PHONE_NUMBER_ID,
+    api_key_fp: ELEVENLABS_API_KEY ? `${ELEVENLABS_API_KEY.slice(0, 8)}...` : 'EMPTY'
+  });
   
+  console.log('🔍 1. Verificando settings...');
   const s = await fetch(u("/convai/settings"), { headers: h });
+  console.log(`📥 Settings response: ${s.status} ${s.statusText}`);
   if (!s.ok) throw new Error(`XI key inválida o sin permisos (settings): ${s.status}`);
 
-  const ag = await fetch(u(`/convai/agents/${ELEVENLABS_AGENT_ID}`), { headers: h });
+  console.log('🔍 2. Verificando agent...');
+  const agentUrl = u(`/convai/agents/${ELEVENLABS_AGENT_ID}`);
+  console.log(`📤 Agent URL: ${agentUrl}`);
+  const ag = await fetch(agentUrl, { headers: h });
+  console.log(`📥 Agent response: ${ag.status} ${ag.statusText}`);
   if (!ag.ok) throw new Error(`agent_id inaccesible con esta key (${ag.status})`);
 
-  const pn = await fetch(u(`/convai/phone-numbers/${ELEVENLABS_PHONE_NUMBER_ID}`), { headers: h });
+  console.log('🔍 3. Verificando phone number...');
+  const phoneUrl = u(`/convai/phone-numbers/${ELEVENLABS_PHONE_NUMBER_ID}`);
+  console.log(`📤 Phone URL: ${phoneUrl}`);
+  const pn = await fetch(phoneUrl, { headers: h });
+  console.log(`📥 Phone response: ${pn.status} ${pn.statusText}`);
   if (!pn.ok) throw new Error(`phone_number_id inaccesible con esta key (${pn.status})`);
   
   console.log('✅ Configuración ElevenLabs validada - todos los permisos OK');
