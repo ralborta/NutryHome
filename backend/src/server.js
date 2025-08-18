@@ -48,7 +48,11 @@ app.use(helmet({
   },
 }));
 
-// Configuración de CORS
+// Middleware para parsing de JSON
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// 🔧 CORS CONFIGURADO ANTES DE LAS RUTAS
 const allowedOrigins = [
   'http://localhost:3000',
   'https://nutry-home-lhultbqne-nivel-41.vercel.app',
@@ -61,7 +65,7 @@ const allowedOrigins = [
   /^https:\/\/nutry-home-.*-nivel-41\.vercel\.app$/
 ];
 
-// CORS configurado correctamente
+// CORS configurado correctamente ANTES de las rutas
 app.use(cors({
   origin: function (origin, callback) {
     // Permitir requests sin origin (como mobile apps o Postman)
@@ -87,8 +91,11 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Idempotency-Key', 'xi-api-key'],
 }));
+
+// 🔧 PREFLIGHT OPTIONS para todas las rutas
+app.options('*', cors());
 
 // Rate limiting
 const limiter = rateLimit({
@@ -112,10 +119,6 @@ if (process.env.NODE_ENV === 'development') {
 } else {
   app.use(morgan('combined'));
 }
-
-// Middleware para parsing de JSON
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Health check endpoint mejorado
 app.get('/health', async (req, res) => {
@@ -186,6 +189,39 @@ app.get('/', (req, res) => {
 // Middleware para manejo de errores
 app.use(notFound);
 app.use(errorHandler);
+
+// 🔧 CORS EN ERROR HANDLER (por si el flujo saltea el middleware)
+app.use((err, req, res, next) => {
+  // Replica CORS en errores por si el flujo saltea el middleware
+  const origin = req.headers.origin;
+  if (origin) {
+    // Verificar si el origin está permitido
+    const isAllowed = allowedOrigins.some(allowedOrigin => {
+      if (typeof allowedOrigin === 'string') {
+        return origin === allowedOrigin;
+      }
+      if (allowedOrigin instanceof RegExp) {
+        return allowedOrigin.test(origin);
+      }
+      return false;
+    });
+    
+    if (isAllowed) {
+      res.header('Access-Control-Allow-Origin', origin);
+    }
+  }
+  
+  res.header('Vary', 'Origin');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Idempotency-Key, xi-api-key');
+  
+  const status = err.status || 500;
+  res.status(status).json({ 
+    code: 'ERROR', 
+    message: err.message || 'Internal error',
+    timestamp: new Date().toISOString()
+  });
+});
 
 // Iniciar servidor
 async function startServer() {
