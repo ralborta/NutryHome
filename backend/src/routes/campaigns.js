@@ -138,8 +138,8 @@ async function executeBatchWithElevenLabs(batchId) {
       return {
         batchId: batchId,
         contactId: contact.id,
-        phoneNumber: contact.phone_number,
-        estado: 'QUEUED',
+        telefono: contact.phone_number, // ✅ CAMPO CORRECTO DEL SCHEMA
+        estado: 'PENDING', // ✅ ENUM CORRECTO DEL SCHEMA
         elevenlabsCallId: elevenLabsCall?.call_id || null,
         variables: contact, // Guardar las variables originales
         retryCount: 0,
@@ -1526,7 +1526,7 @@ router.post('/batch/:batchId/cancel', async (req, res) => {
     await prisma.outboundCall.updateMany({
       where: { 
         batchId: batchId,
-        estado: { in: ['PENDING', 'QUEUED'] }
+        estado: { in: ['PENDING', 'SCHEDULED'] } // ✅ ENUMS CORRECTOS DEL SCHEMA
       },
       data: { estado: 'CANCELLED' }
     });
