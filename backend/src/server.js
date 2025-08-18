@@ -56,13 +56,35 @@ const allowedOrigins = [
   'https://nutry-home-b3ux8vjk7-nivel-41.vercel.app',
   'https://nutry-home.vercel.app',
   'https://nutry-home-git-main-nivel-41.vercel.app',
+  'https://nutry-home-acdkl8ept-nivel-41.vercel.app', // Tu dominio actual
   // Permitir cualquier subdominio de vercel.app para NutryHome
   /^https:\/\/nutry-home-.*-nivel-41\.vercel\.app$/
 ];
 
 // CORS configurado correctamente
 app.use(cors({
-  origin: true, // Permitir todos los origins
+  origin: function (origin, callback) {
+    // Permitir requests sin origin (como mobile apps o Postman)
+    if (!origin) return callback(null, true);
+    
+    // Verificar si el origin está en la lista de permitidos
+    const isAllowed = allowedOrigins.some(allowedOrigin => {
+      if (typeof allowedOrigin === 'string') {
+        return origin === allowedOrigin;
+      }
+      if (allowedOrigin instanceof RegExp) {
+        return allowedOrigin.test(origin);
+      }
+      return false;
+    });
+    
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      console.log('🚫 CORS bloqueado para origin:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
