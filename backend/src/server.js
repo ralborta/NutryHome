@@ -55,47 +55,41 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // 🔧 CORS CONFIGURADO ANTES DE LAS RUTAS
 const allowedOrigins = [
   'http://localhost:3000',
-  'https://nutry-home-lhultbqne-nivel-41.vercel.app',
-  'https://nutry-home-bguuj0zcq-nivel-41.vercel.app',
-  'https://nutry-home-b3ux8vjk7-nivel-41.vercel.app',
-  'https://nutry-home.vercel.app',
-  'https://nutry-home-git-main-nivel-41.vercel.app',
+  'https://nutry-home.vercel.app',                 // prod
   'https://nutry-home-acdkl8ept-nivel-41.vercel.app', // Tu dominio actual
-  // Permitir cualquier subdominio de vercel.app para NutryHome
-  /^https:\/\/nutry-home-.*-nivel-41\.vercel\.app$/
+  // previews del mismo proyecto
+  /^https:\/\/nutry-home-[a-z0-9-]+-nivel-41\.vercel\.app$/,
 ];
 
-// CORS configurado correctamente ANTES de las rutas
-app.use(cors({
-  origin: function (origin, callback) {
-    // Permitir requests sin origin (como mobile apps o Postman)
-    if (!origin) return callback(null, true);
-    
-    // Verificar si el origin está en la lista de permitidos
-    const isAllowed = allowedOrigins.some(allowedOrigin => {
-      if (typeof allowedOrigin === 'string') {
-        return origin === allowedOrigin;
-      }
-      if (allowedOrigin instanceof RegExp) {
-        return allowedOrigin.test(origin);
-      }
-      return false;
-    });
-    
-    if (isAllowed) {
-      callback(null, true);
-    } else {
-      console.log('🚫 CORS bloqueado para origin:', origin);
-      callback(new Error('Not allowed by CORS'));
-    }
+// define UNA sola config y reutilízala
+const corsOptions = {
+  origin(origin, cb) {
+    if (!origin) return cb(null, true);
+    const allowed = allowedOrigins.some((o) =>
+      typeof o === "string" ? o === origin : o.test(origin)
+    );
+    return allowed ? cb(null, true) : cb(new Error(`CORS: origin no permitido (${origin})`));
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Idempotency-Key', 'xi-api-key'],
-}));
+  methods: ["GET","POST","PUT","PATCH","DELETE","OPTIONS"],
+  allowedHeaders: ["Content-Type","Authorization","X-Requested-With","Idempotency-Key","xi-api-key"],
+};
 
-// 🔧 PREFLIGHT OPTIONS para todas las rutas
-app.options('*', cors());
+// SIEMPRE antes de rutas
+app.use(cors(corsOptions));
+// Preflight para TODO con la MISMA config
+app.options("*", cors(corsOptions));
+
+// 🔧 SELLADOR CORS: Asegura CORS en TODAS las respuestas
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.some((o)=> typeof o==="string" ? o===origin : o.test(origin))) {
+    res.header("Access-Control-Allow-Origin", origin);
+    res.header("Access-Control-Allow-Credentials", "true");
+  }
+  res.header("Vary", "Origin"); // importante para caches/proxies
+  next();
+});
 
 // Rate limiting
 const limiter = rateLimit({
@@ -190,31 +184,8 @@ app.get('/', (req, res) => {
 app.use(notFound);
 app.use(errorHandler);
 
-// 🔧 CORS EN ERROR HANDLER (por si el flujo saltea el middleware)
+// 🔧 ERROR HANDLER SIMPLIFICADO (CORS ya está garantizado por el sellador)
 app.use((err, req, res, next) => {
-  // Replica CORS en errores por si el flujo saltea el middleware
-  const origin = req.headers.origin;
-  if (origin) {
-    // Verificar si el origin está permitido
-    const isAllowed = allowedOrigins.some(allowedOrigin => {
-      if (typeof allowedOrigin === 'string') {
-        return origin === allowedOrigin;
-      }
-      if (allowedOrigin instanceof RegExp) {
-        return allowedOrigin.test(origin);
-      }
-      return false;
-    });
-    
-    if (isAllowed) {
-      res.header('Access-Control-Allow-Origin', origin);
-    }
-  }
-  
-  res.header('Vary', 'Origin');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Idempotency-Key, xi-api-key');
-  
   const status = err.status || 500;
   res.status(status).json({ 
     code: 'ERROR', 
