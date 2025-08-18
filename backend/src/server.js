@@ -118,6 +118,15 @@ app.get('/health', async (req, res) => {
   }
 });
 
+// Health check para Railway
+app.get('/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
+
 // API Routes
 app.use('/api/calls', callsRoutes);
 app.use('/api/stats', statsRoutes);
