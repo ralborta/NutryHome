@@ -8,14 +8,36 @@ const xlsx = require('xlsx');
 
 const router = express.Router();
 
-// Configuración ElevenLabs
-const ELEVENLABS_API_KEY = (process.env.ELEVENLABS_API_KEY || '').trim();
-const ELEVENLABS_BASE_URL = ((process.env.ELEVENLABS_BASE_URL || 'https://api.elevenlabs.io').trim()).replace(/\/+$/, '');
-const ELEVENLABS_AGENT_ID = (process.env.ELEVENLABS_AGENT_ID || '').trim().replace(/^=+/, '');
-const ELEVENLABS_PHONE_NUMBER_ID = (process.env.ELEVENLABS_PHONE_NUMBER_ID || '').trim().replace(/^=+/, '');
-const ELEVENLABS_PROJECT_ID = (process.env.ELEVENLABS_PROJECT_ID || '').trim().replace(/^=+/, '');
+// ==== HARDEN ENVs ====
+const RAW_BASE = (process.env.ELEVENLABS_BASE_URL || "https://api.elevenlabs.io").trim();
+const ELEVENLABS_BASE_URL = RAW_BASE.replace(/\/+$/, "").replace(/\/v1$/, ""); // quita /v1 si vino mal
 
-// 🔧 FUNCIÓN PARA VALIDAR CONFIGURACIÓN DE ELEVENLABS
+const ELEVENLABS_API_KEY = (process.env.ELEVENLABS_API_KEY || "").trim();
+// ⚠️ IDs sin "limpieza" extra: no les quites '='
+const ELEVENLABS_AGENT_ID = (process.env.ELEVENLABS_AGENT_ID || "").trim();
+const ELEVENLABS_PHONE_NUMBER_ID = (process.env.ELEVENLABS_PHONE_NUMBER_ID || "").trim();
+const ELEVENLABS_PROJECT_ID = (process.env.ELEVENLABS_PROJECT_ID || "").trim();
+
+// ==== PREFLIGHT ====
+async function assertElevenLabsConfig() {
+  const h = { "xi-api-key": ELEVENLABS_API_KEY };
+  const u = (p) => `${ELEVENLABS_BASE_URL}/v1${p.startsWith("/") ? p : `/${p}`}`;
+
+  console.log('🔍 Verificando configuración ElevenLabs...');
+  
+  const s = await fetch(u("/convai/settings"), { headers: h });
+  if (!s.ok) throw new Error(`XI key inválida o sin permisos (settings): ${s.status}`);
+
+  const ag = await fetch(u(`/convai/agents/${ELEVENLABS_AGENT_ID}`), { headers: h });
+  if (!ag.ok) throw new Error(`agent_id inaccesible con esta key (${ag.status})`);
+
+  const pn = await fetch(u(`/convai/phone-numbers/${ELEVENLABS_PHONE_NUMBER_ID}`), { headers: h });
+  if (!pn.ok) throw new Error(`phone_number_id inaccesible con esta key (${pn.status})`);
+  
+  console.log('✅ Configuración ElevenLabs validada - todos los permisos OK');
+}
+
+// 🔧 FUNCIÓN PARA VALIDAR CONFIGURACIÓN DE ELEVENLABS (mantener compatibilidad)
 function validateElevenLabsConfig() {
   const requiredVars = {
     ELEVENLABS_API_KEY,
@@ -42,6 +64,9 @@ async function executeBatchWithElevenLabs(batchId) {
     
     // Validar configuración de ElevenLabs
     validateElevenLabsConfig();
+    
+    // 🔍 PREFLIGHT: Verificar permisos antes de enviar batch
+    await assertElevenLabsConfig();
     
     // Obtener el batch y sus contactos
     const batch = await prisma.batch.findUnique({
@@ -1691,5 +1716,24 @@ router.get('/test-elevenlabs', async (req, res) => {
   }
 });
 
-module.exports = router; 
+// ==== ENDPOINT DE DIAGNÓSTICO ====
+router.get("/internal/diag/elevenlabs", async (_req, res) => {
+  try {
+    validateElevenLabsConfig();
+    await assertElevenLabsConfig();
+    return res.json({ 
+      ok: true, 
+      base_url: ELEVENLABS_BASE_URL,
+      env: process.env.NODE_ENV,
+      message: 'Configuración ElevenLabs validada correctamente'
+    });
+  } catch (e) {
+    return res.status(500).json({ 
+      ok: false, 
+      error: String(e?.message || e),
+      env: process.env.NODE_ENV
+    });
+  }
+});
+
 module.exports = router; 
