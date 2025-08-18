@@ -13,7 +13,7 @@ const RAW_BASE = (process.env.ELEVENLABS_BASE_URL || "https://api.elevenlabs.io"
 const ELEVENLABS_BASE_URL = RAW_BASE.replace(/\/+$/, "").replace(/\/v1$/, ""); // quita /v1 si vino mal
 
 const ELEVENLABS_API_KEY = (process.env.ELEVENLABS_API_KEY || "").trim();
-// ⚠️ IDs sin "limpieza" extra: no les quites '='
+// ⚠️ no "limpiar" los IDs removiendo '='; puede romper valores válidos
 const ELEVENLABS_AGENT_ID = (process.env.ELEVENLABS_AGENT_ID || "").trim();
 const ELEVENLABS_PHONE_NUMBER_ID = (process.env.ELEVENLABS_PHONE_NUMBER_ID || "").trim();
 const ELEVENLABS_PROJECT_ID = (process.env.ELEVENLABS_PROJECT_ID || "").trim();
@@ -104,13 +104,17 @@ async function executeBatchWithElevenLabs(batchId) {
       agent_phone_number_id: ELEVENLABS_PHONE_NUMBER_ID,
       scheduled_time_unix: Math.floor(Date.now() / 1000), // Timestamp actual
       recipients: batch.contacts.map(contact => {
-        // ✅ FORMATO CORRECTO de dynamic_variables como objeto plano
         const dynamicVars = prepareVariablesForElevenLabs(contact);
-        
         return {
-          phone_number: formatPhoneNumber(contact.phone_number), // Usar phone_number del schema
-          // Las variables dinámicas van directamente como propiedades del objeto recipient
-          ...dynamicVars
+          phone_number: formatPhoneNumber(contact.phone_number),
+          conversation_initiation_client_data: {
+            type: "conversation_initiation_client_data",
+            dynamic_variables: dynamicVars
+            // opcional:
+            // conversation_config_override: {
+            //   agent: { language: "es" }
+            // }
+          }
         };
       })
     };
@@ -220,24 +224,15 @@ async function executeBatchWithElevenLabs(batchId) {
   }
 }
 
-// 🔧 FUNCIÓN PARA PREPARAR VARIABLES DINÁMICAS (FORMATO PLANO)
 function prepareVariablesForElevenLabs(contact) {
-  // ✅ ElevenLabs espera las variables como propiedades directas del objeto
-  const variables = {
-    // Información del contacto
+  const raw = {
     nombre_contacto: sanitizeString(contact.nombre_contacto),
     nombre_paciente: sanitizeString(contact.nombre_paciente),
-    
-    // Dirección
     domicilio_actual: sanitizeString(contact.domicilio_actual),
     localidad: sanitizeString(contact.localidad),
     delegacion: sanitizeString(contact.delegacion),
-    
-    // Fechas y observaciones
     fecha_envio: formatDateForElevenLabs(contact.fecha_envio),
     observaciones: sanitizeString(contact.observaciones),
-    
-    // Productos (hasta 5 productos como está definido en tu schema)
     producto1: sanitizeString(contact.producto1),
     cantidad1: sanitizeString(contact.cantidad1),
     producto2: sanitizeString(contact.producto2),
@@ -249,11 +244,15 @@ function prepareVariablesForElevenLabs(contact) {
     producto5: sanitizeString(contact.producto5),
     cantidad5: sanitizeString(contact.cantidad5)
   };
-
-  // 🔍 Log para debugging
-  console.log(`📋 Variables preparadas para ${contact.nombre_contacto}:`, variables);
-
-  return variables;
+  // Omitir NA y cantidades 0 para no ensuciar el prompt
+  const cleaned = {};
+  for (const [k, v] of Object.entries(raw)) {
+    if (v === '' || v === null || v === undefined) continue;
+    if (typeof v === 'string' && v.toUpperCase() === 'NA') continue;
+    if (/^cantidad\d+$/.test(k) && Number(v) === 0) continue;
+    cleaned[k] = v;
+  }
+  return cleaned;
 }
 
 // 🔧 FUNCIÓN PARA SANITIZAR STRINGS
@@ -268,30 +267,23 @@ function sanitizeString(value) {
     .substring(0, 500); // Limitar longitud
 }
 
-// 🔧 FUNCIÓN PARA FORMATEAR TELÉFONO (ARGENTINA)
+// E.164 Argentina robusto: +54 9 + (area) + número, sin '15'
 function formatPhoneNumber(phone) {
   if (!phone) return '';
-  
-  // Limpiar el número
-  let cleaned = String(phone).replace(/[\s\-\(\)\.]/g, '');
-  
-  // Remover 0 inicial si existe
-  if (cleaned.startsWith('0')) {
-    cleaned = cleaned.substring(1);
+  let d = String(phone).replace(/\D/g, '');        // solo dígitos
+  if (d.startsWith('00')) d = d.slice(2);          // quita 00 internacional
+  if (d.startsWith('0')) d = d.slice(1);           // quita 0 nacional
+  if (!d.startsWith('54')) d = '54' + d;           // asegura país
+  const after54 = d.slice(2);
+  if (!after54.startsWith('9')) {
+    // si aparece '15' tras el área, reemplazar por '9' móvil
+    d = d.replace(/^54(..|...|....)15/, '549$1');
+    if (!/^549/.test(d)) d = d.replace(/^54/, '549');
+  } else {
+    // ya tiene '9'; quitar '15' si quedó
+    d = d.replace(/^549(..|...|....)15/, '549$1');
   }
-  
-  // Agregar código de país de Argentina si no lo tiene
-  if (!cleaned.startsWith('54') && !cleaned.startsWith('+54')) {
-    cleaned = '54' + cleaned;
-  }
-  
-  // Agregar + si no lo tiene
-  if (!cleaned.startsWith('+')) {
-    cleaned = '+' + cleaned;
-  }
-  
-  console.log(`📞 Número formateado: ${phone} -> ${cleaned}`);
-  return cleaned;
+  return '+' + d;
 }
 
 // 🔧 FUNCIÓN PARA FORMATEAR FECHA
