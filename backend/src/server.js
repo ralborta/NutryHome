@@ -52,88 +52,84 @@ app.use(helmet({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-/** 1) Orígenes permitidos (limpios) */
-const allowedOrigins = [
-  "http://localhost:3000",
-  "https://nutry-home.vercel.app", // tu dominio de producción
-  // Patrón más robusto para capturar cualquier hash de Vercel: nutry-home-[hash]-nivel-41.vercel.app
-  /^https:\/\/nutry-home-[a-z0-9]+-nivel-41\.vercel\.app$/      // previews del proyecto
-];
+// SOLUCIÓN DE EMERGENCIA - Configuración CORS más permisiva
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Permite requests sin origin (Postman, mobile apps, etc.)
+    if (!origin) return callback(null, true);
+    
+    // Lista actualizada
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'https://nutry-home.vercel.app',
+    ];
+    
+    // Permite CUALQUIER subdominio de vercel.app (temporal para debug)
+    const isVercelApp = origin.endsWith('.vercel.app') && origin.includes('nutry-home');
+    
+    if (allowedOrigins.includes(origin) || isVercelApp) {
+      return callback(null, true);
+    }
+    
+    console.log('❌ CORS BLOCKED:', origin);
+    callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+  optionsSuccessStatus: 200,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: [
+    'Origin',
+    'X-Requested-With',
+    'Content-Type',
+    'Accept',
+    'Authorization',
+    'xi-api-key',
+    'Idempotency-Key'
+  ],
+};
 
-// DEBUG COMPLETO: Agrega esto temporalmente para debuggear CORS
+// Aplicar CORS ANTES de todo
+app.use(cors(corsOptions));
+
+// Handler manual para OPTIONS (importante)
+app.options('*', (req, res) => {
+  const origin = req.headers.origin;
+  
+  if (origin && (origin.endsWith('.vercel.app') && origin.includes('nutryhome')) || 
+      origin === 'http://localhost:3000' || 
+      origin === 'https://nutry-home.vercel.app') {
+    
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Origin,X-Requested-With,Content-Type,Accept,Authorization,xi-api-key,Idempotency-Key');
+  }
+  
+  res.sendStatus(200);
+});
+
+// Middleware para forzar headers en TODAS las respuestas
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   
-  if (origin) {
-    console.log('🔍 Origin recibido:', origin);
-    console.log('🔍 Method:', req.method);
-    console.log('🔍 URL:', req.url);
+  if (origin && (origin.endsWith('.vercel.app') && origin.includes('nutryhome')) || 
+      origin === 'http://localhost:3000' || 
+      origin === 'https://nutry-home.vercel.app') {
     
-    // Test de cada patrón en allowedOrigins
-    allowedOrigins.forEach((pattern, index) => {
-      if (typeof pattern === 'string') {
-        console.log(`✅ String ${index}: ${pattern === origin ? 'MATCH' : 'NO MATCH'}`);
-      } else {
-        console.log(`✅ Regex ${index}: ${pattern.test(origin) ? 'MATCH' : 'NO MATCH'} - Pattern: ${pattern}`);
-      }
-    });
-    
-    // Test específico para tu caso
-    const testRegex = /^https:\/\/nutry-home-[a-z0-9]+-nivel-41\.vercel\.app$/;
-    console.log('🧪 Test regex específica:', testRegex.test(origin));
-    
-    // Verificar si está en la lista permitida
-    const isAllowed = allowedOrigins.some((o) =>
-      typeof o === "string" ? o === origin : o.test(origin)
-    );
-    console.log('🔒 Origin permitido:', isAllowed);
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Credentials', 'true');
   }
   
   next();
 });
 
-// También logguea las respuestas CORS
-app.use((req, res, next) => {
-  const originalSend = res.send;
-  res.send = function(data) {
-    console.log('📤 Response headers:', {
-      'access-control-allow-origin': res.get('Access-Control-Allow-Origin'),
-      'access-control-allow-credentials': res.get('Access-Control-Allow-Credentials'),
-    });
-    return originalSend.call(this, data);
-  };
-  next();
-});
-
-/** 2) UNA sola config CORS reutilizable en todo */
-const corsOptions = {
-  origin(origin, cb) {
-    if (!origin) return cb(null, true); // curl/postman
-    const ok = allowedOrigins.some((o) =>
-      typeof o === "string" ? o === origin : o.test(origin)
-    );
-    return ok ? cb(null, true) : cb(new Error(`CORS: origin no permitido (${origin})`));
-  },
-  credentials: true, // si NO usás cookies desde el browser, poné false y luego origin:"*"
-  methods: ["GET","POST","PUT","PATCH","DELETE","OPTIONS"],
-  allowedHeaders: ["Content-Type","Authorization","X-Requested-With","Idempotency-Key","xi-api-key"],
-};
-
-/** 3) Debe ir ANTES de cualquier ruta */
-app.use(cors(corsOptions));
-
-/** 4) Preflight con la MISMA config (clave: no uses cors() "pelado") */
-app.options("*", cors(corsOptions));
-
-/** 5) "Sellador" de CORS para cualquier respuesta (incluye 404/304/streams) */
-app.use((req, res, next) => {
-  const { origin } = req.headers;
-  if (origin && allowedOrigins.some((o)=> typeof o==="string" ? o===origin : o.test(origin))) {
-    res.header("Access-Control-Allow-Origin", origin);
-    res.header("Access-Control-Allow-Credentials", "true");
+// Handler de errores CORS específico
+app.use((err, req, res, next) => {
+  if (err.message && err.message.includes('CORS')) {
+    console.log('❌ CORS Error:', err.message, 'Origin:', req.headers.origin);
+    return res.status(403).json({ error: 'CORS not allowed' });
   }
-  res.header("Vary", "Origin");
-  next();
+  next(err);
 });
 
 // Rate limiting
@@ -232,9 +228,11 @@ app.use(errorHandler);
 /** 6) 404 explícito con CORS (por si hay paths que no matchean) */
 app.use((req, res) => {
   const { origin } = req.headers;
-  if (origin && allowedOrigins.some((o)=> typeof o==="string" ? o===origin : o.test(origin))) {
-    res.header("Access-Control-Allow-Origin", origin);
-    res.header("Access-Control-Allow-Credentials", "true");
+  if (origin && (origin.endsWith('.vercel.app') && origin.includes('nutryhome')) || 
+      origin === 'http://localhost:3000' || 
+      origin === 'https://nutry-home.vercel.app') {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Credentials', 'true');
   }
   res.header("Vary", "Origin");
   res.status(404).json({ code: "NOT_FOUND", path: req.originalUrl });
@@ -243,9 +241,11 @@ app.use((req, res) => {
 /** 7) Handler de errores al final (mantiene CORS) */
 app.use((err, req, res, _next) => {
   const { origin } = req.headers;
-  if (origin && allowedOrigins.some((o)=> typeof o==="string" ? o===origin : o.test(origin))) {
-    res.header("Access-Control-Allow-Origin", origin);
-    res.header("Access-Control-Allow-Credentials", "true");
+  if (origin && (origin.endsWith('.vercel.app') && origin.includes('nutryhome')) || 
+      origin === 'http://localhost:3000' || 
+      origin === 'https://nutry-home.vercel.app') {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Credentials', 'true');
   }
   res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Idempotency-Key, xi-api-key");
   res.header("Vary", "Origin");
