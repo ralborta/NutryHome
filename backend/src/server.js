@@ -56,8 +56,27 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 const allowedOrigins = [
   "http://localhost:3000",
   "https://nutry-home.vercel.app",                               // prod
-  /^https:\/\/nutry-home-[a-z0-9-]+-nivel-41\.vercel\.app$/      // previews del proyecto
+  // Regex corregida para capturar el patrón real de Vercel: nutry-home-[hash]-nivel-41.vercel.app
+  /^https:\/\/nutry-home-[a-z0-9]+-nivel-41\.vercel\.app$/      // previews del proyecto
 ];
+
+// DEBUG: Agrega esto temporalmente para ver qué origin está llegando
+app.use((req, res, next) => {
+  if (req.headers.origin) {
+    console.log('🔍 Origin recibido:', req.headers.origin);
+    
+    // Test manual de tu regex
+    const testRegex = /^https:\/\/nutry-home-[a-z0-9]+-nivel-41\.vercel\.app$/;
+    console.log('✅ Regex match:', testRegex.test(req.headers.origin));
+    
+    // Verificar si está en la lista permitida
+    const isAllowed = allowedOrigins.some((o) =>
+      typeof o === "string" ? o === req.headers.origin : o.test(req.headers.origin)
+    );
+    console.log('🔒 Origin permitido:', isAllowed);
+  }
+  next();
+});
 
 /** 2) UNA sola config CORS reutilizable en todo */
 const corsOptions = {
