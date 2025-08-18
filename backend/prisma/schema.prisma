@@ -121,6 +121,12 @@ model OutboundCall {
   variables        Json?
   retryCount       Int      @default(0)
   
+  // 🔄 CAMPOS PARA RESULTADOS COMPLETOS DE ELEVENLABS
+  resumen          String?  @db.Text        // Resumen de la conversación
+  transcriptCompleto String? @db.Text      // Transcript completo
+  variablesDinamicas Json?                 // Variables dinámicas usadas
+  audioUrl         String?                 // URL del audio (si está disponible)
+  
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   callId          String?  @unique

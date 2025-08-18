@@ -409,6 +409,69 @@ export default function CallsManagement() {
     }
   };
 
+  // 🔄 Función para sincronizar batch con ElevenLabs
+  const syncBatch = async (batchId: string) => {
+    try {
+      setError(null);
+      console.log(`🔄 Sincronizando batch ${batchId} con ElevenLabs...`);
+      
+      // Mostrar indicador de sincronización
+      const syncButton = document.querySelector(`[onclick="syncBatch('${batchId}')"]`);
+      if (syncButton) {
+        syncButton.innerHTML = '<div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>';
+        syncButton.setAttribute('disabled', 'true');
+      }
+      
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://nutryhome-production.up.railway.app'}/api/campaigns/batch/${batchId}/sync`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Batch sincronizado exitosamente:', result);
+        
+        // Mostrar mensaje de éxito
+        alert(`✅ Batch sincronizado exitosamente!\n\nLlamadas actualizadas: ${result.updatedCalls}\nLlamadas fallidas: ${result.failedCalls}\nEstado del batch: ${result.batchStatus}`);
+        
+        // Actualizar estado del batch en la lista
+        setBatches(prevBatches => 
+          prevBatches.map(batch => 
+            batch.id === batchId 
+              ? { 
+                  ...batch, 
+                  status: result.batchStatus === 'COMPLETED' ? 'completed' : 
+                         result.batchStatus === 'FAILED' ? 'failed' : 
+                         result.batchStatus === 'IN_PROGRESS' ? 'running' : 'pending'
+                }
+              : batch
+          )
+        );
+        
+        // Recargar la lista de batches para obtener datos actualizados
+        fetchBatches();
+        
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error desconocido al sincronizar batch');
+      }
+      
+    } catch (error) {
+      console.error('❌ Error sincronizando batch:', error);
+      setError(`Error al sincronizar batch: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+      alert(`❌ Error al sincronizar batch:\n\n${error instanceof Error ? error.message : 'Error desconocido'}`);
+    } finally {
+      // Restaurar botón de sincronización
+      const syncButton = document.querySelector(`[onclick="syncBatch('${batchId}')"]`);
+      if (syncButton) {
+        syncButton.innerHTML = '<RefreshCw className="w-4 h-4" />';
+        syncButton.removeAttribute('disabled');
+      }
+    }
+  };
+
   const calls: Call[] = [
     {
       id: '1',
@@ -837,6 +900,17 @@ export default function CallsManagement() {
                                     )}
                                   </button>
                                 </>
+                              )}
+                              
+                              {/* Botón de sincronización para batches en progreso o completados */}
+                              {(batch.status === 'running' || batch.status === 'completed' || batch.status === 'failed') && (
+                                <button
+                                  onClick={() => syncBatch(batch.id)}
+                                  className="text-blue-600 hover:text-blue-900"
+                                  title="Sincronizar con ElevenLabs"
+                                >
+                                  <RefreshCw className="w-4 h-4" />
+                                </button>
                               )}
                               
                               {/* Botón de borrar para todos los estados */}

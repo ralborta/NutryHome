@@ -146,7 +146,7 @@ async function executeBatchWithElevenLabs(batchId) {
       recipients: batch.contacts.map(contact => {
         const dynamicVars = prepareVariablesForElevenLabs(contact);
         return {
-          phone_number: formatPhoneNumber(contact.phone_number),
+        phone_number: formatPhoneNumber(contact.phone_number),
           conversation_initiation_client_data: {
             type: "conversation_initiation_client_data",
             dynamic_variables: dynamicVars
@@ -205,8 +205,8 @@ async function executeBatchWithElevenLabs(batchId) {
       );
 
       return {
-        batchId: batchId,
-        contactId: contact.id,
+      batchId: batchId,
+      contactId: contact.id,
         telefono: contact.phone_number, // ✅ CAMPO CORRECTO DEL SCHEMA
         estado: 'PENDING', // ✅ ENUM CORRECTO DEL SCHEMA
         elevenlabsCallId: elevenLabsCall?.call_id || null,
@@ -249,17 +249,17 @@ async function executeBatchWithElevenLabs(batchId) {
     
     // Actualizar batch a estado FAILED
     try {
-      await prisma.batch.update({
-        where: { id: batchId },
+    await prisma.batch.update({
+      where: { id: batchId },
         data: { 
           estado: 'FAILED',
           updatedAt: new Date()
         }
-      });
+    });
     } catch (updateError) {
       console.error('Error actualizando batch a FAILED:', updateError);
     }
-    
+
     throw error;
   }
 }
@@ -1457,8 +1457,8 @@ router.post('/batch/:batchId/execute', async (req, res) => {
       })
       .catch(error => {
         console.error(`❌ Error ejecutando batch ${batchId}:`, error);
-      });
-      
+    });
+
   } catch (error) {
     console.error('❌ Error iniciando ejecución del batch:', error);
     res.status(500).json({ 
@@ -1476,7 +1476,7 @@ router.get('/batch/:batchId/status', async (req, res) => {
     
     const batch = await prisma.batch.findUnique({
       where: { id: batchId },
-      include: {
+      include: { 
         _count: {
           select: {
             contacts: true,
@@ -1491,14 +1491,14 @@ router.get('/batch/:batchId/status', async (req, res) => {
         }
       }
     });
-    
+
     if (!batch) {
-      return res.status(404).json({
-        success: false,
-        error: 'Batch no encontrado'
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Batch no encontrado' 
       });
     }
-    
+
     // Calcular estadísticas
     const callStats = batch.outboundCalls.reduce((acc, call) => {
       acc[call.estado] = (acc[call.estado] || 0) + 1;
@@ -1520,7 +1520,7 @@ router.get('/batch/:batchId/status', async (req, res) => {
       }
     });
     
-  } catch (error) {
+      } catch (error) {
     console.error('❌ Error obteniendo estado del batch:', error);
     res.status(500).json({
       success: false,
@@ -1586,11 +1586,41 @@ router.get('/batch/:batchId/sync', async (req, res) => {
     const conversationsData = await conversationsResponse.json();
     console.log(`📥 Conversations data:`, conversationsData);
     
-    // 3️⃣ Actualizar cada llamada con los datos de ElevenLabs
+    // 3️⃣ Obtener detalles completos de cada conversación
+    const detailedConversations = [];
+    for (const conversation of conversationsData.conversations || []) {
+      try {
+        console.log(`🔍 Obteniendo detalles de conversación: ${conversation.conversation_id}`);
+        
+        // Obtener detalles completos de la conversación
+        const detailResponse = await fetch(`${ELEVENLABS_BASE_URL}/v1/convai/conversations/${conversation.conversation_id}`, {
+          headers: {
+            'xi-api-key': ELEVENLABS_API_KEY
+          }
+        });
+        
+        if (detailResponse.ok) {
+          const detailData = await detailResponse.json();
+          detailedConversations.push({
+            ...conversation,
+            ...detailData
+          });
+          console.log(`✅ Detalles obtenidos para: ${conversation.conversation_id}`);
+        } else {
+          console.warn(`⚠️ No se pudieron obtener detalles para: ${conversation.conversation_id}`);
+          detailedConversations.push(conversation);
+        }
+      } catch (detailError) {
+        console.error(`❌ Error obteniendo detalles de conversación:`, detailError);
+        detailedConversations.push(conversation);
+      }
+    }
+    
+    // 4️⃣ Actualizar cada llamada con los datos completos de ElevenLabs
     let updatedCalls = 0;
     let failedCalls = 0;
     
-    for (const conversation of conversationsData.conversations || []) {
+    for (const conversation of detailedConversations) {
       try {
         // Buscar la llamada por phone_number
         const phoneNumber = conversation.phone_number;
@@ -1599,7 +1629,7 @@ router.get('/batch/:batchId/sync', async (req, res) => {
         );
         
         if (outboundCall) {
-          // Actualizar con datos de ElevenLabs
+          // Actualizar con datos COMPLETOS de ElevenLabs
           const updateData = {
             estado: mapElevenLabsStatus(conversation.status),
             elevenlabsCallId: conversation.conversation_id,
@@ -1607,6 +1637,13 @@ router.get('/batch/:batchId/sync', async (req, res) => {
             duracion: conversation.metadata?.call_duration_secs || 0,
             fechaEjecutada: conversation.metadata?.start_time_unix_secs ? 
               new Date(conversation.metadata.start_time_unix_secs * 1000) : null,
+            
+            // 🔄 DATOS COMPLETOS DE LA CONVERSACIÓN
+            resumen: conversation.analysis?.summary || conversation.summary || null,
+            transcriptCompleto: conversation.transcript || conversation.full_transcript || null,
+            variablesDinamicas: conversation.dynamic_variables || conversation.variables || null,
+            audioUrl: conversation.audio_url || conversation.recording_url || null,
+            
             updatedAt: new Date()
           };
           
@@ -1645,13 +1682,13 @@ router.get('/batch/:batchId/sync', async (req, res) => {
       failedCalls,
       batchStatus
     });
-    
+
   } catch (error) {
     console.error(`❌ Error sincronizando batch ${batchId}:`, error);
-    res.status(500).json({
-      success: false,
+    res.status(500).json({ 
+      success: false, 
       error: 'Error en sincronización',
-      details: error.message
+      details: error.message 
     });
   }
 });
