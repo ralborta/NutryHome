@@ -63,27 +63,10 @@ async function executeBatchWithElevenLabs(batchId) {
       call_name: batch.nombre || `Entrega Médica - Batch ${batchId}`,
       agent_id: ELEVENLABS_AGENT_ID,
       agent_phone_number_id: ELEVENLABS_PHONE_NUMBER_ID,
+      scheduled_time_unix: Math.floor(Date.now() / 1000),
       recipients: batch.contacts.map(contact => ({
         phone_number: formatPhoneNumber(contact.phone_number),
-        variables: {
-          nombre_contacto: contact.nombre_contacto || "",
-          nombre_paciente: contact.nombre_paciente || "",
-          domicilio_actual: contact.domicilio_actual || "",
-          localidad: contact.localidad || "",
-          delegacion: contact.delegacion || "",
-          fecha_envio: formatDate(contact.fecha_envio) || "",
-          observaciones: contact.observaciones || "",
-          producto1: contact.producto1 || "",
-          cantidad1: contact.cantidad1 || "",
-          producto2: contact.producto2 || "",
-          cantidad2: contact.cantidad2 || "",
-          producto3: contact.producto3 || "",
-          cantidad3: contact.cantidad3 || "",
-          producto4: contact.producto4 || "",
-          cantidad4: contact.cantidad4 || "",
-          producto5: contact.producto5 || "",
-          cantidad5: contact.cantidad5 || ""
-        }
+        dynamic_variables: prepareVariablesForElevenLabs(contact)
       }))
     };
 
@@ -115,7 +98,7 @@ async function executeBatchWithElevenLabs(batchId) {
     }
 
     // Llamar a ElevenLabs API
-    const fullUrl = `${ELEVENLABS_BASE_URL}/v1/batch-calls`;
+    const fullUrl = `${ELEVENLABS_BASE_URL}/v1/convai/batch-calling/submit`;
     console.log(`🔍 Debug URLs:`);
     console.log(`  - ELEVENLABS_BASE_URL: ${ELEVENLABS_BASE_URL}`);
     console.log(`  - URL completa: ${fullUrl}`);
@@ -157,7 +140,7 @@ async function executeBatchWithElevenLabs(batchId) {
     return {
       success: true,
       batchId: batchId,
-      elevenLabsBatchId: elevenLabsResponse.batch_id,
+      elevenLabsBatchId: elevenLabsResponse.id,
       totalCalls: batch.contacts.length,
       message: 'Batch ejecutado exitosamente'
     };
@@ -178,24 +161,29 @@ async function executeBatchWithElevenLabs(batchId) {
 // Función para preparar variables para ElevenLabs
 function prepareVariablesForElevenLabs(contact) {
   const variables = {
-    nombre_contacto: contact.nombre_contacto,
-    nombre_paciente: contact.nombre_paciente,
-    domicilio_actual: contact.domicilio_actual,
-    localidad: contact.localidad,
-    delegacion: contact.delegacion,
-    fecha_envio: formatDate(contact.fecha_envio),
-    observaciones: contact.observaciones || ''
+    nombre_contacto: contact.nombre_contacto || "",
+    nombre_paciente: contact.nombre_paciente || "",
+    domicilio_actual: contact.domicilio_actual || "",
+    localidad: contact.localidad || "",
+    delegacion: contact.delegacion || "",
+    fecha_envio: formatDate(contact.fecha_envio) || "",
+    observaciones: contact.observaciones || "",
+    producto1: contact.producto1 || "",
+    cantidad1: contact.cantidad1 || "",
+    producto2: contact.producto2 || "",
+    cantidad2: contact.cantidad2 || "",
+    producto3: contact.producto3 || "",
+    cantidad3: contact.cantidad3 || "",
+    producto4: contact.producto4 || "",
+    cantidad4: contact.cantidad4 || "",
+    producto5: contact.producto5 || "",
+    cantidad5: contact.cantidad5 || ""
   };
 
-  // Agregar productos solo si existen
+  // Asegurar que todas las variables estén presentes (ElevenLabs requiere todas)
   for (let i = 1; i <= 5; i++) {
-    const producto = contact[`producto${i}`];
-    const cantidad = contact[`cantidad${i}`];
-    
-    if (producto && cantidad) {
-      variables[`producto${i}`] = producto;
-      variables[`cantidad${i}`] = cantidad;
-    }
+    if (!variables[`producto${i}`]) variables[`producto${i}`] = "";
+    if (!variables[`cantidad${i}`]) variables[`cantidad${i}`] = "";
   }
 
   return variables;
@@ -1318,16 +1306,13 @@ router.post('/batch/:batchId/execute', async (req, res) => {
   }
 });
 
-// GET /campaigns/batch/:batchId/status - Obtener estado del batch
-router.get('/batch/:batchId/status', async (req, res) => {
+// GET /campaigns/batch/:id/status - Obtener estado del batch desde ElevenLabs
+router.get('/batch/:id/status', async (req, res) => {
   try {
-    const { batchId } = req.params;
+    const { id } = req.params;
     
     const batch = await prisma.batch.findUnique({
-      where: { id: batchId },
-      include: { 
-        contacts: true
-      }
+      where: { id: id }
     });
 
     if (!batch) {
@@ -1337,50 +1322,49 @@ router.get('/batch/:batchId/status', async (req, res) => {
       });
     }
 
-    // Calcular progreso basado en el estado del batch
-    const totalContacts = batch.contacts.length;
-    const completedCalls = batch.estado === 'COMPLETED' ? totalContacts : 0;
-    const failedCalls = batch.estado === 'FAILED' ? totalContacts : 0;
-    const inProgressCalls = batch.estado === 'PROCESSING' ? totalContacts : 0;
-    const pendingCalls = batch.estado === 'PENDING' ? totalContacts : 0;
-    
-    const progress = totalContacts > 0 ? Math.round(((completedCalls + failedCalls) / totalContacts) * 100) : 0;
-
-    // Obtener estado de ElevenLabs si está en progreso
-    let elevenLabsStatus = null;
-    if (batch.estado === 'PROCESSING') {
-      try {
-        // Por ahora usamos el estado del batch
-        elevenLabsStatus = {
-          calls: batch.contacts.map(contact => ({
-            call_id: contact.id,
-            status: 'queued',
-            variables: contact
-          }))
-        };
-      } catch (error) {
-        console.warn('No se pudo obtener estado de ElevenLabs:', error.message);
-      }
+    // Si no tiene elevenLabsBatchId, no podemos obtener status
+    if (!batch.elevenLabsBatchId) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Batch no tiene ID de ElevenLabs' 
+      });
     }
 
-    const response = {
-      batchId: batch.id,
-      status: batch.estado,
-      progress,
-      totalContacts,
-      completedCalls,
-      failedCalls,
-      inProgressCalls,
-      pendingCalls,
-      calls: elevenLabsStatus?.calls || [],
-      estimatedCompletion: batch.estado === 'PROCESSING' ? 
-        new Date(Date.now() + (pendingCalls * 60000)) : undefined // Estimación: 1 minuto por llamada pendiente
-    };
+    // Obtener estado desde ElevenLabs
+    const response = await fetch(`${ELEVENLABS_BASE_URL}/v1/convai/batch-calling/${batch.elevenLabsBatchId}`, {
+      headers: { 'xi-api-key': ELEVENLABS_API_KEY }
+    });
 
-    res.json(response);
+    if (!response.ok) {
+      throw new Error(`ElevenLabs API Error: ${response.status} - ${response.statusText}`);
+    }
+
+    const elevenLabsData = await response.json();
+    
+    // Parsear progreso por destinatario
+    const calls = elevenLabsData.calls || elevenLabsData.recipients || [];
+    const progress = calls.map(call => ({
+      phone_number: call.phone_number,
+      status: call.status || call.state || 'unknown',
+      duration: call.duration_sec || call.call_duration || 0,
+      started_at: call.started_at || call.start_time,
+      ended_at: call.ended_at || call.end_time
+    }));
+
+    res.json({
+      success: true,
+      batchId: id,
+      elevenLabsBatchId: batch.elevenLabsBatchId,
+      status: elevenLabsData.status || elevenLabsData.state,
+      progress,
+      totalCalls: calls.length,
+      completedCalls: calls.filter(c => c.status === 'completed' || c.status === 'success').length,
+      failedCalls: calls.filter(c => c.status === 'failed' || c.status === 'error').length,
+      inProgressCalls: calls.filter(c => c.status === 'in_progress' || c.status === 'ongoing').length
+    });
 
   } catch (error) {
-    console.error('Error obteniendo estado del batch:', error);
+    console.error('Error obteniendo estado del batch desde ElevenLabs:', error);
     res.status(500).json({ 
       success: false, 
       error: 'Error obteniendo estado del batch',
