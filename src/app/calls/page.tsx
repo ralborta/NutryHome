@@ -86,7 +86,13 @@ export default function CallsManagement() {
   const fetchBatches = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://nutryhome-production.up.railway.app'}/api/campaigns`);
+      
+      // 🔍 DEBUG: Ver qué URL está usando
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://nutryhome-production.up.railway.app';
+      console.log('🔍 DEBUG - API URL:', apiUrl);
+      console.log('🔍 DEBUG - process.env.NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL);
+      
+      const response = await fetch(`${apiUrl}/api/campaigns`);
       
       if (response.ok) {
         const data = await response.json();
