@@ -52,42 +52,41 @@ app.use(helmet({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// 🔧 CORS CONFIGURADO ANTES DE LAS RUTAS
+/** 1) Orígenes permitidos (limpios) */
 const allowedOrigins = [
-  'http://localhost:3000',
-  'https://nutry-home.vercel.app',                 // prod
-  'https://nutry-home-acdkl8ept-nivel-41.vercel.app', // Tu dominio actual
-  // previews del mismo proyecto
-  /^https:\/\/nutry-home-[a-z0-9-]+-nivel-41\.vercel\.app$/,
+  "http://localhost:3000",
+  "https://nutry-home.vercel.app",                               // prod
+  /^https:\/\/nutry-home-[a-z0-9-]+-nivel-41\.vercel\.app$/      // previews del proyecto
 ];
 
-// define UNA sola config y reutilízala
+/** 2) UNA sola config CORS reutilizable en todo */
 const corsOptions = {
   origin(origin, cb) {
-    if (!origin) return cb(null, true);
-    const allowed = allowedOrigins.some((o) =>
+    if (!origin) return cb(null, true); // curl/postman
+    const ok = allowedOrigins.some((o) =>
       typeof o === "string" ? o === origin : o.test(origin)
     );
-    return allowed ? cb(null, true) : cb(new Error(`CORS: origin no permitido (${origin})`));
+    return ok ? cb(null, true) : cb(new Error(`CORS: origin no permitido (${origin})`));
   },
-  credentials: true,
+  credentials: true, // si NO usás cookies desde el browser, poné false y luego origin:"*"
   methods: ["GET","POST","PUT","PATCH","DELETE","OPTIONS"],
   allowedHeaders: ["Content-Type","Authorization","X-Requested-With","Idempotency-Key","xi-api-key"],
 };
 
-// SIEMPRE antes de rutas
+/** 3) Debe ir ANTES de cualquier ruta */
 app.use(cors(corsOptions));
-// Preflight para TODO con la MISMA config
+
+/** 4) Preflight con la MISMA config (clave: no uses cors() "pelado") */
 app.options("*", cors(corsOptions));
 
-// 🔧 SELLADOR CORS: Asegura CORS en TODAS las respuestas
+/** 5) "Sellador" de CORS para cualquier respuesta (incluye 404/304/streams) */
 app.use((req, res, next) => {
-  const origin = req.headers.origin;
+  const { origin } = req.headers;
   if (origin && allowedOrigins.some((o)=> typeof o==="string" ? o===origin : o.test(origin))) {
     res.header("Access-Control-Allow-Origin", origin);
     res.header("Access-Control-Allow-Credentials", "true");
   }
-  res.header("Vary", "Origin"); // importante para caches/proxies
+  res.header("Vary", "Origin");
   next();
 });
 
@@ -184,14 +183,27 @@ app.get('/', (req, res) => {
 app.use(notFound);
 app.use(errorHandler);
 
-// 🔧 ERROR HANDLER SIMPLIFICADO (CORS ya está garantizado por el sellador)
-app.use((err, req, res, next) => {
-  const status = err.status || 500;
-  res.status(status).json({ 
-    code: 'ERROR', 
-    message: err.message || 'Internal error',
-    timestamp: new Date().toISOString()
-  });
+/** 6) 404 explícito con CORS (por si hay paths que no matchean) */
+app.use((req, res) => {
+  const { origin } = req.headers;
+  if (origin && allowedOrigins.some((o)=> typeof o==="string" ? o===origin : o.test(origin))) {
+    res.header("Access-Control-Allow-Origin", origin);
+    res.header("Access-Control-Allow-Credentials", "true");
+  }
+  res.header("Vary", "Origin");
+  res.status(404).json({ code: "NOT_FOUND", path: req.originalUrl });
+});
+
+/** 7) Handler de errores al final (mantiene CORS) */
+app.use((err, req, res, _next) => {
+  const { origin } = req.headers;
+  if (origin && allowedOrigins.some((o)=> typeof o==="string" ? o===origin : o.test(origin))) {
+    res.header("Access-Control-Allow-Origin", origin);
+    res.header("Access-Control-Allow-Credentials", "true");
+  }
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Idempotency-Key, xi-api-key");
+  res.header("Vary", "Origin");
+  res.status(err.status || 500).json({ code: "ERROR", message: err.message || "Internal error" });
 });
 
 // Iniciar servidor
