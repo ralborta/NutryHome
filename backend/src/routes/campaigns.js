@@ -13,9 +13,18 @@ const RAW_BASE = (process.env.ELEVENLABS_BASE_URL || "https://api.elevenlabs.io"
 const ELEVENLABS_BASE_URL = RAW_BASE.replace(/\/+$/, "").replace(/\/v1$/, ""); // quita /v1 si vino mal
 
 const ELEVENLABS_API_KEY = (process.env.ELEVENLABS_API_KEY || "").trim();
-// 🔧 LIMPIEZA ROBUSTA: remover caracteres problemáticos del inicio
-const ELEVENLABS_AGENT_ID = (process.env.ELEVENLABS_AGENT_ID || "").trim().replace(/^[=+\s]+/, '');
-const ELEVENLABS_PHONE_NUMBER_ID = (process.env.ELEVENLABS_PHONE_NUMBER_ID || "").trim().replace(/^[=+\s]+/, '');
+// 🔧 FUNCIÓN CLEANID ROBUSTA: normaliza IDs y avisa si venían mal
+function cleanId(v) {
+  const raw = String(v ?? '').trim();
+  const cleaned = raw.replace(/^[='"\s]+/, ''); // quita =, comillas o espacios iniciales
+  if (raw !== cleaned) {
+    console.warn(`⚠️ [EL] ID con prefijo sospechoso normalizado: "${raw}" -> "${cleaned}"`);
+  }
+  return cleaned;
+}
+
+const ELEVENLABS_AGENT_ID = cleanId(process.env.ELEVENLABS_AGENT_ID);
+const ELEVENLABS_PHONE_NUMBER_ID = cleanId(process.env.ELEVENLABS_PHONE_NUMBER_ID);
 const ELEVENLABS_PROJECT_ID = (process.env.ELEVENLABS_PROJECT_ID || "").trim();
 
 // ==== PREFLIGHT ====
@@ -74,6 +83,15 @@ function validateElevenLabsConfig() {
   
   if (missing.length > 0) {
     throw new Error(`❌ Configuración de ElevenLabs incompleta. Variables faltantes: ${missing.join(', ')}`);
+  }
+  
+  // 🔍 VALIDACIÓN DE FORMATO: fallar temprano si los IDs están mal formados
+  if (!/^agent_[A-Za-z0-9]+$/.test(ELEVENLABS_AGENT_ID)) {
+    throw new Error(`❌ ELEVENLABS_AGENT_ID mal formado: "${ELEVENLABS_AGENT_ID}" (debe ser agent_...)`);
+  }
+  
+  if (!/^phnum_[A-Za-z0-9]+$/.test(ELEVENLABS_PHONE_NUMBER_ID)) {
+    throw new Error(`❌ ELEVENLABS_PHONE_NUMBER_ID mal formado: "${ELEVENLABS_PHONE_NUMBER_ID}" (debe ser phnum_...)`);
   }
   
   console.log('✅ Configuración de ElevenLabs validada');
