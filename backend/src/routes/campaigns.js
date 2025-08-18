@@ -83,7 +83,7 @@ async function executeBatchWithElevenLabs(batchId) {
         const dynamicVars = prepareVariablesForElevenLabs(contact);
         
         return {
-          phone_number: formatPhoneNumber(contact.phoneNumber), // Usar phoneNumber del schema
+          phone_number: formatPhoneNumber(contact.phone_number), // Usar phone_number del schema
           // Las variables dinámicas van directamente como propiedades del objeto recipient
           ...dynamicVars
         };
@@ -132,13 +132,13 @@ async function executeBatchWithElevenLabs(batchId) {
     const outboundCallsData = batch.contacts.map((contact, index) => {
       // Buscar el call_id correspondiente en la respuesta
       const elevenLabsCall = elevenLabsResponse.calls?.find(
-        call => call.phone_number === formatPhoneNumber(contact.phoneNumber)
+        call => call.phone_number === formatPhoneNumber(contact.phone_number)
       );
 
       return {
         batchId: batchId,
         contactId: contact.id,
-        phoneNumber: contact.phoneNumber,
+        phoneNumber: contact.phone_number,
         estado: 'QUEUED',
         elevenlabsCallId: elevenLabsCall?.call_id || null,
         variables: contact, // Guardar las variables originales

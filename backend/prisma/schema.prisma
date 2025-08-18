@@ -39,6 +39,9 @@ model Batch {
   completedCalls Int   @default(0)
   failedCalls Int      @default(0)
   
+  // ✅ CAMPOS PARA ELEVENLABS
+  elevenLabsBatchId String?
+  
   // Campos para compatibilidad con frontend
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -112,6 +115,11 @@ model OutboundCall {
   resultado       OutboundCallResult?
   notas           String?
   duracion        Int?     // Duración en segundos
+  
+  // ✅ CAMPOS PARA ELEVENLABS
+  elevenlabsCallId String?
+  variables        Json?
+  retryCount       Int      @default(0)
   
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
