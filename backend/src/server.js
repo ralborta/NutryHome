@@ -16,6 +16,7 @@ const webhooksRoutes = require('./routes/webhooks');
 const authRoutes = require('./routes/auth');
 const campaignsRoutes = require('./routes/campaigns');
 const variablesRoutes = require('./routes/variables');
+const isabelaRoutes = require('./routes/isabela');
 
 // Importar middleware
 const errorHandler = require('./middleware/errorHandler');
@@ -194,6 +195,7 @@ app.use('/api/webhooks', webhooksRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/campaigns', campaignsRoutes);
 app.use('/api/variables', variablesRoutes);
+app.use('/api/isabela', isabelaRoutes);
 
 // API Documentation endpoint
 app.get('/api', (req, res) => {

@@ -210,6 +210,18 @@ model User {
   @@map("users")
 }
 
+// Modelo para conversaciones de Isabela (ElevenLabs)
+model IsabelaConversation {
+  id                    String   @id @default(cuid())
+  conversationId        String   @unique // ID de ElevenLabs
+  summary              String?  @db.Text // Resumen traducido
+  
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@map("isabela_conversations")
+}
+
 // Enums (mantienen compatibilidad)
 enum CallStatus {
   ACTIVE

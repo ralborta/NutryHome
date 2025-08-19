@@ -126,37 +126,55 @@ export async function GET() {
     }
 
     // Por cada conversación, obtener el detalle y extraer los datos requeridos
-    const detailedConversations: Conversation[] = await Promise.all(
-      allConversations.map(async (conv) => {
-        try {
-          const res = await fetch(`https://api.elevenlabs.io/v1/convai/conversations/${conv.conversation_id}`, {
-            headers: {
-              'xi-api-key': API_KEY,
-              'Content-Type': 'application/json',
-            },
-          });
-          if (!res.ok) return conv;
-          const data = await res.json();
-          let nombre_paciente = data.conversation_initiation_client_data?.dynamic_variables?.nombre_paciente || null;
-          if (nombre_paciente === 'Leonardo Viano') {
-            nombre_paciente = 'Leonardo';
-          }
-          let resumen = data.analysis?.transcript_summary || null;
-          if (resumen) {
-            resumen = await traducirTexto(resumen);
-          }
-          return {
-            ...conv,
-            telefono_destino: data.metadata?.phone_call?.external_number || data.conversation_initiation_client_data?.dynamic_variables?.system__called_number || null,
-            nombre_paciente,
-            producto: data.conversation_initiation_client_data?.dynamic_variables?.producto || null,
-            summary: resumen,
-          };
-        } catch {
-          return conv;
-        }
-      })
-    );
+                    const detailedConversations: Conversation[] = await Promise.all(
+                  allConversations.map(async (conv) => {
+                    try {
+                      const res = await fetch(`https://api.elevenlabs.io/v1/convai/conversations/${conv.conversation_id}`, {
+                        headers: {
+                          'xi-api-key': API_KEY,
+                          'Content-Type': 'application/json',
+                        },
+                      });
+                      if (!res.ok) return conv;
+                      const data = await res.json();
+                      let nombre_paciente = data.conversation_initiation_client_data?.dynamic_variables?.nombre_paciente || null;
+                      if (nombre_paciente === 'Leonardo Viano') {
+                        nombre_paciente = 'Leonardo';
+                      }
+                      let resumen = data.analysis?.transcript_summary || null;
+                      if (resumen) {
+                        resumen = await traducirTexto(resumen);
+                        
+                        // 🔥 GUARDAR EN LA BASE DE DATOS
+                        try {
+                          const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'https://nutryhome-production.up.railway.app';
+                          await fetch(`${backendUrl}/api/isabela/conversations`, {
+                            method: 'POST',
+                            headers: {
+                              'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                              conversationId: conv.conversation_id,
+                              summary: resumen
+                            })
+                          });
+                          console.log('✅ Resumen guardado en DB:', conv.conversation_id);
+                        } catch (dbError) {
+                          console.warn('⚠️ Error guardando en DB:', dbError);
+                        }
+                      }
+                      return {
+                        ...conv,
+                        telefono_destino: data.metadata?.phone_call?.external_number || data.conversation_initiation_client_data?.dynamic_variables?.system__called_number || null,
+                        nombre_paciente,
+                        producto: data.conversation_initiation_client_data?.dynamic_variables?.producto || null,
+                        summary: resumen,
+                      };
+                    } catch {
+                      return conv;
+                    }
+                  })
+                );
 
     // Ordenar por fecha de más reciente a más antigua
     detailedConversations.sort((a, b) => (b.start_time_unix_secs || 0) - (a.start_time_unix_secs || 0));
