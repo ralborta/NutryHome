@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { formatDateSafe, formatTimeSafe, formatDateTimeSafe, debugDate } from '@/lib/dateUtils';
 
 interface Conversation {
   agent_id?: string;
@@ -49,13 +50,27 @@ export default function EstadisticasIsabela() {
   }, []);
 
   const formatDate = (timestamp: number) => {
-    return new Date(timestamp * 1000).toLocaleString('es-AR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    if (!timestamp || isNaN(timestamp)) {
+      return 'Fecha inválida';
+    }
+    
+    try {
+      const date = new Date(timestamp * 1000);
+      if (isNaN(date.getTime())) {
+        return 'Fecha inválida';
+      }
+      
+      return date.toLocaleString('es-AR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (error) {
+      console.warn('Error formateando fecha:', timestamp, error);
+      return 'Fecha inválida';
+    }
   };
 
   const formatDuration = (seconds: number) => {
@@ -233,7 +248,7 @@ export default function EstadisticasIsabela() {
 
         {/* Footer */}
         <div className="mt-8 text-center text-sm text-gray-500">
-          <p>Última actualización: {new Date().toLocaleString('es-AR')}</p>
+          <p>Última actualización: {formatDateTimeSafe(new Date())}</p>
           <p className="mt-1">
             Agente ID: <code className="bg-gray-100 px-2 py-1 rounded">{data.conversations[0]?.agent_id || 'N/A'}</code>
           </p>

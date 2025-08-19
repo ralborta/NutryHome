@@ -31,6 +31,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { validatePhoneNumber, formatPhoneNumber, getPhoneNumberError } from '@/lib/phoneValidation';
+import { formatDateSafe, formatTimeSafe, formatDateTimeSafe, debugDate } from '@/lib/dateUtils';
 import React from 'react'; // Added missing import for React.useEffect
 
 interface Batch {
@@ -841,7 +842,7 @@ export default function CallsManagement() {
                                   </div>
                                   {batchStatus.estimatedCompletion && (
                                     <div className="text-xs text-blue-600 mt-1">
-                                      ⏰ {new Date(batchStatus.estimatedCompletion).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                                      ⏰ {formatTimeSafe(batchStatus.estimatedCompletion, { hour: '2-digit', minute: '2-digit' })}
                                     </div>
                                   )}
                                 </div>
@@ -849,15 +850,15 @@ export default function CallsManagement() {
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {new Date(batch.createdAt).toLocaleDateString('es-ES')}
+                            {formatDateSafe(batch.createdAt)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {batch.scheduledFor ? (
                               <div className="flex items-center">
                                 <Calendar className="w-4 h-4 mr-1" />
-                                {new Date(batch.scheduledFor).toLocaleDateString('es-ES')}
+                                {formatDateSafe(batch.scheduledFor)}
                                 <br />
-                                {new Date(batch.scheduledFor).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                                                                  {formatTimeSafe(batch.scheduledFor, { hour: '2-digit', minute: '2-digit' })}
                               </div>
                             ) : (
                               <span className="text-gray-400">No programado</span>
@@ -1001,7 +1002,7 @@ export default function CallsManagement() {
                           {call.result || '-'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(call.timestamp).toLocaleString('es-ES')}
+                          {formatDateTimeSafe(call.timestamp)}
                         </td>
                       </tr>
                     ))}
@@ -1186,7 +1187,7 @@ export default function CallsManagement() {
                       {selectedBatchData.name}
                     </h3>
                     <p className="text-sm text-gray-500">
-                      {selectedBatchData.totalCalls} llamadas • Creado el {new Date(selectedBatchData.createdAt).toLocaleDateString('es-ES')}
+                      {selectedBatchData.totalCalls} llamadas • Creado el {formatDateSafe(selectedBatchData.createdAt)}
                     </p>
                   </div>
                 </div>
@@ -1233,7 +1234,7 @@ export default function CallsManagement() {
                   {selectedBatchData.scheduledFor && (
                     <div className="flex items-center text-sm text-gray-600">
                       <Calendar className="w-4 h-4 mr-1" />
-                      Programado para: {new Date(selectedBatchData.scheduledFor).toLocaleString('es-ES')}
+                      Programado para: {formatDateTimeSafe(selectedBatchData.scheduledFor)}
                     </div>
                   )}
                 </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { formatDateSafe, formatTimeSafe, fromUnixTimestamp, debugDate } from '@/lib/dateUtils';
 import { 
   Phone, 
   PhoneIncoming, 
@@ -241,12 +242,17 @@ export default function Conversations() {
 
   // Función para formatear datos de Isabela
   const formatIsabelaData = (conv: any) => {
+    // Debug para fechas
+    debugDate(conv.start_time_unix_secs, 'start_time_unix_secs');
+    
+    const unixDate = fromUnixTimestamp(conv.start_time_unix_secs);
+    
     return {
       id: conv.conversation_id || conv.id,
       contactName: conv.nombre_paciente || 'Sin nombre',
       phoneNumber: conv.telefono_destino || 'Sin teléfono',
-      date: conv.start_time_unix_secs ? new Date(conv.start_time_unix_secs * 1000).toISOString().split('T')[0] : 'N/A',
-      time: conv.start_time_unix_secs ? new Date(conv.start_time_unix_secs * 1000).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : 'N/A',
+      date: unixDate ? unixDate.toISOString().split('T')[0] : 'N/A',
+      time: unixDate ? formatTimeSafe(unixDate, { hour: '2-digit', minute: '2-digit' }) : 'N/A',
       duration: conv.call_duration_secs || 0,
       status: conv.call_successful === 'true' ? 'completed' : 'failed',
       type: 'outbound' as const,
@@ -443,7 +449,7 @@ export default function Conversations() {
                     <div className="text-right">
                       <div className="flex items-center space-x-2 text-sm text-gray-500">
                         <Calendar className="w-4 h-4" />
-                        <span>{new Date(displayConversation.date).toLocaleDateString('es-ES')}</span>
+                        <span>{formatDateSafe(displayConversation.date)}</span>
                       </div>
                       <div className="flex items-center space-x-2 text-sm text-gray-500 mt-1">
                         <Clock className="w-4 h-4" />
