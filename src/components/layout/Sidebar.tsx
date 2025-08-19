@@ -50,6 +50,12 @@ const menuItems = [
     description: 'Configurar sistema'
   },
   {
+    title: 'Estadísticas Isabela',
+    icon: BarChart3,
+    href: '/estadisticas-isabela',
+    description: 'Estadísticas del agente Isabela'
+  },
+  {
     title: 'Reportes',
     icon: BarChart3,
     href: '/reports',

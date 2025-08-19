@@ -6,8 +6,9 @@ interface DashboardStatsProps {
   value: string | number;
   icon: LucideIcon;
   color: 'primary' | 'secondary' | 'success' | 'warning' | 'danger' | 'info';
-  change: string;
-  changeType: 'positive' | 'negative';
+  change?: string;
+  changeType?: 'positive' | 'negative';
+  isIsabela?: boolean;
 }
 
 const colorClasses = {
@@ -62,6 +63,7 @@ export default function DashboardStats({
   color,
   change,
   changeType,
+  isIsabela = false,
 }: DashboardStatsProps) {
   const colors = colorClasses[color];
 
@@ -97,49 +99,53 @@ export default function DashboardStats({
               </div>
             </div>
           </div>
-          <div className="flex flex-col items-end space-y-1">
-            <div className={`
-              flex items-center text-sm font-semibold
-              ${changeType === 'positive' ? 'text-green-600' : 'text-red-600'}
-            `}>
-              {changeType === 'positive' ? (
-                <ArrowUpRight className="h-4 w-4 mr-1" />
-              ) : (
-                <ArrowDownRight className="h-4 w-4 mr-1" />
-              )}
-              {change}
+          {!isIsabela && change && changeType && (
+            <div className="flex flex-col items-end space-y-1">
+              <div className={`
+                flex items-center text-sm font-semibold
+                ${changeType === 'positive' ? 'text-green-600' : 'text-red-600'}
+              `}>
+                {changeType === 'positive' ? (
+                  <ArrowUpRight className="h-4 w-4 mr-1" />
+                ) : (
+                  <ArrowDownRight className="h-4 w-4 mr-1" />
+                )}
+                {change}
+              </div>
+              <div className={`
+                text-xs px-2 py-1 rounded-full font-medium
+                ${changeType === 'positive' 
+                  ? 'bg-green-100 text-green-700' 
+                  : 'bg-red-100 text-red-700'
+                }
+              `}>
+                {changeType === 'positive' ? 'Mejorando' : 'Necesita atención'}
+              </div>
             </div>
-            <div className={`
-              text-xs px-2 py-1 rounded-full font-medium
-              ${changeType === 'positive' 
-                ? 'bg-green-100 text-green-700' 
-                : 'bg-red-100 text-red-700'
-              }
-            `}>
-              {changeType === 'positive' ? 'Mejorando' : 'Necesita atención'}
-            </div>
-          </div>
+          )}
         </div>
         
-        {/* Progress bar */}
-        <div className="mt-6">
-          <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
-            <span>Progreso</span>
-            <span>{changeType === 'positive' ? 'Mejorando' : 'Necesita atención'}</span>
+        {/* Progress bar - solo mostrar si no es Isabela y hay change */}
+        {!isIsabela && change && changeType && (
+          <div className="mt-6">
+            <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
+              <span>Progreso</span>
+              <span>{changeType === 'positive' ? 'Mejorando' : 'Necesita atención'}</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+              <motion.div
+                className={`h-2 rounded-full ${
+                  changeType === 'positive' ? 'bg-gradient-to-r from-green-400 to-green-600' : 'bg-gradient-to-r from-red-400 to-red-600'
+                }`}
+                initial={{ width: 0 }}
+                animate={{ 
+                  width: `${Math.min(100, Math.abs(parseInt(change.replace('%', ''))))}%` 
+                }}
+                transition={{ duration: 1, delay: 0.5 }}
+              />
+            </div>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-            <motion.div
-              className={`h-2 rounded-full ${
-                changeType === 'positive' ? 'bg-gradient-to-r from-green-400 to-green-600' : 'bg-gradient-to-r from-red-400 to-red-600'
-              }`}
-              initial={{ width: 0 }}
-              animate={{ 
-                width: `${Math.min(100, Math.abs(parseInt(change.replace('%', ''))))}%` 
-              }}
-              transition={{ duration: 1, delay: 0.5 }}
-            />
-          </div>
-        </div>
+        )}
       </div>
     </motion.div>
   );

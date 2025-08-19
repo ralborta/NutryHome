@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Phone, 
   PhoneIncoming, 
@@ -63,7 +63,7 @@ interface Conversation {
 }
 
 export default function Conversations() {
-  const [activeTab, setActiveTab] = useState<'inbound' | 'outbound'>('outbound');
+  const [activeTab, setActiveTab] = useState<'inbound' | 'outbound' | 'isabela'>('outbound');
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -71,6 +71,8 @@ export default function Conversations() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [isPlaying, setIsPlaying] = useState<string | null>(null);
   const [showContextMenu, setShowContextMenu] = useState<string | null>(null);
+  const [isabelaConversations, setIsabelaConversations] = useState<any[]>([]);
+  const [isabelaLoading, setIsabelaLoading] = useState(true);
 
   // Datos de ejemplo
   const conversations: Conversation[] = [
@@ -153,14 +155,20 @@ export default function Conversations() {
     }
   ];
 
-  const filteredConversations = conversations.filter(conv => {
-    const matchesType = conv.type === activeTab;
-    const matchesSearch = conv.contactName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         conv.phoneNumber.includes(searchTerm);
-    const matchesStatus = statusFilter === 'all' || conv.status === statusFilter;
-    
-    return matchesType && matchesSearch && matchesStatus;
-  });
+  const filteredConversations = activeTab === 'isabela' 
+    ? isabelaConversations.filter(conv => {
+        const matchesSearch = (conv.nombre_paciente || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                             (conv.telefono_destino || '').includes(searchTerm);
+        return matchesSearch;
+      })
+    : conversations.filter(conv => {
+        const matchesType = conv.type === activeTab;
+        const matchesSearch = conv.contactName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                             conv.phoneNumber.includes(searchTerm);
+        const matchesStatus = statusFilter === 'all' || conv.status === statusFilter;
+        
+        return matchesType && matchesSearch && matchesStatus;
+      });
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -196,6 +204,26 @@ export default function Conversations() {
     console.log('Reproduciendo grabación:', conversationId);
   };
 
+  // Cargar conversaciones de Isabela desde ElevenLabs
+  useEffect(() => {
+    const fetchIsabelaConversations = async () => {
+      try {
+        setIsabelaLoading(true);
+        const response = await fetch('/api/estadisticas-isabela');
+        if (response.ok) {
+          const data = await response.json();
+          setIsabelaConversations(data.conversations || []);
+        }
+      } catch (error) {
+        console.error('Error fetching Isabela conversations:', error);
+      } finally {
+        setIsabelaLoading(false);
+      }
+    };
+
+    fetchIsabelaConversations();
+  }, []);
+
   const handleContextMenu = (conversationId: string) => {
     setShowContextMenu(showContextMenu === conversationId ? null : conversationId);
   };
@@ -209,6 +237,25 @@ export default function Conversations() {
       case 'callback': return 'Llamar de vuelta';
       default: return result;
     }
+  };
+
+  // Función para formatear datos de Isabela
+  const formatIsabelaData = (conv: any) => {
+    return {
+      id: conv.conversation_id || conv.id,
+      contactName: conv.nombre_paciente || 'Sin nombre',
+      phoneNumber: conv.telefono_destino || 'Sin teléfono',
+      date: conv.start_time_unix_secs ? new Date(conv.start_time_unix_secs * 1000).toISOString().split('T')[0] : 'N/A',
+      time: conv.start_time_unix_secs ? new Date(conv.start_time_unix_secs * 1000).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : 'N/A',
+      duration: conv.call_duration_secs || 0,
+      status: conv.call_successful === 'true' ? 'completed' : 'failed',
+      type: 'outbound' as const,
+      agentName: 'Isabela',
+      result: conv.call_successful === 'true' ? 'follow-up' : 'no-answer',
+      tags: [conv.producto || 'Sin producto'].filter(Boolean),
+      notes: conv.summary || 'Sin resumen disponible',
+      transcription: conv.summary || 'Sin transcripción disponible'
+    };
   };
 
   return (
@@ -262,6 +309,17 @@ export default function Conversations() {
             >
               <PhoneIncoming className="w-4 h-4 inline mr-2" />
               Llamadas Entrantes
+            </button>
+            <button
+              onClick={() => setActiveTab('isabela')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'isabela'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <MessageSquare className="w-4 h-4 inline mr-2" />
+              Isabela (ElevenLabs)
             </button>
           </nav>
         </div>
@@ -354,11 +412,14 @@ export default function Conversations() {
 
         {/* Conversations List */}
         <div className="mt-6 space-y-4">
-          {filteredConversations.map((conversation) => (
-            <div
-              key={conversation.id}
-              className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
-            >
+          {filteredConversations.map((conversation) => {
+            const displayConversation = activeTab === 'isabela' ? formatIsabelaData(conversation) : conversation;
+            
+            return (
+              <div
+                key={displayConversation.id}
+                className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
+              >
               <div className="flex items-start justify-between">
                 {/* Left side - Conversation info */}
                 <div className="flex-1">
@@ -371,9 +432,9 @@ export default function Conversations() {
                         </div>
                         <div>
                           <h3 className="text-lg font-semibold text-gray-900">
-                            {conversation.contactName}
+                            {displayConversation.contactName}
                           </h3>
-                          <p className="text-sm text-gray-500">{conversation.phoneNumber}</p>
+                          <p className="text-sm text-gray-500">{displayConversation.phoneNumber}</p>
                         </div>
                       </div>
                     </div>
@@ -382,11 +443,11 @@ export default function Conversations() {
                     <div className="text-right">
                       <div className="flex items-center space-x-2 text-sm text-gray-500">
                         <Calendar className="w-4 h-4" />
-                        <span>{new Date(conversation.date).toLocaleDateString('es-ES')}</span>
+                        <span>{new Date(displayConversation.date).toLocaleDateString('es-ES')}</span>
                       </div>
                       <div className="flex items-center space-x-2 text-sm text-gray-500 mt-1">
                         <Clock className="w-4 h-4" />
-                        <span>{conversation.time}</span>
+                        <span>{displayConversation.time}</span>
                       </div>
                     </div>
 
@@ -394,42 +455,42 @@ export default function Conversations() {
                     <div className="text-center">
                       <div className="flex items-center space-x-1 text-sm text-gray-500">
                         <Clock3 className="w-4 h-4" />
-                        <span>{formatDuration(conversation.duration)}</span>
+                        <span>{formatDuration(displayConversation.duration)}</span>
                       </div>
                     </div>
 
                     {/* Status */}
                     <div>
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(conversation.status)}`}>
-                        {conversation.status === 'completed' && 'Completada'}
-                        {conversation.status === 'failed' && 'Fallida'}
-                        {conversation.status === 'in-progress' && 'En Progreso'}
-                        {conversation.status === 'missed' && 'Perdida'}
+                        {displayConversation.status === 'completed' && 'Completada'}
+                        {displayConversation.status === 'failed' && 'Fallida'}
+                        {displayConversation.status === 'in-progress' && 'En Progreso'}
+                        {displayConversation.status === 'missed' && 'Perdida'}
                       </span>
                     </div>
 
                     {/* Result */}
                     <div>
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${getResultColor(conversation.result)}`}>
-                        {getResultText(conversation.result)}
+                        {getResultText(displayConversation.result)}
                       </span>
                     </div>
 
                     {/* Satisfaction */}
-                    {conversation.satisfaction && (
+                    {displayConversation.satisfaction && (
                       <div className="flex items-center space-x-1">
                         <Star className="w-4 h-4 text-yellow-400 fill-current" />
                         <span className="text-sm font-medium text-gray-900">
-                          {conversation.satisfaction}
+                          {displayConversation.satisfaction}
                         </span>
                       </div>
                     )}
                   </div>
 
                   {/* Tags */}
-                  {conversation.tags.length > 0 && (
+                  {displayConversation.tags.length > 0 && (
                     <div className="flex items-center space-x-2 mt-3">
-                      {conversation.tags.map((tag, index) => (
+                      {displayConversation.tags.map((tag, index) => (
                         <span
                           key={index}
                           className="inline-flex items-center px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full"
@@ -445,7 +506,7 @@ export default function Conversations() {
                   <div className="flex items-center space-x-2 mt-2">
                     <Users className="w-4 h-4 text-gray-400" />
                     <span className="text-sm text-gray-500">
-                      Agente: {conversation.agentName}
+                      Agente: {displayConversation.agentName}
                     </span>
                   </div>
                 </div>
@@ -514,7 +575,8 @@ export default function Conversations() {
                 </div>
               </div>
             </div>
-          ))}
+          );
+        })}
 
           {filteredConversations.length === 0 && (
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">

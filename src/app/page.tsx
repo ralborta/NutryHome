@@ -21,6 +21,9 @@ import RecentCalls from '@/components/dashboard/RecentCalls';
 import PerformanceMetrics from '@/components/dashboard/PerformanceMetrics';
 
 export default function DashboardPage() {
+  const [isabelaStats, setIsabelaStats] = useState<any>(null);
+  const [isabelaLoading, setIsabelaLoading] = useState(true);
+
   // Datos de ejemplo para el dashboard
   const stats: Array<{
     title: string;
@@ -126,6 +129,87 @@ export default function DashboardPage() {
             </motion.div>
           ))}
         </div>
+
+        {/* Isabela Stats Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.5 }}
+          className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"
+        >
+          <div className="p-6 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">
+                  📊 Estadísticas de Isabela
+                </h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  Agente ElevenLabs - Resumen de llamadas y conversaciones
+                </p>
+              </div>
+              <div className="flex items-center space-x-2">
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                  Agente Activo
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Total de Llamadas */}
+              <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4 border border-blue-200">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
+                    <Phone className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-blue-600">Total de Llamadas</p>
+                    <p className="text-2xl font-bold text-blue-900">--</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Tiempo Total */}
+              <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-4 border border-green-200">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center">
+                    <Clock className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-green-600">Tiempo Total</p>
+                    <p className="text-2xl font-bold text-green-900">-- min</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Tasa de Éxito */}
+              <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-4 border border-purple-200">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-purple-500 rounded-lg flex items-center justify-center">
+                    <TrendingUp className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-purple-600">Tasa de Éxito</p>
+                    <p className="text-2xl font-bold text-purple-900">--%</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Duración Promedio */}
+              <div className="bg-gradient-to-br from-cyan-50 to-cyan-100 rounded-xl p-4 border border-cyan-200">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-cyan-500 rounded-lg flex items-center justify-center">
+                    <Activity className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-cyan-600">Duración Promedio</p>
+                    <p className="text-2xl font-bold text-cyan-900">-- min</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </motion.div>
 
         {/* Charts Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
