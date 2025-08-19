@@ -70,9 +70,9 @@ router.get('/', async (req, res, next) => {
     if (estado) where.estado = estado;
     if (telefono) where.telefono = { contains: telefono, mode: 'insensitive' };
     if (fechaDesde || fechaHasta) {
-      where.fechaEjecutada = {};
-      if (fechaDesde) where.fechaEjecutada.gte = new Date(fechaDesde);
-      if (fechaHasta) where.fechaEjecutada.lte = new Date(fechaHasta);
+      where.createdAt = {};
+      if (fechaDesde) where.createdAt.gte = new Date(fechaDesde);
+      if (fechaHasta) where.createdAt.lte = new Date(fechaHasta);
     }
 
     // Calcular offset
@@ -84,11 +84,6 @@ router.get('/', async (req, res, next) => {
         where,
         include: {
           batch: true,
-          _count: {
-            select: {
-              batch: true,
-            },
-          },
         },
         orderBy: { [sortBy]: sortOrder },
         skip: offset,
