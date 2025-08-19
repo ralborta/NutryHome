@@ -2131,4 +2131,211 @@ router.get('/calls/:callId/elevenlabs-info', async (req, res) => {
   }
 });
 
+// 🎯 FUNCIÓN PARA OBTENER BATCH DE ELEVENLABS
+async function getBatch(batchId) {
+  try {
+    const response = await fetch(`${process.env.ELEVENLABS_BASE_URL}/v1/convai/batch-calling/${batchId}`, {
+      headers: { 
+        "xi-api-key": process.env.ELEVENLABS_API_KEY 
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`ElevenLabs batch API error: ${response.status}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error(`❌ Error obteniendo batch:`, error);
+    throw error;
+  }
+}
+
+// 🎯 FUNCIÓN PARA OBTENER CONVERSACIÓN INDIVIDUAL
+async function getConversation(convId) {
+  try {
+    const response = await fetch(`${process.env.ELEVENLABS_BASE_URL}/v1/convai/conversations/${convId}`, {
+      headers: { 
+        "xi-api-key": process.env.ELEVENLABS_API_KEY 
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`ElevenLabs conversation API error: ${response.status}`);
+    }
+    
+    return await response.json(); // status, dynamic_variables, analysis, transcript, etc.
+  } catch (error) {
+    console.error(`❌ Error obteniendo conversación:`, error);
+    throw error;
+  }
+}
+
+// 🎯 ENDPOINT PARA OBTENER RESUMEN DEL BATCH (FRONTEND LEE TU DB)
+router.get('/batch/:batchId/summary', async (req, res) => {
+  try {
+    const { batchId } = req.params;
+    
+    // 1️⃣ OBTENER BATCH DE TU DB
+    const batch = await prisma.batch.findUnique({
+      where: { id: batchId },
+      include: { 
+        outboundCalls: {
+          select: {
+            id: true,
+            telefono: true,
+            estado: true,
+            elevenlabsCallId: true,
+            resultado: true,
+            duracion: true,
+            fechaEjecutada: true,
+            resumen: true,
+            transcriptCompleto: true,
+            variablesDinamicas: true,
+            audioUrl: true
+          }
+        }
+      }
+    });
+    
+    if (!batch) {
+      return res.status(404).json({ error: 'Batch no encontrado' });
+    }
+    
+    // 2️⃣ CALCULAR ESTADÍSTICAS
+    const totalCalls = batch.outboundCalls.length;
+    const completedCalls = batch.outboundCalls.filter(call => call.estado === 'COMPLETADA').length;
+    const failedCalls = batch.outboundCalls.filter(call => call.estado === 'FALLIDA').length;
+    const pendingCalls = batch.outboundCalls.filter(call => call.estado === 'PENDIENTE').length;
+    
+    res.json({
+      success: true,
+      batchId,
+      batchName: batch.nombre,
+      estado: batch.estado,
+      totalCalls,
+      completedCalls,
+      failedCalls,
+      pendingCalls,
+      calls: batch.outboundCalls
+    });
+    
+  } catch (error) {
+    console.error(`❌ Error obteniendo resumen del batch:`, error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      batchId: req.params.batchId
+    });
+  }
+});
+
+// 🎯 ENDPOINT PARA ACTUALIZAR BATCH DESDE ELEVENLABS (POLLING)
+router.post('/batch/:batchId/update-from-elevenlabs', async (req, res) => {
+  try {
+    const { batchId } = req.params;
+    console.log(`🔄 Actualizando batch ${batchId} desde ElevenLabs...`);
+    
+    // 1️⃣ OBTENER BATCH DE ELEVENLABS
+    const batch = await prisma.batch.findUnique({
+      where: { id: batchId }
+    });
+    
+    if (!batch || !batch.elevenLabsBatchId) {
+      return res.status(400).json({ error: 'Batch no tiene elevenLabsBatchId' });
+    }
+    
+    // 2️⃣ POLLING AL BATCH DE ELEVENLABS
+    const elevenLabsBatch = await getBatch(batch.elevenLabsBatchId);
+    console.log(`📥 Batch obtenido de ElevenLabs:`, elevenLabsBatch);
+    
+    // 3️⃣ OBTENER CONVERSACIONES DEL BATCH
+    const conversationsResponse = await fetch(
+      `${process.env.ELEVENLABS_BASE_URL}/v1/convai/conversations?batch_id=${batch.elevenLabsBatchId}`,
+      { headers: { "xi-api-key": process.env.ELEVENLABS_API_KEY } }
+    );
+    
+    if (!conversationsResponse.ok) {
+      throw new Error(`ElevenLabs conversations API error: ${conversationsResponse.status}`);
+    }
+    
+    const conversations = await conversationsResponse.json();
+    console.log(`📥 Conversaciones obtenidas:`, conversations.conversations?.length || 0);
+    
+    // 4️⃣ ACTUALIZAR CADA LLAMADA CON DATOS COMPLETOS
+    let updatedCalls = 0;
+    for (const conversation of conversations.conversations || []) {
+      try {
+        // Obtener detalles completos de la conversación
+        const conversationDetails = await getConversation(conversation.conversation_id);
+        
+        // Buscar la llamada por phone_number
+        const outboundCall = await prisma.outboundCall.findFirst({
+          where: { 
+            batchId: batchId,
+            telefono: { contains: conversation.phone_number.replace('+', '') }
+          }
+        });
+        
+        if (outboundCall) {
+          // Actualizar con datos COMPLETOS de ElevenLabs
+          await prisma.outboundCall.update({
+            where: { id: outboundCall.id },
+            data: {
+              estado: conversation.status === 'completed' ? 'COMPLETADA' : 
+                     conversation.status === 'failed' ? 'FALLIDA' : 'PENDIENTE',
+              elevenlabsCallId: conversation.conversation_id,
+              resultado: conversationDetails.analysis?.call_result || 'UNKNOWN',
+              duracion: conversationDetails.metadata?.call_duration_secs || 0,
+              fechaEjecutada: conversationDetails.metadata?.start_time_unix_secs ? 
+                new Date(conversationDetails.metadata.start_time_unix_secs * 1000) : null,
+              
+              // 🔄 DATOS COMPLETOS DE LA CONVERSACIÓN
+              resumen: conversationDetails.analysis?.summary || null,
+              transcriptCompleto: conversationDetails.transcript || null,
+              variablesDinamicas: conversationDetails.dynamic_variables || null,
+              audioUrl: conversationDetails.audio_url || null,
+              
+              updatedAt: new Date()
+            }
+          });
+          
+          updatedCalls++;
+          console.log(`✅ Llamada actualizada: ${outboundCall.id}`);
+        }
+      } catch (callError) {
+        console.error(`❌ Error actualizando llamada:`, callError);
+      }
+    }
+    
+    // 5️⃣ ACTUALIZAR ESTADO DEL BATCH
+    await prisma.batch.update({
+      where: { id: batchId },
+      data: { 
+        estado: elevenLabsBatch.status === 'completed' ? 'COMPLETADO' : 
+               elevenLabsBatch.status === 'failed' ? 'FALLIDO' : 'EN_PROCESO',
+        updatedAt: new Date()
+      }
+    });
+    
+    console.log(`🎉 Batch ${batchId} actualizado: ${updatedCalls} llamadas actualizadas`);
+    
+    res.json({
+      success: true,
+      message: `Batch ${batchId} actualizado desde ElevenLabs`,
+      batchId,
+      updatedCalls,
+      totalConversations: conversations.conversations?.length || 0
+    });
+    
+  } catch (error) {
+    console.error(`❌ Error actualizando batch desde ElevenLabs:`, error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      batchId: req.params.batchId
+    });
+  }
+});
+
 module.exports = router; 
