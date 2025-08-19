@@ -6,31 +6,35 @@ const router = express.Router();
 
 // Esquemas de validación
 const createCallSchema = Joi.object({
-  callId: Joi.string().required().min(1).max(255),
   telefono: Joi.string().required().min(1).max(20),
-  duracion: Joi.number().integer().min(0).required(),
-  transcript: Joi.string().required(),
-  dataCollection: Joi.object().required(),
-  criteriaResults: Joi.object().required(),
+  batchId: Joi.string().required(),
+  estado: Joi.string().valid('PENDIENTE', 'EN_PROCESO', 'COMPLETADA', 'FALLIDA').default('PENDIENTE'),
+  resultado: Joi.string(),
+  duracion: Joi.number().integer().min(0),
+  transcriptCompleto: Joi.string(),
+  resumen: Joi.string(),
+  variablesDinamicas: Joi.object(),
 });
 
 const updateCallSchema = Joi.object({
   telefono: Joi.string().min(1).max(20),
+  batchId: Joi.string(),
+  estado: Joi.string().valid('PENDIENTE', 'EN_PROCESO', 'COMPLETADA', 'FALLIDA'),
+  resultado: Joi.string(),
   duracion: Joi.number().integer().min(0),
-  transcript: Joi.string(),
-  dataCollection: Joi.object(),
-  criteriaResults: Joi.object(),
-  status: Joi.string().valid('ACTIVE', 'ARCHIVED', 'DELETED'),
+  transcriptCompleto: Joi.string(),
+  resumen: Joi.string(),
+  variablesDinamicas: Joi.object(),
 });
 
 const querySchema = Joi.object({
   page: Joi.number().integer().min(1).default(1),
   limit: Joi.number().integer().min(1).max(100).default(10),
-  status: Joi.string().valid('ACTIVE', 'ARCHIVED', 'DELETED'),
+  estado: Joi.string().valid('PENDIENTE', 'EN_PROCESO', 'COMPLETADA', 'FALLIDA'),
   telefono: Joi.string(),
   fechaDesde: Joi.date().iso(),
   fechaHasta: Joi.date().iso(),
-  sortBy: Joi.string().valid('fecha', 'duracion', 'createdAt').default('fecha'),
+  sortBy: Joi.string().valid('fechaEjecutada', 'duracion', 'createdAt').default('fechaEjecutada'),
   sortOrder: Joi.string().valid('asc', 'desc').default('desc'),
 });
 
@@ -53,7 +57,7 @@ router.get('/', async (req, res, next) => {
     const {
       page,
       limit,
-      status,
+      estado,
       telefono,
       fechaDesde,
       fechaHasta,
@@ -63,12 +67,12 @@ router.get('/', async (req, res, next) => {
 
     // Construir filtros
     const where = {};
-    if (status) where.status = status;
+    if (estado) where.estado = estado;
     if (telefono) where.telefono = { contains: telefono, mode: 'insensitive' };
     if (fechaDesde || fechaHasta) {
-      where.fecha = {};
-      if (fechaDesde) where.fecha.gte = new Date(fechaDesde);
-      if (fechaHasta) where.fecha.lte = new Date(fechaHasta);
+      where.fechaEjecutada = {};
+      if (fechaDesde) where.fechaEjecutada.gte = new Date(fechaDesde);
+      if (fechaHasta) where.fechaEjecutada.lte = new Date(fechaHasta);
     }
 
     // Calcular offset
@@ -76,15 +80,13 @@ router.get('/', async (req, res, next) => {
 
     // Obtener llamadas con relaciones
     const [calls, total] = await Promise.all([
-      prisma.call.findMany({
+      prisma.outboundCall.findMany({
         where,
         include: {
-          derivations: true,
-          complaints: true,
+          batch: true,
           _count: {
             select: {
-              derivations: true,
-              complaints: true,
+              batch: true,
             },
           },
         },
@@ -92,7 +94,7 @@ router.get('/', async (req, res, next) => {
         skip: offset,
         take: limit,
       }),
-      prisma.call.count({ where }),
+      prisma.outboundCall.count({ where }),
     ]);
 
     // Calcular métricas
@@ -128,15 +130,10 @@ router.get('/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    const call = await prisma.call.findUnique({
+    const call = await prisma.outboundCall.findUnique({
       where: { id },
       include: {
-        derivations: {
-          orderBy: { createdAt: 'desc' },
-        },
-        complaints: {
-          orderBy: { createdAt: 'desc' },
-        },
+        batch: true,
       },
     });
 
