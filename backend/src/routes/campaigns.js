@@ -5,8 +5,6 @@ const fs = require('fs');
 const { body, validationResult } = require('express-validator');
 const { prisma } = require('../database/client');
 const xlsx = require('xlsx');
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
 
 const router = express.Router();
 
