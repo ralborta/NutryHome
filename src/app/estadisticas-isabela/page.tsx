@@ -1,21 +1,45 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { formatDateSafe, formatTimeSafe, formatDateTimeSafe, debugDate } from '@/lib/dateUtils';
+import React from "react";
+import { useEffect, useState } from "react";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu"; // shadcn/ui
+import {
+  MoreVertical,
+  Play,
+  Star,
+  Calendar,
+  Clock3,
+  Info,
+  Download,
+  Share2,
+  FileText,
+  MessageSquareText,
+  BadgeCheck,
+  StickyNote,
+} from "lucide-react";
 
+// ===== Tipos =====
 interface Conversation {
   agent_id?: string;
   agent_name?: string;
   conversation_id?: string;
-  start_time_unix_secs?: number;
+  start_time_unix_secs?: number; // epoch secs
   call_duration_secs?: number;
   message_count?: number;
-  status?: string;
-  call_successful?: string;
+  status?: string; // "done" | "failed" | etc
+  call_successful?: string; // "true" | "false"
   summary?: string;
   telefono_destino?: string;
   nombre_paciente?: string;
   producto?: string;
+  rating?: number; // opcional
+  resultado?: string; // ej: "Venta"
 }
 
 interface StatsData {
@@ -24,7 +48,14 @@ interface StatsData {
   conversations: Conversation[];
 }
 
-export default function EstadisticasIsabela() {
+export default function ConversacionesPage() {
+  return <ConversacionesUI/>;
+}
+
+// ============================
+// Conversaciones – UI principal
+// ============================
+function ConversacionesUI() {
   const [data, setData] = useState<StatsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -33,228 +64,251 @@ export default function EstadisticasIsabela() {
     const fetchStats = async () => {
       try {
         setLoading(true);
-        const response = await fetch('/api/estadisticas-isabela');
-        if (!response.ok) {
-          throw new Error(`Error ${response.status}: ${response.statusText}`);
-        }
-        const statsData = await response.json();
-        setData(statsData);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Error desconocido');
+        const res = await fetch("/api/estadisticas-isabela");
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = await res.json();
+        setData(json);
+      } catch (e: any) {
+        setError(e?.message ?? "Error al cargar");
       } finally {
         setLoading(false);
       }
     };
-
     fetchStats();
   }, []);
 
-  const formatDate = (timestamp: number) => {
-    if (!timestamp || isNaN(timestamp)) {
-      return 'Fecha inválida';
-    }
-    
-    try {
-      const date = new Date(timestamp * 1000);
-      if (isNaN(date.getTime())) {
-        return 'Fecha inválida';
-      }
-      
-      return date.toLocaleString('es-AR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-    } catch (error) {
-      console.warn('Error formateando fecha:', timestamp, error);
-      return 'Fecha inválida';
-    }
-  };
+  if (loading) return (
+    <div className="min-h-screen grid place-items-center bg-slate-50">
+      <div className="animate-spin h-10 w-10 rounded-full border-2 border-slate-300 border-t-indigo-600" />
+    </div>
+  );
 
-  const formatDuration = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-xl text-gray-600">Cargando estadísticas de Isabela...</p>
-        </div>
+  if (error || !data) return (
+    <div className="min-h-screen grid place-items-center bg-slate-50">
+      <div className="text-center">
+        <div className="text-4xl mb-3">⚠️</div>
+        <p className="text-slate-700">{error ?? "Sin datos"}</p>
       </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-red-500 text-6xl mb-4">⚠️</div>
-          <h1 className="text-2xl font-bold text-red-600 mb-2">Error al cargar estadísticas</h1>
-          <p className="text-gray-600 mb-4">{error}</p>
-          <button 
-            onClick={() => window.location.reload()} 
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Reintentar
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!data) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-gray-600">No hay datos disponibles</p>
-        </div>
-      </div>
-    );
-  }
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">
-            📊 Estadísticas de Isabela
-          </h1>
-          <p className="text-xl text-gray-600">
-            Agente ElevenLabs - Resumen de llamadas y conversaciones
-          </p>
-        </div>
+    <div className="min-h-screen bg-white">
+      {/* Header */}
+      <div className="max-w-6xl mx-auto px-6 pt-8 pb-4">
+        <h1 className="text-3xl font-bold tracking-tight text-slate-900">Conversaciones</h1>
+        <p className="text-sm text-slate-500">Historial y gestión de las conversaciones</p>
+      </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex items-center">
-              <div className="p-3 rounded-full bg-blue-100 text-blue-600">
-                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.554.894l-1.5 8A1 1 0 016.5 15H3a1 1 0 01-1-1v-8z" />
-                </svg>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total de Llamadas</p>
-                <p className="text-3xl font-bold text-gray-900">{data.total_calls}</p>
-              </div>
+      {/* Tabs + filtros (estáticos, visual) */}
+      <div className="max-w-6xl mx-auto px-6">
+        <div className="flex items-center gap-6 border-b border-slate-200">
+          <button className="relative pb-3 text-sm font-medium text-slate-900">
+            <span className="flex items-center gap-2">
+              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-indigo-50 text-indigo-600">📞</span>
+              Llamadas Salientes
+            </span>
+            <span className="absolute -bottom-px left-0 right-0 h-0.5 bg-indigo-600" />
+          </button>
+          <button className="pb-3 text-sm text-slate-500 hover:text-slate-700">Llamadas Entrantes</button>
+          <button className="pb-3 text-sm text-slate-500 hover:text-slate-700">Isabela (ElevenLabs)</button>
+          <div className="ml-auto flex gap-3 py-2">
+            <div className="relative">
+              <input
+                placeholder="Buscar por nombre o teléfono..."
+                className="h-10 w-80 rounded-lg border border-slate-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
             </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex items-center">
-              <div className="p-3 rounded-full bg-green-100 text-green-600">
-                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Tiempo Total</p>
-                <p className="text-3xl font-bold text-gray-900">{data.total_minutes} min</p>
-              </div>
-            </div>
+            <button className="h-10 rounded-lg border border-slate-200 px-3 text-sm text-slate-600 hover:bg-slate-50">Todos los estados</button>
+            <button className="h-10 rounded-lg border border-slate-200 px-3 text-sm text-slate-600 hover:bg-slate-50">Todas las fechas</button>
+            <button className="h-10 rounded-lg border border-slate-200 px-3 text-sm text-slate-600 hover:bg-slate-50">Más filtros ▾</button>
           </div>
         </div>
+      </div>
 
-        {/* Conversations Table */}
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-900">
-              📞 Últimas {data.conversations.length} Conversaciones
-            </h2>
-          </div>
-          
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Fecha
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Paciente
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Producto
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Teléfono
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Duración
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Estado
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Resumen
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {data.conversations.map((conversation, index) => (
-                  <tr key={conversation.conversation_id || index} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {conversation.start_time_unix_secs 
-                        ? formatDate(conversation.start_time_unix_secs)
-                        : 'N/A'
-                      }
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {conversation.nombre_paciente || 'N/A'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {conversation.producto || 'N/A'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {conversation.telefono_destino || 'N/A'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {conversation.call_duration_secs 
-                        ? formatDuration(conversation.call_duration_secs)
-                        : 'N/A'
-                      }
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        conversation.call_successful === 'true' 
-                          ? 'bg-green-100 text-green-800'
-                          : conversation.call_successful === 'false'
-                          ? 'bg-red-100 text-red-800'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {conversation.call_successful === 'true' ? '✅ Exitosa' :
-                         conversation.call_successful === 'false' ? '❌ Fallida' : 
-                         conversation.status || 'N/A'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-900 max-w-xs">
-                      <div className="truncate" title={conversation.summary || 'Sin resumen'}>
-                        {conversation.summary || 'Sin resumen disponible'}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+      {/* Métricas resumen */}
+      <div className="max-w-6xl mx-auto px-6 mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <MetricCard icon={<span className="text-indigo-600">🏷️</span>} label="Total de Llamadas" value={String(data.total_calls)} />
+        <MetricCard icon={<span className="text-emerald-600">⏱️</span>} label="Tiempo Total" value={`${data.total_minutes} min`} />
+      </div>
 
-        {/* Footer */}
-        <div className="mt-8 text-center text-sm text-gray-500">
-          <p>Última actualización: {formatDateTimeSafe(new Date())}</p>
-          <p className="mt-1">
-            Agente ID: <code className="bg-gray-100 px-2 py-1 rounded">{data.conversations[0]?.agent_id || 'N/A'}</code>
-          </p>
+      {/* Lista de conversaciones (Cards) */}
+      <div className="max-w-6xl mx-auto px-6 mt-6 space-y-4">
+        {data.conversations.map((c, i) => (
+          <ConversationCard key={c.conversation_id ?? i} c={c} onAction={(a) => handleAction(a, c)} />
+        ))}
+      </div>
+
+      <div className="max-w-6xl mx-auto px-6 py-8 text-center text-xs text-slate-400">
+        Última actualización: {new Date().toLocaleString("es-AR")}
+      </div>
+    </div>
+  );
+}
+
+// ====== Helpers UI ======
+function MetricCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex items-center gap-3">
+        <div className="grid h-10 w-10 place-items-center rounded-full bg-slate-50 text-xl">{icon}</div>
+        <div>
+          <div className="text-sm text-slate-500">{label}</div>
+          <div className="text-2xl font-semibold text-slate-900">{value}</div>
         </div>
       </div>
     </div>
   );
 }
-// 🚨 FORZAR DEPLOY - Tue Aug 19 09:23:01 -03 2025
+
+function ConversationCard({ c, onAction }: { c: Conversation; onAction: (a: ActionId) => void }) {
+  const success = c.call_successful === "true" || c.status === "done";
+  const failed = c.call_successful === "false" || c.status === "failed";
+  const estadoLabel = success ? "Completada" : failed ? "Fallida" : c.status ?? "—";
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex items-center gap-4">
+        {/* Avatar */}
+        <div className="grid h-12 w-12 flex-none place-items-center rounded-full bg-violet-100 text-violet-700 font-semibold">👤</div>
+
+        {/* Centro: nombre, tags, agente */}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <div className="truncate text-lg font-semibold text-slate-900">
+              {c.nombre_paciente || "Sin nombre"}
+            </div>
+            {/* (chips de ejemplo) */}
+            {success && (
+              <span className="ml-1 inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">Completada</span>
+            )}
+            {c.resultado && (
+              <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">{c.resultado}</span>
+            )}
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-slate-600">
+            <span className="inline-flex items-center gap-1"><Calendar className="h-4 w-4"/>{formatDate(c.start_time_unix_secs)}</span>
+            <span className="inline-flex items-center gap-1"><Clock3 className="h-4 w-4"/>{formatDuration(c.call_duration_secs)}</span>
+            <span className="inline-flex items-center gap-1"><Info className="h-4 w-4"/>{estadoLabel}</span>
+            {c.producto && <span className="inline-flex items-center gap-1">🧪 {c.producto}</span>}
+            {c.telefono_destino && <span className="inline-flex items-center gap-1">📞 {c.telefono_destino}</span>}
+          </div>
+        </div>
+
+        {/* Rating */}
+        {typeof c.rating === "number" && (
+          <div className="hidden sm:flex items-center gap-1 text-slate-700">
+            <Star className="h-4 w-4 fill-yellow-400 text-yellow-400"/>
+            <span className="text-sm font-medium">{c.rating.toFixed(1)}</span>
+          </div>
+        )}
+
+        {/* Botón play rojo */}
+        <button
+          title="Reproducir"
+          className="grid h-10 w-10 place-items-center rounded-full bg-rose-500 text-white hover:bg-rose-600 active:bg-rose-700 transition"
+          onClick={() => onAction("resumen")}
+        >
+          <Play className="h-4 w-4"/>
+        </button>
+
+        {/* Menú de tres puntos */}
+        <MoreMenu onAction={onAction} />
+      </div>
+    </div>
+  );
+}
+
+// ===== Menú =====
+type ActionId =
+  | "resumen"
+  | "transcripcion"
+  | "evaluacion"
+  | "notas"
+  | "detalles"
+  | "descargar"
+  | "compartir";
+
+function MoreMenu({ onAction }: { onAction: (a: ActionId) => void }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          aria-label="Más opciones"
+          className="ml-1 grid h-8 w-8 place-items-center rounded-md text-slate-600 hover:bg-slate-100 hover:text-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+        >
+          <MoreVertical className="h-4 w-4" />
+        </button>
+      </DropdownMenuTrigger>
+
+      <DropdownMenuContent
+        align="end"
+        sideOffset={8}
+        className="w-56 rounded-xl border border-slate-200 bg-white p-1 shadow-lg ring-1 ring-black/5"
+      >
+        <MenuItem icon={<FileText className="h-4 w-4"/>} label="Resumen" onClick={() => onAction("resumen")} />
+        <MenuItem icon={<MessageSquareText className="h-4 w-4"/>} label="Transcripción" onClick={() => onAction("transcripcion")} />
+        <MenuItem icon={<BadgeCheck className="h-4 w-4"/>} label="Evaluación" onClick={() => onAction("evaluacion")} />
+        <MenuItem icon={<StickyNote className="h-4 w-4"/>} label="Notas" onClick={() => onAction("notas")} />
+        <DropdownMenuSeparator className="my-1" />
+        <MenuItem icon={<Info className="h-4 w-4"/>} label="Ver detalles" onClick={() => onAction("detalles")} />
+        <MenuItem icon={<Download className="h-4 w-4"/>} label="Descargar" onClick={() => onAction("descargar")} />
+        <MenuItem icon={<Share2 className="h-4 w-4"/>} label="Compartir" onClick={() => onAction("compartir")} />
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function MenuItem({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick?: () => void }) {
+  return (
+    <DropdownMenuItem
+      onClick={onClick}
+      className="group flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-700 focus:bg-indigo-50 focus:text-indigo-700 cursor-pointer"
+    >
+      <span className="text-slate-500 group-hover:text-indigo-700">{icon}</span>
+      <span>{label}</span>
+    </DropdownMenuItem>
+  );
+}
+
+// ===== Lógica de acciones (placeholder) =====
+function handleAction(action: ActionId, c: Conversation) {
+  switch (action) {
+    case "resumen":
+      alert(c.summary ? c.summary : "Sin resumen disponible");
+      break;
+    case "transcripcion":
+      alert("Transcripción en desarrollo");
+      break;
+    case "evaluacion":
+      alert(`Mensajes: ${c.message_count ?? "N/A"}`);
+      break;
+    case "notas":
+      alert("Notas en desarrollo");
+      break;
+    case "detalles":
+      alert(JSON.stringify(c, null, 2));
+      break;
+    case "descargar":
+      alert("Descarga en desarrollo");
+      break;
+    case "compartir":
+      alert("Compartir en desarrollo");
+      break;
+  }
+}
+
+// ===== Formateadores =====
+function formatDate(epochSecs?: number) {
+  if (!epochSecs) return "—";
+  const d = new Date(epochSecs * 1000);
+  return d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" }) +
+    ", " + d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+}
+
+function formatDuration(secs?: number) {
+  if (!secs && secs !== 0) return "N/A";
+  const m = Math.floor(secs / 60);
+  const s = Math.abs(secs % 60);
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
