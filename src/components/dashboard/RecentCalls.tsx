@@ -28,11 +28,11 @@ export default function RecentCalls() {
   const fetchRecentCalls = async () => {
     try {
       setLoading(true);
-      const response = await apiClient.get('/calls', {
+      const response = await apiClient.get('/api/calls', {
         params: {
           page: 1,
           limit: 5,
-          sortBy: 'fecha',
+          sortBy: 'createdAt',
           sortOrder: 'desc',
         },
       });

@@ -28,7 +28,7 @@ export default function PerformanceMetrics() {
   const fetchPerformanceData = async () => {
     try {
       setLoading(true);
-      const response = await apiClient.get('/stats/performance');
+      const response = await apiClient.get('/api/stats/performance');
       setPerformanceData(response.data.data);
     } catch (error) {
       console.error('Error fetching performance data:', error);
