@@ -44,28 +44,10 @@ const menuItems = [
     description: 'Subir llamadas manualmente'
   },
   {
-    title: 'Configuración',
-    icon: Settings,
-    href: '/settings',
-    description: 'Configurar sistema'
-  },
-  {
     title: 'Estadísticas Isabela',
     icon: BarChart3,
     href: '/estadisticas-isabela',
     description: 'Estadísticas del agente Isabela'
-  },
-  {
-    title: 'Reportes',
-    icon: BarChart3,
-    href: '/reports',
-    description: 'Generar reportes'
-  },
-  {
-    title: 'Ayuda',
-    icon: HelpCircle,
-    href: '/help',
-    description: 'Centro de ayuda'
   }
 ];
 
