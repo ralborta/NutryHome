@@ -144,14 +144,14 @@ export default function RecentCalls() {
           </div>
           
           <div className="flex items-center space-x-2">
-            {call._count.derivations > 0 && (
+            {call._count?.derivations > 0 && (
               <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-warning-100 text-warning-800">
-                {call._count.derivations} derivación{call._count.derivations !== 1 ? 'es' : ''}
+                {call._count?.derivations} derivación{call._count?.derivations !== 1 ? 'es' : ''}
               </span>
             )}
-            {call._count.complaints > 0 && (
+            {call._count?.complaints > 0 && (
               <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-danger-100 text-danger-800">
-                {call._count.complaints} reclamo{call._count.complaints !== 1 ? 's' : ''}
+                {call._count?.complaints} reclamo{call._count?.complaints !== 1 ? 's' : ''}
               </span>
             )}
             <button className="text-primary-600 hover:text-primary-800 text-sm font-medium">
