@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { formatDateSafe } from '@/lib/dateUtils';
 import { motion } from 'framer-motion';
 import { 
   Phone, 
@@ -23,6 +24,19 @@ import PerformanceMetrics from '@/components/dashboard/PerformanceMetrics';
 export default function DashboardPage() {
   const [isabelaStats, setIsabelaStats] = useState<any>(null);
   const [isabelaLoading, setIsabelaLoading] = useState(true);
+  const [currentDate, setCurrentDate] = useState<string>('');
+  const [mounted, setMounted] = useState(false);
+
+  // Evitar hydration mismatch
+  useEffect(() => {
+    setMounted(true);
+    setCurrentDate(new Date().toLocaleDateString('es-ES', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    }));
+  }, []);
 
   // Datos de ejemplo para el dashboard
   const stats: Array<{
@@ -97,13 +111,8 @@ export default function DashboardPage() {
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2 text-sm text-gray-500">
               <Calendar className="h-4 w-4" />
-              <span>
-                {new Date().toLocaleDateString('es-ES', { 
-                  weekday: 'long', 
-                  year: 'numeric', 
-                  month: 'long', 
-                  day: 'numeric' 
-                })}
+              <span suppressHydrationWarning>
+                {mounted ? currentDate : 'Cargando...'}
               </span>
             </div>
             <button className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">

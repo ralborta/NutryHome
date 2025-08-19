@@ -1,6 +1,7 @@
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from 'recharts';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { formatDateSafe, createDateSafe } from '@/lib/dateUtils';
 
 interface CallsChartProps {
   data?: Array<{
@@ -11,18 +12,21 @@ interface CallsChartProps {
 
 export default function CallsChart({ data = [] }: CallsChartProps) {
   // Formatear datos para el gráfico
-  const chartData = data.map(item => ({
-    fecha: format(new Date(item.fecha), 'dd/MM', { locale: es }),
-    llamadas: item.cantidad,
-    originalDate: item.fecha,
-  }));
+  const chartData = data.map(item => {
+    const safeDate = createDateSafe(item.fecha);
+    return {
+      fecha: safeDate ? format(safeDate, 'dd/MM', { locale: es }) : 'N/A',
+      llamadas: item.cantidad,
+      originalDate: item.fecha,
+    };
+  });
 
   // Si no hay datos, mostrar datos de ejemplo
   if (chartData.length === 0) {
-    const today = new Date();
     const exampleData = [];
     for (let i = 6; i >= 0; i--) {
-      const date = new Date(today);
+      const baseDate = new Date('2024-01-15');
+      const date = new Date(baseDate);
       date.setDate(date.getDate() - i);
       exampleData.push({
         fecha: format(date, 'dd/MM', { locale: es }),

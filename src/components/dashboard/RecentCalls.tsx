@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { formatDateSafe, formatTimeSafe } from '@/lib/dateUtils';
 import { Phone, Clock, User, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -46,7 +47,7 @@ export default function RecentCalls() {
           callId: 'CALL001',
           telefono: '+5491137710010',
           duracion: 180,
-          fecha: new Date().toISOString(),
+          fecha: '2024-01-15T10:00:00.000Z',
           status: 'ACTIVE',
           _count: { derivations: 1, complaints: 0 },
         },
@@ -55,7 +56,7 @@ export default function RecentCalls() {
           callId: 'CALL002',
           telefono: '+5491145623789',
           duracion: 240,
-          fecha: new Date(Date.now() - 3600000).toISOString(),
+          fecha: '2024-01-15T09:00:00.000Z',
           status: 'ACTIVE',
           _count: { derivations: 0, complaints: 1 },
         },
@@ -64,7 +65,7 @@ export default function RecentCalls() {
           callId: 'CALL003',
           telefono: '+5491156345678',
           duracion: 120,
-          fecha: new Date(Date.now() - 7200000).toISOString(),
+          fecha: '2024-01-15T08:00:00.000Z',
           status: 'ACTIVE',
           _count: { derivations: 2, complaints: 0 },
         },
@@ -136,7 +137,7 @@ export default function RecentCalls() {
                 </div>
                 <div className="flex items-center space-x-1 text-xs text-gray-500">
                   <Calendar className="h-3 w-3" />
-                  <span>{format(new Date(call.fecha), 'dd/MM HH:mm', { locale: es })}</span>
+                  <span>{formatDateSafe(call.fecha, { day: '2-digit', month: '2-digit' })} {formatTimeSafe(call.fecha, { hour: '2-digit', minute: '2-digit' })}</span>
                 </div>
               </div>
             </div>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { formatDateSafe } from '@/lib/dateUtils';
 import { TrendingUp, TrendingDown, Clock, Target, Zap, Users } from 'lucide-react';
 import apiClient from '@/lib/apiClient';
 
@@ -39,7 +40,7 @@ export default function PerformanceMetrics() {
           cantidad: Math.floor(Math.random() * 20) + 5,
         })),
         avgDurationByDay: Array.from({ length: 7 }, (_, i) => ({
-          dia: new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          dia: new Date('2024-01-15').toISOString().split('T')[0],
           duracionPromedio: Math.floor(Math.random() * 300) + 120,
         })),
         peakHours: [
