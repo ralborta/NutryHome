@@ -1,14 +1,6 @@
 'use client';
 
-import React from "react";
 import { useEffect, useState } from "react";
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu"; // shadcn/ui
 import {
   MoreVertical,
   Play,
@@ -19,7 +11,7 @@ import {
   Download,
   Share2,
   FileText,
-  MessageSquareText,
+  MessageSquare,
   BadgeCheck,
   StickyNote,
 } from "lucide-react";
@@ -230,44 +222,43 @@ type ActionId =
   | "compartir";
 
 function MoreMenu({ onAction }: { onAction: (a: ActionId) => void }) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          aria-label="Más opciones"
-          className="ml-1 grid h-8 w-8 place-items-center rounded-md text-slate-600 hover:bg-slate-100 hover:text-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
-        >
-          <MoreVertical className="h-4 w-4" />
-        </button>
-      </DropdownMenuTrigger>
+  const [isOpen, setIsOpen] = useState(false);
 
-      <DropdownMenuContent
-        align="end"
-        sideOffset={8}
-        className="w-56 rounded-xl border border-slate-200 bg-white p-1 shadow-lg ring-1 ring-black/5"
+  return (
+    <div className="relative">
+      <button
+        aria-label="Más opciones"
+        className="ml-1 grid h-8 w-8 place-items-center rounded-md text-slate-600 hover:bg-slate-100 hover:text-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+        onClick={() => setIsOpen(!isOpen)}
       >
-        <MenuItem icon={<FileText className="h-4 w-4"/>} label="Resumen" onClick={() => onAction("resumen")} />
-        <MenuItem icon={<MessageSquareText className="h-4 w-4"/>} label="Transcripción" onClick={() => onAction("transcripcion")} />
-        <MenuItem icon={<BadgeCheck className="h-4 w-4"/>} label="Evaluación" onClick={() => onAction("evaluacion")} />
-        <MenuItem icon={<StickyNote className="h-4 w-4"/>} label="Notas" onClick={() => onAction("notas")} />
-        <DropdownMenuSeparator className="my-1" />
-        <MenuItem icon={<Info className="h-4 w-4"/>} label="Ver detalles" onClick={() => onAction("detalles")} />
-        <MenuItem icon={<Download className="h-4 w-4"/>} label="Descargar" onClick={() => onAction("descargar")} />
-        <MenuItem icon={<Share2 className="h-4 w-4"/>} label="Compartir" onClick={() => onAction("compartir")} />
-      </DropdownMenuContent>
-    </DropdownMenu>
+        <MoreVertical className="h-4 w-4" />
+      </button>
+
+      {isOpen && (
+        <div className="absolute right-0 top-full mt-2 w-56 rounded-xl border border-slate-200 bg-white p-1 shadow-lg ring-1 ring-black/5 z-50">
+          <MenuItem icon={<FileText className="h-4 w-4"/>} label="Resumen" onClick={() => { onAction("resumen"); setIsOpen(false); }} />
+          <MenuItem icon={<MessageSquare className="h-4 w-4"/>} label="Transcripción" onClick={() => { onAction("transcripcion"); setIsOpen(false); }} />
+          <MenuItem icon={<BadgeCheck className="h-4 w-4"/>} label="Evaluación" onClick={() => { onAction("evaluacion"); setIsOpen(false); }} />
+          <MenuItem icon={<StickyNote className="h-4 w-4"/>} label="Notas" onClick={() => { onAction("notas"); setIsOpen(false); }} />
+          <div className="my-1 border-t border-slate-200" />
+          <MenuItem icon={<Info className="h-4 w-4"/>} label="Ver detalles" onClick={() => { onAction("detalles"); setIsOpen(false); }} />
+          <MenuItem icon={<Download className="h-4 w-4"/>} label="Descargar" onClick={() => { onAction("descargar"); setIsOpen(false); }} />
+          <MenuItem icon={<Share2 className="h-4 w-4"/>} label="Compartir" onClick={() => { onAction("compartir"); setIsOpen(false); }} />
+        </div>
+      )}
+    </div>
   );
 }
 
 function MenuItem({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick?: () => void }) {
   return (
-    <DropdownMenuItem
+    <button
       onClick={onClick}
-      className="group flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-700 focus:bg-indigo-50 focus:text-indigo-700 cursor-pointer"
+      className="group flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 cursor-pointer"
     >
       <span className="text-slate-500 group-hover:text-indigo-700">{icon}</span>
       <span>{label}</span>
-    </DropdownMenuItem>
+    </button>
   );
 }
 
