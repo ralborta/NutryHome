@@ -5,6 +5,8 @@ const fs = require('fs');
 const { body, validationResult } = require('express-validator');
 const { prisma } = require('../database/client');
 const xlsx = require('xlsx');
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 
 const router = express.Router();
 
@@ -1670,7 +1672,7 @@ async function syncBatchWithElevenLabs(batchId) {
     console.log(`✅ Sync completado: ${updatedCalls} llamadas actualizadas, ${failedCalls} fallidas`);
     return { success: true, updatedCalls, failedCalls };
     
-  } catch (error) {
+      } catch (error) {
     console.error(`❌ Error en sync automático:`, error);
     throw error;
   }
@@ -1687,11 +1689,11 @@ router.get('/batch/:batchId/sync', async (req, res) => {
       message: `Batch ${batchId} sincronizado exitosamente`,
       data: result
     });
-    
+
   } catch (error) {
     console.error(`❌ Error en sync manual:`, error);
-    res.status(500).json({
-      success: false,
+    res.status(500).json({ 
+      success: false, 
       error: error.message,
       batchId: req.params.batchId
     });
@@ -1998,6 +2000,133 @@ router.get("/internal/diag/elevenlabs", async (_req, res) => {
       ok: false, 
       error: String(e?.message || e),
       env: process.env.NODE_ENV
+    });
+  }
+});
+
+// 🎯 ENDPOINT SUPER SIMPLE: Obtener datos de ElevenLabs por batch
+router.get('/batch/:batchId/elevenlabs-data', async (req, res) => {
+  try {
+    const { batchId } = req.params;
+    console.log(`🔍 Consultando historial de ElevenLabs para batch: ${batchId}`);
+    
+    // 1️⃣ TRAER TODO EL HISTORIAL DE ELEVENLABS
+    const historyResponse = await fetch('https://api.elevenlabs.io/v1/history', {
+      headers: {
+        'xi-api-key': process.env.ELEVENLABS_API_KEY
+      }
+    });
+    
+    if (!historyResponse.ok) {
+      throw new Error(`ElevenLabs API error: ${historyResponse.status}`);
+    }
+    
+    const history = await historyResponse.json();
+    console.log(`📥 Historial obtenido: ${history.history?.length || 0} items`);
+    
+    // 2️⃣ FILTRAR POR BATCH ID (o como los identifiques)
+    const batchItems = history.history?.filter(item => {
+      // Buscar por request_id, text, o cualquier campo que identifique tu batch
+      return item.request_id === batchId || 
+             item.text?.includes(`batch-${batchId}`) ||
+             item.metadata?.batch_id === batchId;
+    }) || [];
+    
+    console.log(`🎯 Items encontrados para batch ${batchId}: ${batchItems.length}`);
+    
+    // 3️⃣ OBTENER DETALLES COMPLETOS DE CADA ITEM
+    const detailedItems = [];
+    for (const item of batchItems) {
+      try {
+        // Obtener detalles completos del item
+        const detailResponse = await fetch(`https://api.elevenlabs.io/v1/history/${item.history_item_id}`, {
+          headers: {
+            'xi-api-key': process.env.ELEVENLABS_API_KEY
+          }
+        });
+        
+        if (detailResponse.ok) {
+          const detailData = await detailResponse.json();
+          detailedItems.push({
+            ...item,
+            ...detailData,
+            audioUrl: `https://api.elevenlabs.io/v1/history/${item.history_item_id}/audio`
+          });
+        } else {
+          detailedItems.push(item);
+        }
+      } catch (detailError) {
+        console.warn(`⚠️ Error obteniendo detalles de item:`, detailError);
+        detailedItems.push(item);
+      }
+    }
+    
+    res.json({
+      success: true,
+      message: `Datos obtenidos para batch ${batchId}`,
+      batchId,
+      totalItems: batchItems.length,
+      data: detailedItems
+    });
+    
+  } catch (error) {
+    console.error(`❌ Error consultando ElevenLabs:`, error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      batchId: req.params.batchId
+    });
+  }
+});
+
+// 🎯 ENDPOINT PARA UNA LLAMADA ESPECÍFICA
+router.get('/calls/:callId/elevenlabs-info', async (req, res) => {
+  try {
+    const { callId } = req.params;
+    
+    // Buscar la llamada en la base de datos
+    const call = await prisma.outboundCall.findUnique({
+      where: { id: callId }
+    });
+    
+    if (!call) {
+      return res.status(404).json({ error: 'Llamada no encontrada' });
+    }
+    
+    if (!call.elevenlabsCallId) {
+      return res.status(404).json({ error: 'No tiene ID de ElevenLabs' });
+    }
+    
+    // 🎯 CONSULTA DIRECTA A ELEVENLABS
+    const response = await fetch(
+      `https://api.elevenlabs.io/v1/history/${call.elevenlabsCallId}`,
+      { 
+        headers: { 
+          'xi-api-key': process.env.ELEVENLABS_API_KEY 
+        } 
+      }
+    );
+    
+    if (!response.ok) {
+      throw new Error(`ElevenLabs API error: ${response.status}`);
+    }
+    
+    const conversationData = await response.json();
+    
+    res.json({
+      success: true,
+      callId,
+      elevenlabsCallId: call.elevenlabsCallId,
+      data: conversationData,
+      audioUrl: `https://api.elevenlabs.io/v1/history/${call.elevenlabsCallId}/audio`
+    });
+    
+  } catch (error) {
+    console.error(`❌ Error obteniendo info de llamada:`, error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message,
+      callId: req.params.callId
     });
   }
 });
