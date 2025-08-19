@@ -139,7 +139,7 @@ export default function DashboardStats({
                 }`}
                 initial={{ width: 0 }}
                 animate={{ 
-                  width: `${Math.min(100, Math.abs(parseInt(change.replace('%', ''))))}%` 
+                  width: `${Math.min(100, Math.abs(parseInt(change.replace('%', ''))))}%`
                 }}
                 transition={{ duration: 1, delay: 0.5 }}
               />
