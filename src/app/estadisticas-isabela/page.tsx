@@ -119,9 +119,24 @@ function ConversacionesUI() {
       </div>
 
       {/* Métricas resumen */}
-      <div className="max-w-6xl mx-auto px-6 mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <MetricCard icon={<span className="text-indigo-600">🏷️</span>} label="Total de Llamadas" value={String(data.total_calls)} />
-        <MetricCard icon={<span className="text-emerald-600">⏱️</span>} label="Tiempo Total" value={`${data.total_minutes} min`} />
+      <div className="max-w-6xl mx-auto px-6 mt-6">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="grid h-10 w-10 place-items-center rounded-full bg-slate-50 text-xl"><span className="text-indigo-600">🏷️</span></div>
+            <div>
+              <div className="text-sm text-slate-500">Total de Llamadas</div>
+              <div className="text-2xl font-semibold text-slate-900">{String(data.total_calls)}</div>
+            </div>
+          </div>
+          <div className="h-8 w-px bg-slate-200" />
+          <div className="flex items-center gap-3">
+            <div className="grid h-10 w-10 place-items-center rounded-full bg-slate-50 text-xl"><span className="text-emerald-600">⏱️</span></div>
+            <div>
+              <div className="text-sm text-slate-500">Tiempo Total</div>
+              <div className="text-2xl font-semibold text-slate-900">{`${data.total_minutes} min`}</div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Lista de conversaciones (Cards) */}
