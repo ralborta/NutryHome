@@ -166,6 +166,16 @@ router.get('/conversations', async (req, res) => {
             const elevenLabsData = await response.json();
             console.log(`✅ Datos obtenidos de ElevenLabs:`, JSON.stringify(elevenLabsData, null, 2));
             
+            // Log específico para campos de evaluación
+            console.log(`🔍 Campos de evaluación disponibles:`, {
+              analysis: !!elevenLabsData.analysis,
+              evaluation_criteria: !!elevenLabsData.evaluation_criteria,
+              criteria: !!elevenLabsData.criteria,
+              call_quality: !!elevenLabsData.call_quality,
+              analysis_evaluation_criteria: !!elevenLabsData.analysis?.evaluation_criteria,
+              analysis_criteria: !!elevenLabsData.analysis?.criteria,
+            });
+            
             return {
               ...conv,
               // Datos reales de ElevenLabs con mapeo correcto
@@ -187,8 +197,19 @@ router.get('/conversations', async (req, res) => {
               rating: elevenLabsData.metadata?.feedback?.overall_score || null,
               // Data Collection para Notas
               data_collection: elevenLabsData.conversation_initiation_client_data?.dynamic_variables || {},
-              // Evaluation data para Evaluación
-              evaluation_data: elevenLabsData.analysis || {},
+              // Evaluation data para Evaluación (incluye todos los campos posibles)
+              evaluation_data: {
+                ...elevenLabsData.analysis,
+                // Criterios de evaluación específicos
+                evaluation_criteria: elevenLabsData.evaluation_criteria || elevenLabsData.analysis?.evaluation_criteria,
+                criteria: elevenLabsData.criteria || elevenLabsData.analysis?.criteria,
+                call_quality: elevenLabsData.call_quality || elevenLabsData.analysis?.call_quality,
+                agent_performance: elevenLabsData.agent_performance || elevenLabsData.analysis?.agent_performance,
+                customer_satisfaction: elevenLabsData.customer_satisfaction || elevenLabsData.analysis?.customer_satisfaction,
+                // Otros campos de metadata que pueden ser útiles
+                feedback: elevenLabsData.metadata?.feedback,
+                evaluation_score: elevenLabsData.metadata?.evaluation_score || elevenLabsData.evaluation_score,
+              },
             };
           } else {
             const errorText = await response.text();
