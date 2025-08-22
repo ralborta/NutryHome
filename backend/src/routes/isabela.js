@@ -130,6 +130,8 @@ router.get('/conversations', async (req, res) => {
               rating: elevenLabsData.metadata?.feedback?.overall_score || null,
               // Data Collection para Notas
               data_collection: elevenLabsData.conversation_initiation_client_data?.dynamic_variables || {},
+              // Evaluation data para Evaluación
+              evaluation_data: elevenLabsData.analysis || {},
             };
           } else {
             const errorText = await response.text();

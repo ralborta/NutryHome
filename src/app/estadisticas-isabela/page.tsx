@@ -43,6 +43,7 @@ interface Conversation {
   rating?: number; // opcional
   resultado?: string; // ej: "Venta"
   data_collection?: Record<string, any>; // Datos recolectados de ElevenLabs
+  evaluation_data?: Record<string, any>; // Datos de evaluación de ElevenLabs
 }
 
 interface StatsData {
@@ -386,25 +387,67 @@ function handleAction(action: ActionId, c: Conversation) {
       alert("📝 Transcripción en desarrollo");
       break;
     case "evaluacion":
-      const evaluacion = `
-📊 EVALUACIÓN DE LA LLAMADA:
+      if (!c.evaluation_data) {
+        alert("📊 No hay datos de evaluación disponibles para esta conversación");
+        break;
+      }
 
-🎯 MÉTRICAS DE CALIDAD:
-🔹 Estado: ${c.status ?? "N/A"}
-🔹 Éxito: ${c.call_successful === "true" ? "✅ Completada exitosamente" : c.call_successful === "false" ? "❌ Falló" : "❓ No definido"}
-🔹 Duración: ${formatDuration(c.call_duration_secs)}
-🔹 Mensajes intercambiados: ${c.message_count ?? "0"}
+      // Procesar datos de evaluación de ElevenLabs
+      const evalData = c.evaluation_data;
+      let evaluacion = "📊 EVALUACIÓN DE LA LLAMADA:\n\n";
 
-🤖 AGENTE:
-🔹 Nombre: ${c.agent_name ?? "Isabela"}
-🔹 ID: ${c.agent_id ?? "N/A"}
+      // Información básica
+      evaluacion += "🎯 MÉTRICAS GENERALES:\n";
+      evaluacion += `🔹 Estado: ${c.call_successful === "true" ? "✅ Completada exitosamente" : c.call_successful === "false" ? "❌ Falló" : "❓ No definido"}\n`;
+      evaluacion += `🔹 Duración: ${formatDuration(c.call_duration_secs)}\n`;
+      evaluacion += `🔹 Mensajes: ${c.message_count ?? "0"}\n`;
+      
+      // Datos de análisis de ElevenLabs
+      if (evalData.call_successful) {
+        evaluacion += `\n✅ RESULTADO GENERAL:\n🔹 ${evalData.call_successful}\n`;
+      }
 
-⭐ RATING:
-${c.rating ? `🔹 Calificación: ${c.rating.toFixed(1)}/5 ⭐` : "🔹 No evaluado aún"}
+      if (evalData.summary) {
+        evaluacion += `\n📋 RESUMEN DE EVALUACIÓN:\n🔹 ${evalData.summary}\n`;
+      }
 
-📋 RESULTADO:
-🔹 ${c.resultado ?? "No especificado"}
-      `.trim();
+      // Criterios específicos si están disponibles
+      if (evalData.criteria || evalData.evaluation_criteria) {
+        evaluacion += "\n📝 CRITERIOS DE EVALUACIÓN:\n";
+        const criteria = evalData.criteria || evalData.evaluation_criteria;
+        if (typeof criteria === 'object') {
+          Object.entries(criteria).forEach(([key, value]) => {
+            evaluacion += `🔹 ${key}: ${value}\n`;
+          });
+        } else {
+          evaluacion += `🔹 ${criteria}\n`;
+        }
+      }
+
+      // Rating si está disponible
+      if (c.rating) {
+        evaluacion += `\n⭐ CALIFICACIÓN:\n🔹 ${c.rating.toFixed(1)}/5 estrellas\n`;
+      }
+
+      // Otros campos de análisis
+      if (evalData.customer_satisfaction) {
+        evaluacion += `\n😊 SATISFACCIÓN DEL CLIENTE:\n🔹 ${evalData.customer_satisfaction}\n`;
+      }
+
+      if (evalData.agent_performance) {
+        evaluacion += `\n🤖 DESEMPEÑO DEL AGENTE:\n🔹 ${evalData.agent_performance}\n`;
+      }
+
+      // Información adicional del análisis
+      if (Object.keys(evalData).length > 0) {
+        evaluacion += "\n📋 DATOS ADICIONALES:\n";
+        Object.entries(evalData).forEach(([key, value]) => {
+          if (!['call_successful', 'summary', 'criteria', 'evaluation_criteria', 'customer_satisfaction', 'agent_performance'].includes(key) && value) {
+            evaluacion += `🔹 ${key}: ${value}\n`;
+          }
+        });
+      }
+
       alert(evaluacion);
       break;
     case "notas":
