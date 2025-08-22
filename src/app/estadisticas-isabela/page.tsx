@@ -344,6 +344,28 @@ function MenuItem({ icon, label, onClick }: { icon: React.ReactNode; label: stri
   );
 }
 
+// ===== Función de traducción =====
+function translateSummary(text: string): string {
+  if (!text) return text;
+  
+  const translations: Record<string, string> = {
+    "The agent initiated a conversation in Spanish": "El agente inició una conversación en español",
+    "confirming they were speaking with": "confirmando que hablaba con",
+    "who confirmed their identity": "quien confirmó su identidad", 
+    "The agent then inquired if the user typically manages or receives products": "El agente preguntó si el usuario generalmente gestiona o recibe productos",
+    "to which the user responded affirmatively": "a lo que el usuario respondió afirmativamente",
+    "The agent then started another greeting": "El agente luego comenzó otro saludo",
+    "Confirming Identity (Spanish)": "Confirmación de Identidad (Español)"
+  };
+  
+  let translated = text;
+  Object.entries(translations).forEach(([en, es]) => {
+    translated = translated.replace(en, es);
+  });
+  
+  return translated;
+}
+
 // ===== Lógica de acciones (placeholder) =====
 function handleAction(action: ActionId, c: Conversation) {
   switch (action) {
@@ -367,7 +389,7 @@ function handleAction(action: ActionId, c: Conversation) {
       }
       
       if (c.summary) { 
-        alert(`📋 RESUMEN:\n\n${c.summary}`); 
+        alert(`📋 RESUMEN:\n\n${translateSummary(c.summary)}`); 
         break; 
       }
 
