@@ -164,24 +164,7 @@ router.get('/conversations', async (req, res) => {
 
           if (response.ok) {
             const elevenLabsData = await response.json();
-            console.log(`✅ Datos obtenidos de ElevenLabs:`, JSON.stringify(elevenLabsData, null, 2));
-            
-            // Log específico para campos de evaluación
-            console.log(`🔍 Campos de evaluación disponibles:`, {
-              analysis: !!elevenLabsData.analysis,
-              data_collection: !!elevenLabsData.analysis?.data_collection,
-              criteria_evaluation: !!elevenLabsData.analysis?.criteria_evaluation,
-            });
-            
-            console.log(`📋 Data Collection:`, elevenLabsData.analysis?.data_collection);
-            console.log(`📊 Criteria Evaluation:`, elevenLabsData.analysis?.criteria_evaluation);
-            
-            // Log completo del analysis para ver la estructura real
-            console.log(`🔍 ANALYSIS COMPLETO:`, JSON.stringify(elevenLabsData.analysis, null, 2));
-            
-            // Buscar datos específicos en toda la estructura
-            console.log(`🔍 BUSCAR PRODUCTO1:`, elevenLabsData.analysis?.data_collection?.producto1);
-            console.log(`🔍 BUSCAR EVALUACION_LLAMADA_GLOBAL:`, elevenLabsData.analysis?.criteria_evaluation?.evaluacion_llamada_global);
+            console.log(`✅ Datos obtenidos de ElevenLabs para conversación: ${conv.conversation_id}`);
             
             return {
               ...conv,

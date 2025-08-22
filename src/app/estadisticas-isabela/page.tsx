@@ -346,8 +346,6 @@ function MenuItem({ icon, label, onClick }: { icon: React.ReactNode; label: stri
 
 // ===== Lógica de acciones (placeholder) =====
 function handleAction(action: ActionId, c: Conversation) {
-  console.log("🔍 DEBUG conversación completa:", c);
-  
   switch (action) {
     case "audio": {
       if (!c.conversation_id) { 
@@ -389,128 +387,57 @@ function handleAction(action: ActionId, c: Conversation) {
       alert("📝 Transcripción en desarrollo");
       break;
     case "evaluacion":
-      console.log("🔍 DEBUG evaluation_data:", c.evaluation_data);
-      
       if (!c.evaluation_data) {
         alert("📊 No hay datos de evaluación disponibles para esta conversación");
         break;
       }
 
-      // Procesar datos de evaluación de ElevenLabs
+      // Procesar datos de evaluación de ElevenLabs - SOLO evaluación
       const evalData = c.evaluation_data;
       let evaluacion = "📊 EVALUACIÓN DE LA LLAMADA:\n\n";
 
-      // Información básica
-      evaluacion += "🎯 MÉTRICAS GENERALES:\n";
-      evaluacion += `🔹 Estado: ${c.call_successful === "true" ? "✅ Completada exitosamente" : c.call_successful === "false" ? "❌ Falló" : "❓ No definido"}\n`;
-      evaluacion += `🔹 Duración: ${formatDuration(c.call_duration_secs)}\n`;
-      evaluacion += `🔹 Mensajes: ${c.message_count ?? "0"}\n`;
-      
-      // Datos de análisis de ElevenLabs
-      if (evalData.call_successful) {
-        evaluacion += `\n✅ RESULTADO GENERAL:\n🔹 ${evalData.call_successful}\n`;
-      }
-
-      if (evalData.summary) {
-        evaluacion += `\n📋 RESUMEN DE EVALUACIÓN:\n🔹 ${evalData.summary}\n`;
-      }
-
-      // Evaluación específica de ElevenLabs - evalData ES evaluation_criteria_results
+      // SOLO mostrar evaluation_criteria_results
       if (evalData && Object.keys(evalData).length > 0) {
-        evaluacion += "\n📝 CRITERIOS DE EVALUACIÓN:\n";
-        
         Object.entries(evalData).forEach(([key, criteriaObj]) => {
           if (criteriaObj && typeof criteriaObj === 'object') {
             const criteria = criteriaObj as any;
-            evaluacion += `\n🔸 ${key.toUpperCase()}:\n`;
+            evaluacion += `🔸 ${key.toUpperCase()}:\n`;
             
             if (criteria.result) {
-              evaluacion += `   ✅ Resultado: ${criteria.result}\n`;
+              evaluacion += `✅ Resultado: ${criteria.result}\n`;
             }
             
             if (criteria.rationale) {
-              evaluacion += `   📋 Descripción: ${criteria.rationale}\n`;
+              evaluacion += `📋 Descripción: ${criteria.rationale}\n\n`;
             }
             
             if (criteria.value) {
-              evaluacion += `   🔹 Valor: ${criteria.value}\n`;
+              evaluacion += `🔹 Valor: ${criteria.value}\n\n`;
             }
           }
         });
-      }
-
-      // Rating si está disponible
-      if (c.rating) {
-        evaluacion += `\n⭐ CALIFICACIÓN:\n🔹 ${c.rating.toFixed(1)}/5 estrellas\n`;
-      }
-
-      // Otros campos de análisis
-      if (evalData.customer_satisfaction) {
-        evaluacion += `\n😊 SATISFACCIÓN DEL CLIENTE:\n🔹 ${evalData.customer_satisfaction}\n`;
-      }
-
-      if (evalData.agent_performance) {
-        evaluacion += `\n🤖 DESEMPEÑO DEL AGENTE:\n🔹 ${evalData.agent_performance}\n`;
-      }
-
-      // Información adicional del análisis
-      if (Object.keys(evalData).length > 0) {
-        evaluacion += "\n📋 DATOS ADICIONALES:\n";
-        Object.entries(evalData).forEach(([key, value]) => {
-          if (!['call_successful', 'summary', 'criteria', 'evaluation_criteria', 'customer_satisfaction', 'agent_performance'].includes(key) && value) {
-            evaluacion += `🔹 ${key}: ${value}\n`;
-          }
-        });
+      } else {
+        evaluacion += "No hay datos de evaluación disponibles.";
       }
 
       alert(evaluacion);
       break;
     case "notas":
-      console.log("🔍 DEBUG data_collection:", c.data_collection);
-      
       if (!c.data_collection) {
         alert("📝 No hay datos de recolección disponibles para esta conversación");
         break;
       }
 
-      // Procesar data collection en formato tabla
+      // Procesar data collection - SOLO data collection
       const data = c.data_collection;
-      const productos = [
-        { campo: "Producto 1", valor: data.producto1, cantidad: data.cantidad1 },
-        { campo: "Producto 2", valor: data.producto2, cantidad: data.cantidad2 },
-        { campo: "Producto 3", valor: data.producto3, cantidad: data.cantidad3 }
-      ];
-
-      let notasHTML = "📝 DATOS RECOLECTADOS EN LA LLAMADA:\n\n";
+      let notasHTML = "📝 DATOS RECOLECTADOS:\n\n";
       
-      // Productos
-      notasHTML += "🛒 PRODUCTOS MENCIONADOS:\n";
-      productos.forEach(p => {
-        if (p.valor && p.valor !== "NA" && p.valor !== "N/A") {
-          const cantidadText = p.cantidad && p.cantidad !== "0" ? ` (${p.cantidad} unidades)` : "";
-          notasHTML += `• ${p.campo}: ${p.valor}${cantidadText} ✅\n`;
-        } else {
-          notasHTML += `• ${p.campo}: No aplica 🚫\n`;
+      // SOLO mostrar los datos recolectados tal como vienen de ElevenLabs
+      Object.entries(data).forEach(([key, value]) => {
+        if (value !== null && value !== undefined && value !== "N/A" && value !== "") {
+          notasHTML += `• ${key}: ${value}\n`;
         }
       });
-
-      // Información del paciente
-      if (data.nombre_paciente || data.nombre_contacto) {
-        notasHTML += "\n👤 INFORMACIÓN DEL PACIENTE:\n";
-        if (data.nombre_paciente) notasHTML += `• Nombre: ${data.nombre_paciente}\n`;
-        if (data.nombre_contacto && data.nombre_contacto !== data.nombre_paciente) {
-          notasHTML += `• Contacto: ${data.nombre_contacto}\n`;
-        }
-        if (data.localidad) notasHTML += `• Localidad: ${data.localidad}\n`;
-        if (data.delegacion) notasHTML += `• Delegación: ${data.delegacion}\n`;
-        if (data.domicilio_actual) notasHTML += `• Domicilio: ${data.domicilio_actual}\n`;
-      }
-
-      // Información de envío
-      if (data.fecha_envio) {
-        notasHTML += "\n📦 INFORMACIÓN DE ENVÍO:\n";
-        notasHTML += `• Fecha de envío: ${data.fecha_envio}\n`;
-      }
 
       alert(notasHTML);
       break;
