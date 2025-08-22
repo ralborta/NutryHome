@@ -176,6 +176,9 @@ router.get('/conversations', async (req, res) => {
             console.log(`📋 Data Collection:`, elevenLabsData.analysis?.data_collection);
             console.log(`📊 Criteria Evaluation:`, elevenLabsData.analysis?.criteria_evaluation);
             
+            // Log completo del analysis para ver la estructura real
+            console.log(`🔍 ANALYSIS COMPLETO:`, JSON.stringify(elevenLabsData.analysis, null, 2));
+            
             return {
               ...conv,
               // Datos reales de ElevenLabs con mapeo correcto
@@ -196,9 +199,14 @@ router.get('/conversations', async (req, res) => {
               resultado: elevenLabsData.analysis?.call_successful === 'success' ? 'Completada' : 'Fallida',
               rating: elevenLabsData.metadata?.feedback?.overall_score || null,
               // Data Collection para Notas (datos recolectados en la llamada)
-              data_collection: elevenLabsData.analysis?.data_collection || {},
+              data_collection: elevenLabsData.analysis?.data_collection || 
+                               elevenLabsData.data_collection || 
+                               elevenLabsData.conversation_initiation_client_data?.dynamic_variables || {},
               // Evaluation data para Evaluación (criterios de evaluación)
-              evaluation_data: elevenLabsData.analysis?.criteria_evaluation || {},
+              evaluation_data: elevenLabsData.analysis?.criteria_evaluation || 
+                              elevenLabsData.criteria_evaluation || 
+                              elevenLabsData.analysis?.evaluation_criteria ||
+                              elevenLabsData.evaluation_criteria || {},
             };
           } else {
             const errorText = await response.text();
