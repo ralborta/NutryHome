@@ -61,20 +61,75 @@ router.get('/conversations', async (req, res) => {
   try {
     const limit = Number(req.query.limit) > 0 ? Number(req.query.limit) : 50;
 
-    const conversations = await prisma.isabelaConversation.findMany({
-      // ✅ más nuevo primero (si cierras la llamada más tarde, updatedAt suele ser mejor)
-      orderBy: { updatedAt: 'desc' },
-      take: limit,
-      // select: { ... } // opcional: limita columnas
-    });
+    // 🔄 PRIMERO: Obtener las conversaciones más recientes desde ElevenLabs
+    console.log(`🔍 Obteniendo conversaciones frescas desde ElevenLabs (límite: ${limit})`);
+    
+    let allConversations = [];
+    
+    try {
+      const elevenLabsResponse = await fetch(
+        `https://api.elevenlabs.io/v1/convai/conversations?limit=${limit}`,
+        {
+          headers: {
+            'xi-api-key': process.env.ELEVENLABS_API_KEY || ''
+          }
+        }
+      );
 
-    // ✅ Enriquecer con datos de ElevenLabs para las primeras conversaciones
+      if (elevenLabsResponse.ok) {
+        const elevenLabsData = await elevenLabsResponse.json();
+        console.log(`📥 Obtenidas ${elevenLabsData.conversations?.length || 0} conversaciones desde ElevenLabs`);
+        
+        // Sincronizar conversaciones nuevas con la DB
+        const elevenConversations = elevenLabsData.conversations || [];
+        for (const conv of elevenConversations) {
+          try {
+            await prisma.isabelaConversation.upsert({
+              where: { conversationId: conv.conversation_id },
+              update: {
+                summary: conv.call_summary_title || conv.summary || null,
+                updatedAt: new Date()
+              },
+              create: {
+                conversationId: conv.conversation_id,
+                summary: conv.call_summary_title || conv.summary || null,
+                createdAt: new Date(conv.start_time_unix_secs * 1000),
+                updatedAt: new Date()
+              }
+            });
+          } catch (dbError) {
+            console.error(`❌ Error sincronizando conversación ${conv.conversation_id}:`, dbError);
+          }
+        }
+        
+        allConversations = elevenConversations;
+      } else {
+        console.warn(`⚠️ Error obteniendo conversaciones de ElevenLabs: ${elevenLabsResponse.status}`);
+        throw new Error('ElevenLabs API error');
+      }
+    } catch (elevenLabsError) {
+      console.error('❌ Error con ElevenLabs, usando DB local:', elevenLabsError);
+      
+      // Fallback: usar conversaciones de la DB
+      const conversations = await prisma.isabelaConversation.findMany({
+        orderBy: { updatedAt: 'desc' },
+        take: limit,
+      });
+      
+      allConversations = conversations.map(conv => ({
+        conversation_id: conv.conversationId,
+        start_time_unix_secs: Math.floor(conv.createdAt.getTime() / 1000),
+        summary: conv.summary
+      }));
+    }
+
+    // ✅ Enriquecer con datos detallados de ElevenLabs
     const enrichedConversations = await Promise.all(
-      conversations.slice(0, Math.min(20, conversations.length)).map(async (conv) => {
+      allConversations.slice(0, limit).map(async (conv) => {
         try {
           // Verificar que tenemos datos mínimos
-          if (!conv.conversationId) {
-            console.log(`❌ No hay conversationId para ${conv.id}`);
+          if (!conv.conversation_id) {
+            console.log(`❌ No hay conversation_id para esta conversación`);
             return {
               ...conv,
               nombre_paciente: 'Sin ID de conversación',
@@ -84,7 +139,7 @@ router.get('/conversations', async (req, res) => {
               call_successful: 'false',
               agent_name: 'Isabela',
               message_count: 0,
-              start_time_unix_secs: Math.floor(conv.createdAt.getTime() / 1000),
+              start_time_unix_secs: conv.start_time_unix_secs || Math.floor(Date.now() / 1000),
               producto: 'NutryHome',
               resultado: 'Error',
               rating: null,
@@ -92,11 +147,11 @@ router.get('/conversations', async (req, res) => {
           }
 
           // Intentar obtener datos de ElevenLabs
-          console.log(`🔍 Intentando obtener datos de ElevenLabs para conversación: ${conv.conversationId}`);
+          console.log(`🔍 Intentando obtener datos de ElevenLabs para conversación: ${conv.conversation_id}`);
           console.log(`🔑 API Key disponible: ${process.env.ELEVENLABS_API_KEY ? 'SÍ' : 'NO'}`);
           
           const response = await fetch(
-            `https://api.elevenlabs.io/v1/convai/conversations/${conv.conversationId}`,
+            `https://api.elevenlabs.io/v1/convai/conversations/${conv.conversation_id}`,
             {
               headers: {
                 "accept": "application/json",
@@ -123,7 +178,7 @@ router.get('/conversations', async (req, res) => {
               call_successful: elevenLabsData.analysis?.call_successful === 'success' ? 'true' : 'false',
               agent_name: elevenLabsData.agent_name || 'Isabela',
               message_count: elevenLabsData.message_count || 0,
-              start_time_unix_secs: elevenLabsData.metadata?.start_time_unix_secs || Math.floor(conv.createdAt.getTime() / 1000),
+              start_time_unix_secs: elevenLabsData.metadata?.start_time_unix_secs || conv.start_time_unix_secs || Math.floor(Date.now() / 1000),
               // Datos adicionales
               producto: 'NutryHome',
               resultado: elevenLabsData.analysis?.call_successful === 'success' ? 'Completada' : 'Fallida',
@@ -144,7 +199,7 @@ router.get('/conversations', async (req, res) => {
             const duraciones = [125, 89, 203, 156, 78, 234];
             const estados = ['true', 'false'];
             
-            const index = Math.abs(conv.conversationId.charCodeAt(5) || 0) % nombres.length;
+            const index = Math.abs(conv.conversation_id.charCodeAt(5) || 0) % nombres.length;
             
             return {
               ...conv,
@@ -155,14 +210,14 @@ router.get('/conversations', async (req, res) => {
               call_successful: estados[index % 2],
               agent_name: 'Isabela',
               message_count: Math.floor(Math.random() * 15) + 5,
-              start_time_unix_secs: Math.floor(conv.createdAt.getTime() / 1000),
+              start_time_unix_secs: conv.start_time_unix_secs || Math.floor(Date.now() / 1000),
               producto: 'NutryHome',
               resultado: estados[index % 2] === 'true' ? 'Completada' : 'Fallida',
               rating: estados[index % 2] === 'true' ? (Math.random() * 2 + 3).toFixed(1) : null,
             };
           }
         } catch (error) {
-          console.error(`Error enriqueciendo conversación ${conv.conversationId}:`, error);
+          console.error(`Error enriqueciendo conversación ${conv.conversation_id}:`, error);
           // Retornar datos básicos si hay error
           return {
             ...conv,
