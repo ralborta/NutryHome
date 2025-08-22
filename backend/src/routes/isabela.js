@@ -203,24 +203,19 @@ router.get('/conversations', async (req, res) => {
               resultado: elevenLabsData.analysis?.call_successful === 'success' ? 'Completada' : 'Fallida',
               rating: elevenLabsData.metadata?.feedback?.overall_score || null,
               // Data Collection para Notas (datos recolectados en la llamada)
-              // Basado en la imagen: los datos están directamente en analysis
+              // Estructura real de ElevenLabs: analysis.data_collection_results.{campo}.value
               data_collection: {
-                producto1: elevenLabsData.analysis?.producto1,
-                cantidad1: elevenLabsData.analysis?.cantidad1,
-                producto2: elevenLabsData.analysis?.producto2, 
-                cantidad2: elevenLabsData.analysis?.cantidad2,
-                producto3: elevenLabsData.analysis?.producto3,
-                cantidad3: elevenLabsData.analysis?.cantidad3,
-                administrativos: elevenLabsData.analysis?.administrativos,
-                ...elevenLabsData.analysis?.data_collection,
-                ...elevenLabsData.conversation_initiation_client_data?.dynamic_variables
+                producto1: elevenLabsData.analysis?.data_collection_results?.producto1?.value,
+                cantidad1: elevenLabsData.analysis?.data_collection_results?.cantidad1?.value,
+                producto2: elevenLabsData.analysis?.data_collection_results?.producto2?.value, 
+                cantidad2: elevenLabsData.analysis?.data_collection_results?.cantidad2?.value,
+                producto3: elevenLabsData.analysis?.data_collection_results?.producto3?.value,
+                cantidad3: elevenLabsData.analysis?.data_collection_results?.cantidad3?.value,
+                administrativos: elevenLabsData.analysis?.data_collection_results?.administrativos?.value,
               },
               // Evaluation data para Evaluación (criterios de evaluación)  
-              evaluation_data: {
-                evaluacion_llamada_global: elevenLabsData.analysis?.evaluacion_llamada_global,
-                ...elevenLabsData.analysis?.criteria_evaluation,
-                ...elevenLabsData.analysis
-              },
+              // Estructura real: analysis.evaluation_criteria_results
+              evaluation_data: elevenLabsData.analysis?.evaluation_criteria_results || {},
             };
           } else {
             const errorText = await response.text();

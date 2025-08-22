@@ -415,23 +415,25 @@ function handleAction(action: ActionId, c: Conversation) {
         evaluacion += `\n📋 RESUMEN DE EVALUACIÓN:\n🔹 ${evalData.summary}\n`;
       }
 
-      // Evaluación específica de ElevenLabs - ahora evalData ES criteria_evaluation
+      // Evaluación específica de ElevenLabs - evalData ES evaluation_criteria_results
       if (evalData && Object.keys(evalData).length > 0) {
         evaluacion += "\n📝 CRITERIOS DE EVALUACIÓN:\n";
         
-        Object.entries(evalData).forEach(([key, value]) => {
-          if (value) {
-            if (typeof value === 'object' && value !== null) {
-              const objValue = value as any;
-              if (objValue.reason) {
-                evaluacion += `🔹 ${key}: ${objValue.reason}\n`;
-              } else if (objValue.result || objValue.value) {
-                evaluacion += `🔹 ${key}: ${objValue.result || objValue.value}\n`;
-              } else {
-                evaluacion += `🔹 ${key}: ${JSON.stringify(objValue)}\n`;
-              }
-            } else {
-              evaluacion += `🔹 ${key}: ${value}\n`;
+        Object.entries(evalData).forEach(([key, criteriaObj]) => {
+          if (criteriaObj && typeof criteriaObj === 'object') {
+            const criteria = criteriaObj as any;
+            evaluacion += `\n🔸 ${key.toUpperCase()}:\n`;
+            
+            if (criteria.result) {
+              evaluacion += `   ✅ Resultado: ${criteria.result}\n`;
+            }
+            
+            if (criteria.rationale) {
+              evaluacion += `   📋 Descripción: ${criteria.rationale}\n`;
+            }
+            
+            if (criteria.value) {
+              evaluacion += `   🔹 Valor: ${criteria.value}\n`;
             }
           }
         });
