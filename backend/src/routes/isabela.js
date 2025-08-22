@@ -237,35 +237,11 @@ router.get('/conversations', async (req, res) => {
       })
     );
 
-    // Agregar las conversaciones restantes con datos realistas
-    const remainingConversations = conversations.slice(20).map(conv => {
-      const nombres = ['Rodrigo Morales', 'Ana García', 'Carlos López', 'María Pérez', 'Juan Martínez', 'Laura Rodríguez'];
-      const telefonos = ['+549113378190', '+541130370101', '+541125002510', '+541137788190', '+549113456789', '+541198765432'];
-      const duraciones = [125, 89, 203, 156, 78, 234];
-      const estados = ['true', 'false'];
-      
-      const index = Math.abs(conv.conversationId.charCodeAt(5) || 0) % nombres.length;
-      
-      return {
-        ...conv,
-        nombre_paciente: nombres[index],
-        telefono_destino: telefonos[index],
-        call_duration_secs: duraciones[index],
-        status: 'completed',
-        call_successful: estados[index % 2],
-        agent_name: 'Isabela',
-        message_count: Math.floor(Math.random() * 15) + 5,
-        start_time_unix_secs: Math.floor(conv.createdAt.getTime() / 1000),
-        producto: 'NutryHome',
-        resultado: estados[index % 2] === 'true' ? 'Completada' : 'Fallida',
-        rating: estados[index % 2] === 'true' ? (Math.random() * 2 + 3).toFixed(1) : null,
-      };
-    });
-
-    const allConversations = [...enrichedConversations, ...remainingConversations];
+    // ✅ Ya todas las conversaciones están enriquecidas con datos de ElevenLabs
+    const finalConversations = enrichedConversations;
 
     // ✅ Ordenar por fecha de llamada real (más reciente primero)
-    allConversations.sort((a, b) => {
+    finalConversations.sort((a, b) => {
       const timeA = a.start_time_unix_secs || 0;
       const timeB = b.start_time_unix_secs || 0;
       return timeB - timeA; // Descendente (más reciente primero)
@@ -275,8 +251,8 @@ router.get('/conversations', async (req, res) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
 
     res.json({
-      conversations: allConversations,
-      total: conversations.length,
+      conversations: finalConversations,
+      total: allConversations.length,
     });
 
   } catch (error) {
