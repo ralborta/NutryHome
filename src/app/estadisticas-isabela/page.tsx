@@ -346,6 +346,8 @@ function MenuItem({ icon, label, onClick }: { icon: React.ReactNode; label: stri
 
 // ===== Lógica de acciones (placeholder) =====
 function handleAction(action: ActionId, c: Conversation) {
+  console.log("🔍 DEBUG conversación completa:", c);
+  
   switch (action) {
     case "audio": {
       if (!c.conversation_id) { 
@@ -387,6 +389,8 @@ function handleAction(action: ActionId, c: Conversation) {
       alert("📝 Transcripción en desarrollo");
       break;
     case "evaluacion":
+      console.log("🔍 DEBUG evaluation_data:", c.evaluation_data);
+      
       if (!c.evaluation_data) {
         alert("📊 No hay datos de evaluación disponibles para esta conversación");
         break;
@@ -474,6 +478,8 @@ function handleAction(action: ActionId, c: Conversation) {
       alert(evaluacion);
       break;
     case "notas":
+      console.log("🔍 DEBUG data_collection:", c.data_collection);
+      
       if (!c.data_collection) {
         alert("📝 No hay datos de recolección disponibles para esta conversación");
         break;
