@@ -411,17 +411,38 @@ function handleAction(action: ActionId, c: Conversation) {
         evaluacion += `\n📋 RESUMEN DE EVALUACIÓN:\n🔹 ${evalData.summary}\n`;
       }
 
-      // Criterios específicos si están disponibles
-      if (evalData.criteria || evalData.evaluation_criteria) {
-        evaluacion += "\n📝 CRITERIOS DE EVALUACIÓN:\n";
-        const criteria = evalData.criteria || evalData.evaluation_criteria;
-        if (typeof criteria === 'object') {
-          Object.entries(criteria).forEach(([key, value]) => {
-            evaluacion += `🔹 ${key}: ${value}\n`;
-          });
+      // Evaluación específica de ElevenLabs
+      if (evalData.evaluacion_llamada_global) {
+        evaluacion += "\n📝 EVALUACIÓN DE LA LLAMADA:\n";
+        const evalGlobal = evalData.evaluacion_llamada_global;
+        if (typeof evalGlobal === 'object') {
+          if (evalGlobal.reason) {
+            evaluacion += `🔹 Descripción: ${evalGlobal.reason}\n`;
+          }
+          if (evalGlobal.result || evalGlobal.value) {
+            evaluacion += `🔹 Resultado: ${evalGlobal.result || evalGlobal.value}\n`;
+          }
         } else {
-          evaluacion += `🔹 ${criteria}\n`;
+          evaluacion += `🔹 ${evalGlobal}\n`;
         }
+      }
+
+      // Criterios específicos si están disponibles
+      if (evalData.criteria_evaluation) {
+        evaluacion += "\n📝 CRITERIOS DE EVALUACIÓN:\n";
+        Object.entries(evalData.criteria_evaluation).forEach(([key, value]) => {
+          if (key !== 'evaluacion_llamada_global' && value) {
+            if (typeof value === 'object') {
+              if (value.reason) {
+                evaluacion += `🔹 ${key}: ${value.reason}\n`;
+              } else if (value.result || value.value) {
+                evaluacion += `🔹 ${key}: ${value.result || value.value}\n`;
+              }
+            } else {
+              evaluacion += `🔹 ${key}: ${value}\n`;
+            }
+          }
+        });
       }
 
       // Rating si está disponible

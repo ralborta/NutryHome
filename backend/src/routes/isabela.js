@@ -195,12 +195,15 @@ router.get('/conversations', async (req, res) => {
               producto: 'NutryHome',
               resultado: elevenLabsData.analysis?.call_successful === 'success' ? 'Completada' : 'Fallida',
               rating: elevenLabsData.metadata?.feedback?.overall_score || null,
-              // Data Collection para Notas
-              data_collection: elevenLabsData.conversation_initiation_client_data?.dynamic_variables || {},
-              // Evaluation data para Evaluación (incluye todos los campos posibles)
+              // Data Collection para Notas (datos recolectados en la llamada)
+              data_collection: elevenLabsData.analysis?.data_collection || elevenLabsData.conversation_initiation_client_data?.dynamic_variables || {},
+              // Evaluation data para Evaluación (criterios de evaluación)
               evaluation_data: {
                 ...elevenLabsData.analysis,
-                // Criterios de evaluación específicos
+                // Criterios de evaluación específicos de ElevenLabs
+                criteria_evaluation: elevenLabsData.analysis?.criteria_evaluation || {},
+                evaluacion_llamada_global: elevenLabsData.analysis?.criteria_evaluation?.evaluacion_llamada_global,
+                // Otros campos de evaluación
                 evaluation_criteria: elevenLabsData.evaluation_criteria || elevenLabsData.analysis?.evaluation_criteria,
                 criteria: elevenLabsData.criteria || elevenLabsData.analysis?.criteria,
                 call_quality: elevenLabsData.call_quality || elevenLabsData.analysis?.call_quality,
