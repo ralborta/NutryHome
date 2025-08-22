@@ -179,6 +179,10 @@ router.get('/conversations', async (req, res) => {
             // Log completo del analysis para ver la estructura real
             console.log(`🔍 ANALYSIS COMPLETO:`, JSON.stringify(elevenLabsData.analysis, null, 2));
             
+            // Buscar datos específicos en toda la estructura
+            console.log(`🔍 BUSCAR PRODUCTO1:`, elevenLabsData.analysis?.data_collection?.producto1);
+            console.log(`🔍 BUSCAR EVALUACION_LLAMADA_GLOBAL:`, elevenLabsData.analysis?.criteria_evaluation?.evaluacion_llamada_global);
+            
             return {
               ...conv,
               // Datos reales de ElevenLabs con mapeo correcto
