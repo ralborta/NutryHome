@@ -344,30 +344,81 @@ function MenuItem({ icon, label, onClick }: { icon: React.ReactNode; label: stri
   );
 }
 
-// ===== Función de traducción =====
-function translateSummary(text: string): string {
-  if (!text) return text;
+// ===== Función de traducción robusta =====
+async function traducirTexto(texto: string): Promise<string> {
+  if (!texto) return texto;
   
-  const translations: Record<string, string> = {
-    // Texto exacto completo
-    "The agent initiated a conversation in Spanish, confirming they were speaking with GOMEZ GALASSO THIAGO JOAQUIN, who confirmed their identity. The agent then inquired if the user typically manages or receives products for MARTIN NAHUEL, to which the user responded affirmatively. The agent then started another greeting.": "El agente inició una conversación en español, confirmando que hablaba con GOMEZ GALASSO THIAGO JOAQUIN, quien confirmó su identidad. El agente luego preguntó si el usuario generalmente gestiona o recibe productos para MARTIN NAHUEL, a lo que el usuario respondió afirmativamente. El agente luego comenzó otro saludo.",
-    
-    // Frases parciales por si viene diferente
-    "The agent initiated a conversation in Spanish": "El agente inició una conversación en español",
-    "confirming they were speaking with": "confirmando que hablaba con",
-    "who confirmed their identity": "quien confirmó su identidad", 
-    "The agent then inquired if the user typically manages or receives products": "El agente preguntó si el usuario generalmente gestiona o recibe productos",
-    "to which the user responded affirmatively": "a lo que el usuario respondió afirmativamente",
-    "The agent then started another greeting": "El agente luego comenzó otro saludo",
-    "Confirming Identity (Spanish)": "Confirmación de Identidad (Español)"
-  };
+  // Importar translate dinámicamente para evitar problemas de SSR
+  const { translate } = await import('google-translate-api-x');
   
-  let translated = text;
-  Object.entries(translations).forEach(([en, es]) => {
-    translated = translated.replace(en, es);
-  });
-  
-  return translated;
+  // 1. Google Translate (gratuito)
+  try {
+    const result = await translate(texto, { from: 'en', to: 'es' });
+    if (result.text && result.text !== texto) {
+      return result.text;
+    }
+  } catch (error) {
+    console.log('Google Translate falló, probando siguiente opción...');
+  }
+
+  // 2. Free Translate API (Ismal Zikri)
+  try {
+    const res = await fetch('https://translate.ismailzikri.com/translate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: texto,
+        source: 'en',
+        target: 'es'
+      })
+    });
+    const data = await res.json();
+    if (data.translatedText && data.translatedText !== texto) {
+      return data.translatedText;
+    }
+  } catch (error) {
+    console.log('Free Translate API falló, probando siguiente opción...');
+  }
+
+  // 3. LibreTranslate
+  try {
+    const res = await fetch('https://libretranslate.com/translate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        q: texto,
+        source: 'en',
+        target: 'es',
+        format: 'text'
+      })
+    });
+    const data = await res.json();
+    if (data.translatedText && data.translatedText !== texto) {
+      return data.translatedText;
+    }
+  } catch (error) {
+    console.log('LibreTranslate falló, probando siguiente opción...');
+  }
+
+  // 4. Apertium (último recurso)
+  try {
+    const res = await fetch('https://apertium.org/apy/translate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        q: texto,
+        langpair: 'en|es'
+      })
+    });
+    const data = await res.json();
+    if (data.responseData?.translatedText && data.responseData.translatedText !== texto) {
+      return data.responseData.translatedText;
+    }
+  } catch (error) {
+    console.log('Todas las APIs de traducción fallaron, devolviendo texto original');
+  }
+
+  return texto; // Si todo falla, devuelve el texto original
 }
 
 // ===== Lógica de acciones (placeholder) =====
@@ -392,8 +443,14 @@ function handleAction(action: ActionId, c: Conversation) {
         break; 
       }
       
-      if (c.summary) { 
-        alert(`📋 RESUMEN:\n\n${translateSummary(c.summary)}`); 
+      if (c.summary) {
+        // Traducir el resumen de forma asíncrona
+        traducirTexto(c.summary).then(resumenTraducido => {
+          alert(`📋 RESUMEN:\n\n${resumenTraducido}`);
+        }).catch(error => {
+          console.error('Error traduciendo:', error);
+          alert(`📋 RESUMEN:\n\n${c.summary}`);
+        });
         break; 
       }
 
@@ -402,7 +459,13 @@ function handleAction(action: ActionId, c: Conversation) {
         .then(r => r.json())
         .then(j => {
           const resumen = j.summary ?? j.analysis?.summary ?? "Sin resumen disponible";
-          alert(`📋 RESUMEN:\n\n${resumen}`);
+          // Traducir también el resumen del fallback
+          traducirTexto(resumen).then(resumenTraducido => {
+            alert(`📋 RESUMEN:\n\n${resumenTraducido}`);
+          }).catch(error => {
+            console.error('Error traduciendo fallback:', error);
+            alert(`📋 RESUMEN:\n\n${resumen}`);
+          });
         })
         .catch(e => {
           alert("❌ Error al obtener el resumen: " + e.message);
