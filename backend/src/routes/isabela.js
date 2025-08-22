@@ -118,7 +118,7 @@ router.get('/conversations', async (req, res) => {
       
       allConversations = conversations.map(conv => ({
         conversation_id: conv.conversationId,
-        start_time_unix_secs: Math.floor(conv.createdAt.getTime() / 1000),
+                    start_time_unix_secs: conv.start_time_unix_secs || Math.floor(Date.now() / 1000),
         summary: conv.summary
       }));
     }
@@ -179,6 +179,8 @@ router.get('/conversations', async (req, res) => {
               agent_name: elevenLabsData.agent_name || 'Isabela',
               message_count: elevenLabsData.message_count || 0,
               start_time_unix_secs: elevenLabsData.metadata?.start_time_unix_secs || conv.start_time_unix_secs || Math.floor(Date.now() / 1000),
+              // Resumen de la conversación
+              summary: elevenLabsData.analysis?.transcript_summary || elevenLabsData.call_summary_title || conv.summary || 'Sin resumen disponible',
               // Datos adicionales
               producto: 'NutryHome',
               resultado: elevenLabsData.analysis?.call_successful === 'success' ? 'Completada' : 'Fallida',
@@ -211,6 +213,7 @@ router.get('/conversations', async (req, res) => {
               agent_name: 'Isabela',
               message_count: Math.floor(Math.random() * 15) + 5,
               start_time_unix_secs: conv.start_time_unix_secs || Math.floor(Date.now() / 1000),
+              summary: conv.summary || 'Conversación telefónica completada',
               producto: 'NutryHome',
               resultado: estados[index % 2] === 'true' ? 'Completada' : 'Fallida',
               rating: estados[index % 2] === 'true' ? (Math.random() * 2 + 3).toFixed(1) : null,
@@ -228,7 +231,8 @@ router.get('/conversations', async (req, res) => {
             call_successful: 'true',
             agent_name: 'Isabela',
             message_count: 0,
-            start_time_unix_secs: Math.floor(conv.createdAt.getTime() / 1000),
+            start_time_unix_secs: conv.start_time_unix_secs || Math.floor(Date.now() / 1000),
+            summary: conv.summary || 'Error obteniendo datos',
             producto: 'NutryHome',
             resultado: 'Completada',
             rating: null,
