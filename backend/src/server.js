@@ -199,6 +199,45 @@ app.use('/api/variables', variablesRoutes);
 app.use('/api/isabela', isabelaRoutes);
 app.use('/api/elevenlabs', elevenlabsRoutes);
 
+// Ruta OPTIONS para audio (CORS preflight)
+app.options('/api/audio/:conversationId', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.status(200).end();
+});
+
+// Ruta para obtener audio de conversación
+app.get('/api/audio/:conversationId', async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    
+    if (!conversationId) {
+      return res.status(400).json({ error: 'conversationId es requerido' });
+    }
+
+    console.log(`🎵 Obteniendo audio para conversación: ${conversationId}`);
+
+    // TEMPORAL: El endpoint de audio de ElevenLabs no está disponible aún
+    console.log(`⚠️ Endpoint de audio no disponible para conversación: ${conversationId}`);
+    
+    // Headers CORS
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    
+    return res.status(503).json({ 
+      error: 'Audio no disponible por el momento',
+      message: 'Esta funcionalidad será habilitada próximamente',
+      conversationId: conversationId
+    });
+
+  } catch (error) {
+    console.error('Error en endpoint de audio:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
 // API Documentation endpoint
 app.get('/api', (req, res) => {
   res.json({

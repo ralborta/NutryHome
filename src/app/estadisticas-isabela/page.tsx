@@ -1,14 +1,15 @@
 'use client';
 
 import React from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+import ConversacionesList from "@/components/ConversacionesList";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu"; // shadcn/ui
+} from "@/components/ui/dropdown-menu";
 import {
   MoreVertical,
   Play,
@@ -19,9 +20,10 @@ import {
   Download,
   Share2,
   FileText,
-  MessageSquareText,
+  MessageSquare,
   BadgeCheck,
   StickyNote,
+  Phone,
 } from "lucide-react";
 
 // ===== Tipos =====
@@ -33,13 +35,14 @@ interface Conversation {
   call_duration_secs?: number;
   message_count?: number;
   status?: string; // "done" | "failed" | etc
-  call_successful?: string; // "true" | "false"
+  call_successful?: "true" | "false"; // Solo estos valores específicos
   summary?: string;
   telefono_destino?: string;
   nombre_paciente?: string;
   producto?: string;
   rating?: number; // opcional
   resultado?: string; // ej: "Venta"
+  data_collection?: Record<string, any>; // Datos recolectados de ElevenLabs
 }
 
 interface StatsData {
@@ -57,25 +60,66 @@ export default function ConversacionesPage() {
 // ============================
 function ConversacionesUI() {
   const [data, setData] = useState<StatsData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        setLoading(true);
-        const res = await fetch("/api/estadisticas-isabela");
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const json = await res.json();
-        setData(json);
-      } catch (e: any) {
-        setError(e?.message ?? "Error al cargar");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchStats();
-  }, []);
+  // ✅ CORREGIDO: no-store, cache-bust, abort de requests previos, y adaptación de datos
+  const fetchStats = async () => {
+    try {
+      abortRef.current?.abort();
+      abortRef.current = new AbortController();
+
+      setLoading(true);
+      setError(null);
+
+      // NOTA: si cambiaste el dominio, ajusta esta URL:
+      const url = `https://nutryhome-production.up.railway.app/api/isabela/conversations?limit=50&ts=${Date.now()}`;
+
+      const res = await fetch(url, {
+        cache: 'no-store',
+        headers: { 'accept': 'application/json' },
+        signal: abortRef.current.signal,
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      const json = await res.json();
+
+      // ✅ El backend ya devuelve datos enriquecidos, solo mapear los campos necesarios
+      const adaptedData = {
+        total_calls: json.total ?? 0,
+        total_minutes: Math.floor((json.conversations ?? []).reduce((acc: number, c: any) => acc + (c.call_duration_secs || 0), 0) / 60),
+        conversations: (json.conversations ?? []).map((c: any) => ({
+          conversation_id: c.conversationId ?? c.conversation_id ?? c.id,
+          summary: c.summary ?? '',
+          start_time_unix_secs: c.start_time_unix_secs ?? (c.createdAt ? Math.floor(new Date(c.createdAt).getTime()/1000) : undefined),
+          nombre_paciente: c.nombre_paciente ?? 'Cliente NutryHome',
+          telefono_destino: c.telefono_destino ?? 'N/A',
+          call_duration_secs: c.call_duration_secs ?? 0,
+          status: c.status ?? 'completed',
+          producto: c.producto ?? 'NutryHome',
+          agent_name: c.agent_name ?? 'Isabela',
+          agent_id: c.agent_id,
+          message_count: c.message_count ?? 0,
+          call_successful: c.call_successful ?? 'true',
+          resultado: c.resultado ?? 'Completada',
+          rating: c.rating ?? null,
+        })),
+      };
+
+      setData(adaptedData);
+    } catch (e: any) {
+      if (e?.name === 'AbortError') return; // se canceló a propósito
+      setError(e?.message ?? 'Error al cargar');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // carga inicial
+  useEffect(() => { fetchStats(); }, []);
+
+
 
   if (loading) return (
     <div className="min-h-screen grid place-items-center bg-slate-50">
@@ -96,9 +140,24 @@ function ConversacionesUI() {
     <div className="min-h-screen bg-white">
       {/* Header */}
       <div className="max-w-6xl mx-auto px-6 pt-8 pb-4">
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900">Conversaciones</h1>
-        <p className="text-sm text-slate-500">Historial y gestión de las conversaciones</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-slate-900">Conversaciones</h1>
+            <p className="text-sm text-slate-500">Historial y gestión de las conversaciones</p>
+          </div>
+          <button
+            onClick={fetchStats}
+            disabled={loading}
+            className="inline-flex items-center gap-2 h-9 px-3 rounded-lg border border-slate-300 text-sm hover:bg-slate-50 disabled:opacity-50"
+            title="Traer últimos registros"
+          >
+            {loading ? 'Actualizando…' : 'Actualizar'}
+          </button>
+        </div>
       </div>
+
+      {/* Mensaje de error */}
+      {error && <div className="max-w-6xl mx-auto px-6 mt-4"><p className="text-sm text-red-600">{error}</p></div>}
 
       {/* Tabs + filtros (estáticos, visual) */}
       <div className="max-w-6xl mx-auto px-6">
@@ -132,7 +191,7 @@ function ConversacionesUI() {
         <MetricCard icon={<span className="text-emerald-600">⏱️</span>} label="Tiempo Total" value={`${data.total_minutes} min`} />
       </div>
 
-      {/* Lista de conversaciones (Cards) */}
+      {/* Lista de conversaciones */}
       <div className="max-w-6xl mx-auto px-6 mt-6 space-y-4">
         {data.conversations.map((c, i) => (
           <ConversationCard key={c.conversation_id ?? i} c={c} onAction={(a) => handleAction(a, c)} />
@@ -162,65 +221,78 @@ function MetricCard({ icon, label, value }: { icon: React.ReactNode; label: stri
 }
 
 function ConversationCard({ c, onAction }: { c: Conversation; onAction: (a: ActionId) => void }) {
-  const success = c.call_successful === "true" || c.status === "done";
-  const failed = c.call_successful === "false" || c.status === "failed";
-  const estadoLabel = success ? "Completada" : failed ? "Fallida" : c.status ?? "—";
+  // Lógica corregida: solo uno de los estados
+  const isSuccessful = c.call_successful === "true";
+  const isFailed = c.call_successful === "false";
+  
+  // Obtener nombre real del contacto o fallback
+  const displayName = c.nombre_paciente && c.nombre_paciente !== "Cliente NutryHome" 
+    ? c.nombre_paciente 
+    : "Sin nombre";
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex items-center gap-4">
-        {/* Avatar */}
-        <div className="grid h-12 w-12 flex-none place-items-center rounded-full bg-violet-100 text-violet-700 font-semibold">👤</div>
+    <div className="flex items-center gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm hover:shadow-md transition-shadow">
+      {/* Avatar */}
+      <div className="grid h-10 w-10 flex-none place-items-center rounded-full bg-blue-100 text-blue-700 font-semibold text-sm">
+        👤
+      </div>
 
-        {/* Centro: nombre, tags, agente */}
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <div className="truncate text-lg font-semibold text-slate-900">
-              {c.nombre_paciente || "Sin nombre"}
-            </div>
-            {/* (chips de ejemplo) */}
-            {success && (
-              <span className="ml-1 inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">Completada</span>
-            )}
-            {c.resultado && (
-              <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">{c.resultado}</span>
-            )}
-          </div>
-          <div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-slate-600">
-            <span className="inline-flex items-center gap-1"><Calendar className="h-4 w-4"/>{formatDate(c.start_time_unix_secs)}</span>
-            <span className="inline-flex items-center gap-1"><Clock3 className="h-4 w-4"/>{formatDuration(c.call_duration_secs)}</span>
-            <span className="inline-flex items-center gap-1"><Info className="h-4 w-4"/>{estadoLabel}</span>
-            {c.producto && <span className="inline-flex items-center gap-1">🧪 {c.producto}</span>}
-            {c.telefono_destino && <span className="inline-flex items-center gap-1">📞 {c.telefono_destino}</span>}
-          </div>
+      {/* Información principal */}
+      <div className="flex-1 min-w-0">
+        {/* Nombre y estado */}
+        <div className="flex items-center gap-2 mb-1">
+          <h3 className="font-semibold text-slate-900 truncate">
+            {displayName}
+          </h3>
+          {isSuccessful && (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-xs font-medium">
+              Completada
+            </span>
+          )}
+          {isFailed && (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-xs font-medium">
+              Fallida
+            </span>
+          )}
         </div>
 
-        {/* Rating */}
-        {typeof c.rating === "number" && (
-          <div className="hidden sm:flex items-center gap-1 text-slate-700">
-            <Star className="h-4 w-4 fill-yellow-400 text-yellow-400"/>
-            <span className="text-sm font-medium">{c.rating.toFixed(1)}</span>
-          </div>
-        )}
-
-        {/* Botón play rojo */}
-        <button
-          title="Reproducir"
-          className="grid h-10 w-10 place-items-center rounded-full bg-rose-500 text-white hover:bg-rose-600 active:bg-rose-700 transition"
-          onClick={() => onAction("resumen")}
-        >
-          <Play className="h-4 w-4"/>
-        </button>
-
-        {/* Menú de tres puntos */}
-        <MoreMenu onAction={onAction} />
+        {/* Fecha, duración y teléfono */}
+        <div className="flex items-center gap-4 text-sm text-slate-600">
+          <span className="flex items-center gap-1">
+            <Calendar className="h-4 w-4"/>
+            {formatDate(c.start_time_unix_secs)}
+          </span>
+          <span className="flex items-center gap-1">
+            <Clock3 className="h-4 w-4"/>
+            {formatDuration(c.call_duration_secs || 0)}
+          </span>
+          {c.telefono_destino && c.telefono_destino !== "N/A" && (
+            <span className="flex items-center gap-1">
+              <Phone className="h-4 w-4"/>
+              {c.telefono_destino}
+            </span>
+          )}
+        </div>
       </div>
+
+      {/* Botón de reproducir audio */}
+      <button
+        title="Reproducir grabación"
+        className="grid h-10 w-10 place-items-center rounded-full bg-red-500 text-white hover:bg-red-600 transition-colors"
+        onClick={() => onAction("audio")}
+      >
+        <Play className="h-4 w-4"/>
+      </button>
+
+      {/* Menú de tres puntos */}
+      <MoreMenu onAction={onAction} />
     </div>
   );
 }
 
 // ===== Menú =====
 type ActionId =
+  | "audio"
   | "resumen"
   | "transcripcion"
   | "evaluacion"
@@ -247,12 +319,12 @@ function MoreMenu({ onAction }: { onAction: (a: ActionId) => void }) {
         className="w-56 rounded-xl border border-slate-200 bg-white p-1 shadow-lg ring-1 ring-black/5"
       >
         <MenuItem icon={<FileText className="h-4 w-4"/>} label="Resumen" onClick={() => onAction("resumen")} />
-        <MenuItem icon={<MessageSquareText className="h-4 w-4"/>} label="Transcripción" onClick={() => onAction("transcripcion")} />
+        <MenuItem icon={<MessageSquare className="h-4 w-4"/>} label="Transcripción" onClick={() => onAction("transcripcion")} />
         <MenuItem icon={<BadgeCheck className="h-4 w-4"/>} label="Evaluación" onClick={() => onAction("evaluacion")} />
         <MenuItem icon={<StickyNote className="h-4 w-4"/>} label="Notas" onClick={() => onAction("notas")} />
         <DropdownMenuSeparator className="my-1" />
         <MenuItem icon={<Info className="h-4 w-4"/>} label="Ver detalles" onClick={() => onAction("detalles")} />
-        <MenuItem icon={<Download className="h-4 w-4"/>} label="Descargar" onClick={() => onAction("descargar")} />
+        <MenuItem icon={<Download className="h-4 w-4"/>} label="Descargar Audio" onClick={() => onAction("descargar")} />
         <MenuItem icon={<Share2 className="h-4 w-4"/>} label="Compartir" onClick={() => onAction("compartir")} />
       </DropdownMenuContent>
     </DropdownMenu>
@@ -274,26 +346,155 @@ function MenuItem({ icon, label, onClick }: { icon: React.ReactNode; label: stri
 // ===== Lógica de acciones (placeholder) =====
 function handleAction(action: ActionId, c: Conversation) {
   switch (action) {
-    case "resumen":
-      alert(c.summary ? c.summary : "Sin resumen disponible");
+    case "audio": {
+      if (!c.conversation_id) { 
+        alert("ID de conversación no disponible"); 
+        break; 
+      }
+      
+      // Verificar si el audio está disponible
+      const audioUrl = `https://nutryhome-production.up.railway.app/api/audio/${c.conversation_id}`;
+      
+      // Mostrar mensaje temporal
+      alert(`🎵 AUDIO DE GRABACIÓN\n\n⚠️ No disponible por el momento\n\nEsta funcionalidad será habilitada próximamente.`);
       break;
+    }
+    case "resumen": {
+      if (!c.conversation_id) { 
+        alert("conversation_id no disponible"); 
+        break; 
+      }
+      
+      if (c.summary) { 
+        alert(`📋 RESUMEN:\n\n${c.summary}`); 
+        break; 
+      }
+
+      // Fallback: obtener resumen del backend
+      fetch(`https://nutryhome-production.up.railway.app/api/elevenlabs/conversations/${c.conversation_id}`)
+        .then(r => r.json())
+        .then(j => {
+          const resumen = j.summary ?? j.analysis?.summary ?? "Sin resumen disponible";
+          alert(`📋 RESUMEN:\n\n${resumen}`);
+        })
+        .catch(e => {
+          alert("❌ Error al obtener el resumen: " + e.message);
+        });
+      break;
+    }
     case "transcripcion":
-      alert("Transcripción en desarrollo");
+      alert("📝 Transcripción en desarrollo");
       break;
     case "evaluacion":
-      alert(`Mensajes: ${c.message_count ?? "N/A"}`);
+      const evaluacion = `
+📊 EVALUACIÓN DE LA LLAMADA:
+
+🎯 MÉTRICAS DE CALIDAD:
+🔹 Estado: ${c.status ?? "N/A"}
+🔹 Éxito: ${c.call_successful === "true" ? "✅ Completada exitosamente" : c.call_successful === "false" ? "❌ Falló" : "❓ No definido"}
+🔹 Duración: ${formatDuration(c.call_duration_secs)}
+🔹 Mensajes intercambiados: ${c.message_count ?? "0"}
+
+🤖 AGENTE:
+🔹 Nombre: ${c.agent_name ?? "Isabela"}
+🔹 ID: ${c.agent_id ?? "N/A"}
+
+⭐ RATING:
+${c.rating ? `🔹 Calificación: ${c.rating.toFixed(1)}/5 ⭐` : "🔹 No evaluado aún"}
+
+📋 RESULTADO:
+🔹 ${c.resultado ?? "No especificado"}
+      `.trim();
+      alert(evaluacion);
       break;
     case "notas":
-      alert("Notas en desarrollo");
+      if (!c.data_collection) {
+        alert("📝 No hay datos de recolección disponibles para esta conversación");
+        break;
+      }
+
+      // Procesar data collection en formato tabla
+      const data = c.data_collection;
+      const productos = [
+        { campo: "Producto 1", valor: data.producto1, cantidad: data.cantidad1 },
+        { campo: "Producto 2", valor: data.producto2, cantidad: data.cantidad2 },
+        { campo: "Producto 3", valor: data.producto3, cantidad: data.cantidad3 }
+      ];
+
+      let notasHTML = "📝 DATOS RECOLECTADOS EN LA LLAMADA:\n\n";
+      
+      // Productos
+      notasHTML += "🛒 PRODUCTOS MENCIONADOS:\n";
+      productos.forEach(p => {
+        if (p.valor && p.valor !== "NA" && p.valor !== "N/A") {
+          const cantidadText = p.cantidad && p.cantidad !== "0" ? ` (${p.cantidad} unidades)` : "";
+          notasHTML += `• ${p.campo}: ${p.valor}${cantidadText} ✅\n`;
+        } else {
+          notasHTML += `• ${p.campo}: No aplica 🚫\n`;
+        }
+      });
+
+      // Información del paciente
+      if (data.nombre_paciente || data.nombre_contacto) {
+        notasHTML += "\n👤 INFORMACIÓN DEL PACIENTE:\n";
+        if (data.nombre_paciente) notasHTML += `• Nombre: ${data.nombre_paciente}\n`;
+        if (data.nombre_contacto && data.nombre_contacto !== data.nombre_paciente) {
+          notasHTML += `• Contacto: ${data.nombre_contacto}\n`;
+        }
+        if (data.localidad) notasHTML += `• Localidad: ${data.localidad}\n`;
+        if (data.delegacion) notasHTML += `• Delegación: ${data.delegacion}\n`;
+        if (data.domicilio_actual) notasHTML += `• Domicilio: ${data.domicilio_actual}\n`;
+      }
+
+      // Información de envío
+      if (data.fecha_envio) {
+        notasHTML += "\n📦 INFORMACIÓN DE ENVÍO:\n";
+        notasHTML += `• Fecha de envío: ${data.fecha_envio}\n`;
+      }
+
+      alert(notasHTML);
       break;
     case "detalles":
-      alert(JSON.stringify(c, null, 2));
+      const detalles = `
+📞 DETALLES COMPLETOS DE LA LLAMADA:
+
+👤 INFORMACIÓN DEL CLIENTE:
+🔹 Nombre: ${c.nombre_paciente ?? "Cliente NutryHome"}
+🔹 Teléfono: ${c.telefono_destino ?? "No disponible"}
+🔹 Producto: ${c.producto ?? "NutryHome"}
+
+📊 ESTADO DE LA LLAMADA:
+🔹 ID: ${c.conversation_id ?? "N/A"}
+🔹 Estado: ${c.status ?? "N/A"}
+🔹 Éxito: ${c.call_successful === "true" ? "✅ Sí" : c.call_successful === "false" ? "❌ No" : "❓ No definido"}
+🔹 Resultado: ${c.resultado ?? "No especificado"}
+
+⏱️ MÉTRICAS:
+🔹 Fecha: ${formatDate(c.start_time_unix_secs)}
+🔹 Duración: ${formatDuration(c.call_duration_secs)}
+🔹 Mensajes: ${c.message_count ?? "0"} mensajes
+🔹 Rating: ${c.rating ? `${c.rating.toFixed(1)}/5 ⭐` : "No evaluado"}
+
+🤖 AGENTE:
+🔹 Nombre: ${c.agent_name ?? "Isabela"}
+🔹 ID: ${c.agent_id ?? "N/A"}
+
+📋 RESUMEN:
+${c.summary ? c.summary.substring(0, 200) + (c.summary.length > 200 ? "..." : "") : "No disponible"}
+      `.trim();
+      alert(detalles);
       break;
     case "descargar":
-      alert("Descarga en desarrollo");
+      if (!c.conversation_id) { 
+        alert("ID de conversación no disponible"); 
+        break; 
+      }
+      
+      // Mostrar mensaje de descarga no disponible
+      alert(`💾 DESCARGAR AUDIO\n\n⚠️ No disponible por el momento\n\nEsta funcionalidad será habilitada próximamente.`);
       break;
     case "compartir":
-      alert("Compartir en desarrollo");
+      alert("🔗 Compartir en desarrollo");
       break;
   }
 }
@@ -312,3 +513,8 @@ function formatDuration(secs?: number) {
   const s = Math.abs(secs % 60);
   return `${m}:${String(s).padStart(2, "0")}`;
 }
+
+
+
+
+
