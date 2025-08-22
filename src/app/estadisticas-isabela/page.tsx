@@ -349,6 +349,10 @@ function translateSummary(text: string): string {
   if (!text) return text;
   
   const translations: Record<string, string> = {
+    // Texto exacto completo
+    "The agent initiated a conversation in Spanish, confirming they were speaking with GOMEZ GALASSO THIAGO JOAQUIN, who confirmed their identity. The agent then inquired if the user typically manages or receives products for MARTIN NAHUEL, to which the user responded affirmatively. The agent then started another greeting.": "El agente inició una conversación en español, confirmando que hablaba con GOMEZ GALASSO THIAGO JOAQUIN, quien confirmó su identidad. El agente luego preguntó si el usuario generalmente gestiona o recibe productos para MARTIN NAHUEL, a lo que el usuario respondió afirmativamente. El agente luego comenzó otro saludo.",
+    
+    // Frases parciales por si viene diferente
     "The agent initiated a conversation in Spanish": "El agente inició una conversación en español",
     "confirming they were speaking with": "confirmando que hablaba con",
     "who confirmed their identity": "quien confirmó su identidad", 
