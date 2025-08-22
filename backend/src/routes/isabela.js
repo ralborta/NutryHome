@@ -169,12 +169,12 @@ router.get('/conversations', async (req, res) => {
             // Log específico para campos de evaluación
             console.log(`🔍 Campos de evaluación disponibles:`, {
               analysis: !!elevenLabsData.analysis,
-              evaluation_criteria: !!elevenLabsData.evaluation_criteria,
-              criteria: !!elevenLabsData.criteria,
-              call_quality: !!elevenLabsData.call_quality,
-              analysis_evaluation_criteria: !!elevenLabsData.analysis?.evaluation_criteria,
-              analysis_criteria: !!elevenLabsData.analysis?.criteria,
+              data_collection: !!elevenLabsData.analysis?.data_collection,
+              criteria_evaluation: !!elevenLabsData.analysis?.criteria_evaluation,
             });
+            
+            console.log(`📋 Data Collection:`, elevenLabsData.analysis?.data_collection);
+            console.log(`📊 Criteria Evaluation:`, elevenLabsData.analysis?.criteria_evaluation);
             
             return {
               ...conv,
@@ -196,23 +196,9 @@ router.get('/conversations', async (req, res) => {
               resultado: elevenLabsData.analysis?.call_successful === 'success' ? 'Completada' : 'Fallida',
               rating: elevenLabsData.metadata?.feedback?.overall_score || null,
               // Data Collection para Notas (datos recolectados en la llamada)
-              data_collection: elevenLabsData.analysis?.data_collection || elevenLabsData.conversation_initiation_client_data?.dynamic_variables || {},
+              data_collection: elevenLabsData.analysis?.data_collection || {},
               // Evaluation data para Evaluación (criterios de evaluación)
-              evaluation_data: {
-                ...elevenLabsData.analysis,
-                // Criterios de evaluación específicos de ElevenLabs
-                criteria_evaluation: elevenLabsData.analysis?.criteria_evaluation || {},
-                evaluacion_llamada_global: elevenLabsData.analysis?.criteria_evaluation?.evaluacion_llamada_global,
-                // Otros campos de evaluación
-                evaluation_criteria: elevenLabsData.evaluation_criteria || elevenLabsData.analysis?.evaluation_criteria,
-                criteria: elevenLabsData.criteria || elevenLabsData.analysis?.criteria,
-                call_quality: elevenLabsData.call_quality || elevenLabsData.analysis?.call_quality,
-                agent_performance: elevenLabsData.agent_performance || elevenLabsData.analysis?.agent_performance,
-                customer_satisfaction: elevenLabsData.customer_satisfaction || elevenLabsData.analysis?.customer_satisfaction,
-                // Otros campos de metadata que pueden ser útiles
-                feedback: elevenLabsData.metadata?.feedback,
-                evaluation_score: elevenLabsData.metadata?.evaluation_score || elevenLabsData.evaluation_score,
-              },
+              evaluation_data: elevenLabsData.analysis?.criteria_evaluation || {},
             };
           } else {
             const errorText = await response.text();

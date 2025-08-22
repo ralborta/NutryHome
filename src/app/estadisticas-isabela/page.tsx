@@ -415,34 +415,20 @@ function handleAction(action: ActionId, c: Conversation) {
         evaluacion += `\n📋 RESUMEN DE EVALUACIÓN:\n🔹 ${evalData.summary}\n`;
       }
 
-      // Evaluación específica de ElevenLabs
-      if (evalData.evaluacion_llamada_global) {
-        evaluacion += "\n📝 EVALUACIÓN DE LA LLAMADA:\n";
-        const evalGlobal = evalData.evaluacion_llamada_global;
-        if (typeof evalGlobal === 'object' && evalGlobal !== null) {
-          const objEval = evalGlobal as any;
-          if (objEval.reason) {
-            evaluacion += `🔹 Descripción: ${objEval.reason}\n`;
-          }
-          if (objEval.result || objEval.value) {
-            evaluacion += `🔹 Resultado: ${objEval.result || objEval.value}\n`;
-          }
-        } else {
-          evaluacion += `🔹 ${evalGlobal}\n`;
-        }
-      }
-
-      // Criterios específicos si están disponibles
-      if (evalData.criteria_evaluation) {
+      // Evaluación específica de ElevenLabs - ahora evalData ES criteria_evaluation
+      if (evalData && Object.keys(evalData).length > 0) {
         evaluacion += "\n📝 CRITERIOS DE EVALUACIÓN:\n";
-        Object.entries(evalData.criteria_evaluation).forEach(([key, value]) => {
-          if (key !== 'evaluacion_llamada_global' && value) {
+        
+        Object.entries(evalData).forEach(([key, value]) => {
+          if (value) {
             if (typeof value === 'object' && value !== null) {
               const objValue = value as any;
               if (objValue.reason) {
                 evaluacion += `🔹 ${key}: ${objValue.reason}\n`;
               } else if (objValue.result || objValue.value) {
                 evaluacion += `🔹 ${key}: ${objValue.result || objValue.value}\n`;
+              } else {
+                evaluacion += `🔹 ${key}: ${JSON.stringify(objValue)}\n`;
               }
             } else {
               evaluacion += `🔹 ${key}: ${value}\n`;
