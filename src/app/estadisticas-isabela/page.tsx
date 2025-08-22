@@ -415,12 +415,13 @@ function handleAction(action: ActionId, c: Conversation) {
       if (evalData.evaluacion_llamada_global) {
         evaluacion += "\n📝 EVALUACIÓN DE LA LLAMADA:\n";
         const evalGlobal = evalData.evaluacion_llamada_global;
-        if (typeof evalGlobal === 'object') {
-          if (evalGlobal.reason) {
-            evaluacion += `🔹 Descripción: ${evalGlobal.reason}\n`;
+        if (typeof evalGlobal === 'object' && evalGlobal !== null) {
+          const objEval = evalGlobal as any;
+          if (objEval.reason) {
+            evaluacion += `🔹 Descripción: ${objEval.reason}\n`;
           }
-          if (evalGlobal.result || evalGlobal.value) {
-            evaluacion += `🔹 Resultado: ${evalGlobal.result || evalGlobal.value}\n`;
+          if (objEval.result || objEval.value) {
+            evaluacion += `🔹 Resultado: ${objEval.result || objEval.value}\n`;
           }
         } else {
           evaluacion += `🔹 ${evalGlobal}\n`;
@@ -432,11 +433,12 @@ function handleAction(action: ActionId, c: Conversation) {
         evaluacion += "\n📝 CRITERIOS DE EVALUACIÓN:\n";
         Object.entries(evalData.criteria_evaluation).forEach(([key, value]) => {
           if (key !== 'evaluacion_llamada_global' && value) {
-            if (typeof value === 'object') {
-              if (value.reason) {
-                evaluacion += `🔹 ${key}: ${value.reason}\n`;
-              } else if (value.result || value.value) {
-                evaluacion += `🔹 ${key}: ${value.result || value.value}\n`;
+            if (typeof value === 'object' && value !== null) {
+              const objValue = value as any;
+              if (objValue.reason) {
+                evaluacion += `🔹 ${key}: ${objValue.reason}\n`;
+              } else if (objValue.result || objValue.value) {
+                evaluacion += `🔹 ${key}: ${objValue.result || objValue.value}\n`;
               }
             } else {
               evaluacion += `🔹 ${key}: ${value}\n`;
