@@ -203,14 +203,24 @@ router.get('/conversations', async (req, res) => {
               resultado: elevenLabsData.analysis?.call_successful === 'success' ? 'Completada' : 'Fallida',
               rating: elevenLabsData.metadata?.feedback?.overall_score || null,
               // Data Collection para Notas (datos recolectados en la llamada)
-              data_collection: elevenLabsData.analysis?.data_collection || 
-                               elevenLabsData.data_collection || 
-                               elevenLabsData.conversation_initiation_client_data?.dynamic_variables || {},
-              // Evaluation data para Evaluación (criterios de evaluación)
-              evaluation_data: elevenLabsData.analysis?.criteria_evaluation || 
-                              elevenLabsData.criteria_evaluation || 
-                              elevenLabsData.analysis?.evaluation_criteria ||
-                              elevenLabsData.evaluation_criteria || {},
+              // Basado en la imagen: los datos están directamente en analysis
+              data_collection: {
+                producto1: elevenLabsData.analysis?.producto1,
+                cantidad1: elevenLabsData.analysis?.cantidad1,
+                producto2: elevenLabsData.analysis?.producto2, 
+                cantidad2: elevenLabsData.analysis?.cantidad2,
+                producto3: elevenLabsData.analysis?.producto3,
+                cantidad3: elevenLabsData.analysis?.cantidad3,
+                administrativos: elevenLabsData.analysis?.administrativos,
+                ...elevenLabsData.analysis?.data_collection,
+                ...elevenLabsData.conversation_initiation_client_data?.dynamic_variables
+              },
+              // Evaluation data para Evaluación (criterios de evaluación)  
+              evaluation_data: {
+                evaluacion_llamada_global: elevenLabsData.analysis?.evaluacion_llamada_global,
+                ...elevenLabsData.analysis?.criteria_evaluation,
+                ...elevenLabsData.analysis
+              },
             };
           } else {
             const errorText = await response.text();
