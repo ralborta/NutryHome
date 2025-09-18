@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
           details.transcript ||
           details.analysis?.transcript ||
           details.analysis?.transcript_text ||
-          details.messages?.map(m => `${m.role}: ${m.content || m.message}`).join('\n') ||
+          details.messages?.map((m: any) => `${m.role}: ${m.content || m.message}`).join('\n') ||
           null;
         
         // Extraer resumen
