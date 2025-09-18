@@ -11,9 +11,9 @@ export async function GET(
     
     console.log(`Fetching audio ${id} from Railway...`);
     
-    // Obtener audio del backend de Railway
+    // Obtener audio del backend de Railway (usar endpoint que funciona)
     const response = await fetch(
-      `${RAILWAY_API}/api/elevenlabs/audio/${id}`,
+      `${RAILWAY_API}/api/isabela/audio/${id}`,
       {
         headers: {
           'Accept': 'audio/mpeg'
