@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
         await new Promise(resolve => setTimeout(resolve, 100));
         
       } catch (error) {
-        console.error(`❌ Error processing ${conv.conversation_id}:`, error.message);
+        console.error(`❌ Error processing ${conv.conversation_id}:`, error instanceof Error ? error.message : 'Unknown error');
         results.errors++;
       }
     }
@@ -141,7 +141,7 @@ export async function POST(request: NextRequest) {
     console.error('❌ Recovery error:', error);
     return NextResponse.json({
       success: false,
-      error: error.message
+      error: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
 }
