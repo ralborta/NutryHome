@@ -6,7 +6,7 @@ export async function GET() {
   
   const results = {
     conversationId,
-    tests: {}
+    tests: {} as any
   };
   
   // 1. Obtener detalles de la conversación
