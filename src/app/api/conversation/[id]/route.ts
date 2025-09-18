@@ -1,46 +1,99 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// IMPORTANTE: Definir el runtime
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 const RAILWAY_API = process.env.NEXT_PUBLIC_API_URL || 'https://nutryhome-production.up.railway.app';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }  // Cambio importante aquí
 ) {
   try {
-    const { id } = params;
-    console.log(`Vercel: Fetching transcript for ${id} from Railway`);
+    // Asegurarse de que params existe
+    const conversationId = context.params.id;
+    
+    console.log(`[Vercel] Fetching transcript for: ${conversationId}`);
+    console.log(`[Vercel] Railway API: ${RAILWAY_API}`);
 
-    // Llamar a Railway
-    const response = await fetch(
-      `${RAILWAY_API}/api/elevenlabs/conversation/${id}`,
-      {
-        headers: { 'Accept': 'application/json' },
-        cache: 'no-store'
-      }
-    );
+    // Validar que el ID existe
+    if (!conversationId) {
+      return NextResponse.json(
+        { 
+          success: false,
+          error: 'Conversation ID is required',
+          transcript: 'ID de conversación no proporcionado'
+        },
+        { status: 400 }
+      );
+    }
+
+    // Llamar a Railway backend
+    const railwayUrl = `${RAILWAY_API}/api/elevenlabs/conversation/${conversationId}`;
+    console.log(`[Vercel] Calling Railway: ${railwayUrl}`);
+    
+    const response = await fetch(railwayUrl, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      // No cachear para obtener siempre datos frescos
+      cache: 'no-store'
+    });
+
+    console.log(`[Vercel] Railway response status: ${response.status}`);
 
     if (!response.ok) {
-      throw new Error(`Railway returned ${response.status}`);
+      const errorText = await response.text();
+      console.error(`[Vercel] Railway error: ${errorText}`);
+      
+      return NextResponse.json(
+        { 
+          success: false,
+          error: `Railway API error: ${response.status}`,
+          transcript: 'Error obteniendo transcripción del servidor',
+          details: errorText
+        },
+        { status: response.status }
+      );
     }
 
     const data = await response.json();
+    console.log(`[Vercel] Data received:`, data);
     
     return NextResponse.json({
       success: true,
+      conversationId: conversationId,
       transcript: data.transcript || 'No hay transcripción disponible',
-      summary: data.summary,
-      source: data.source
+      summary: data.summary || null,
+      source: data.source || 'unknown'
     });
 
   } catch (error) {
-    console.error('Vercel API error:', error);
+    console.error('[Vercel] API Route Error:', error);
+    
     return NextResponse.json(
       { 
         success: false,
-        transcript: 'Error obteniendo transcripción',
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: 'Internal server error',
+        transcript: 'Error interno del servidor',
+        details: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
     );
   }
+}
+
+// Agregar método OPTIONS para CORS si es necesario
+export async function OPTIONS(request: NextRequest) {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type'
+    }
+  });
 }

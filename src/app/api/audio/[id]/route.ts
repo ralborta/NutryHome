@@ -1,19 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+export const runtime = 'nodejs';
+
 const RAILWAY_API = process.env.NEXT_PUBLIC_API_URL || 'https://nutryhome-production.up.railway.app';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
-    const { id } = params;
+    const audioId = context.params.id;
     
-    console.log(`Fetching audio ${id} from Railway...`);
+    console.log(`[Vercel] Fetching audio for: ${audioId}`);
     
-    // Obtener audio del backend de Railway (usar endpoint mejorado)
+    if (!audioId) {
+      return NextResponse.json(
+        { error: 'Audio ID is required' },
+        { status: 400 }
+      );
+    }
+
+    // Proxy al backend de Railway
     const response = await fetch(
-      `${RAILWAY_API}/api/elevenlabs/audio/${id}`,
+      `${RAILWAY_API}/api/elevenlabs/audio/${audioId}`,
       {
         headers: {
           'Accept': 'audio/mpeg'
@@ -22,23 +31,29 @@ export async function GET(
     );
 
     if (!response.ok) {
-      throw new Error('Audio not found');
+      console.error(`[Vercel] Audio not found: ${response.status}`);
+      return NextResponse.json(
+        { error: 'Audio no disponible' },
+        { status: 404 }
+      );
     }
 
+    // Stream el audio
     const audioBuffer = await response.arrayBuffer();
     
     return new Response(audioBuffer, {
       headers: {
         'Content-Type': 'audio/mpeg',
-        'Cache-Control': 'public, max-age=3600'
+        'Content-Length': audioBuffer.byteLength.toString(),
+        'Cache-Control': 'private, max-age=3600'
       }
     });
 
   } catch (error) {
-    console.error(`Error fetching audio:`, error);
+    console.error('[Vercel] Audio error:', error);
     return NextResponse.json(
-      { error: 'Audio not available' },
-      { status: 404 }
+      { error: 'Error al obtener audio' },
+      { status: 500 }
     );
   }
 }
