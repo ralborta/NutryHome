@@ -3,13 +3,7 @@
 import React from "react";
 import { useEffect, useState, useRef } from "react";
 import ConversacionesList from "@/components/ConversacionesList";
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
+// DropdownMenu removido - usando menú personalizado
 import {
   MoreVertical,
   Play,
@@ -64,6 +58,7 @@ function ConversacionesUI() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   // ✅ CORREGIDO: no-store, cache-bust, abort de requests previos, y adaptación de datos
   const fetchStats = async () => {
@@ -119,6 +114,18 @@ function ConversacionesUI() {
 
   // carga inicial
   useEffect(() => { fetchStats(); }, []);
+
+  // Click outside para cerrar menú
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (openMenuId && !(event.target as Element).closest('.context-menu')) {
+        setOpenMenuId(null);
+      }
+    };
+    
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [openMenuId]);
 
 
 
@@ -195,7 +202,15 @@ function ConversacionesUI() {
       {/* Lista de conversaciones */}
       <div className="max-w-6xl mx-auto px-6 mt-6 space-y-4">
         {data.conversations.map((c, i) => (
-          <ConversationCard key={c.conversation_id ?? i} c={c} onAction={(a) => handleAction(a, c)} />
+          <ConversationCard 
+            key={c.conversation_id ?? i} 
+            c={c} 
+            onAction={(a) => handleAction(a, c)}
+            isMenuOpen={openMenuId === c.conversation_id}
+            onToggleMenu={() => setOpenMenuId(
+              openMenuId === c.conversation_id ? null : c.conversation_id
+            )}
+          />
         ))}
       </div>
 
@@ -221,7 +236,17 @@ function MetricCard({ icon, label, value }: { icon: React.ReactNode; label: stri
   );
 }
 
-function ConversationCard({ c, onAction }: { c: Conversation; onAction: (a: ActionId) => void }) {
+function ConversationCard({ 
+  c, 
+  onAction, 
+  isMenuOpen, 
+  onToggleMenu 
+}: { 
+  c: Conversation; 
+  onAction: (a: ActionId) => void;
+  isMenuOpen: boolean;
+  onToggleMenu: () => void;
+}) {
   // Lógica corregida: solo uno de los estados
   const isSuccessful = c.call_successful === "true";
   const isFailed = c.call_successful === "false";
@@ -286,7 +311,11 @@ function ConversationCard({ c, onAction }: { c: Conversation; onAction: (a: Acti
       </button>
 
       {/* Menú de tres puntos */}
-      <MoreMenu onAction={onAction} />
+      <MoreMenu 
+        onAction={onAction} 
+        isOpen={isMenuOpen}
+        onToggle={onToggleMenu}
+      />
     </div>
   );
 }
@@ -302,45 +331,50 @@ type ActionId =
   | "descargar"
   | "compartir";
 
-function MoreMenu({ onAction }: { onAction: (a: ActionId) => void }) {
+function MoreMenu({ 
+  onAction, 
+  isOpen, 
+  onToggle 
+}: { 
+  onAction: (a: ActionId) => void;
+  isOpen: boolean;
+  onToggle: () => void;
+}) {
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          aria-label="Más opciones"
-          className="ml-1 grid h-8 w-8 place-items-center rounded-md text-slate-600 hover:bg-slate-100 hover:text-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
-        >
-          <MoreVertical className="h-4 w-4" />
-        </button>
-      </DropdownMenuTrigger>
-
-      <DropdownMenuContent
-        align="end"
-        sideOffset={8}
-        className="w-56 rounded-xl border border-slate-200 bg-white p-1 shadow-lg ring-1 ring-black/5"
+    <div className="relative context-menu">
+      <button
+        onClick={onToggle}
+        aria-label="Más opciones"
+        className="ml-1 grid h-8 w-8 place-items-center rounded-md text-slate-600 hover:bg-slate-100 hover:text-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
       >
-        <MenuItem icon={<FileText className="h-4 w-4"/>} label="Resumen" onClick={() => onAction("resumen")} />
-        <MenuItem icon={<MessageSquare className="h-4 w-4"/>} label="Transcripción" onClick={() => onAction("transcripcion")} />
-        <MenuItem icon={<BadgeCheck className="h-4 w-4"/>} label="Evaluación" onClick={() => onAction("evaluacion")} />
-        <MenuItem icon={<StickyNote className="h-4 w-4"/>} label="Notas" onClick={() => onAction("notas")} />
-        <DropdownMenuSeparator className="my-1" />
-        <MenuItem icon={<Info className="h-4 w-4"/>} label="Ver detalles" onClick={() => onAction("detalles")} />
-        <MenuItem icon={<Download className="h-4 w-4"/>} label="Descargar Audio" onClick={() => onAction("descargar")} />
-        <MenuItem icon={<Share2 className="h-4 w-4"/>} label="Compartir" onClick={() => onAction("compartir")} />
-      </DropdownMenuContent>
-    </DropdownMenu>
+        <MoreVertical className="h-4 w-4" />
+      </button>
+      
+      {isOpen && (
+        <div className="absolute right-0 top-8 z-50 w-56 rounded-xl border border-slate-200 bg-white p-1 shadow-lg ring-1 ring-black/5">
+          <MenuItem icon={<FileText className="h-4 w-4"/>} label="Resumen" onClick={() => onAction("resumen")} />
+          <MenuItem icon={<MessageSquare className="h-4 w-4"/>} label="Transcripción" onClick={() => onAction("transcripcion")} />
+          <MenuItem icon={<BadgeCheck className="h-4 w-4"/>} label="Evaluación" onClick={() => onAction("evaluacion")} />
+          <MenuItem icon={<StickyNote className="h-4 w-4"/>} label="Notas" onClick={() => onAction("notas")} />
+          <div className="my-1 h-px bg-slate-200" />
+          <MenuItem icon={<Info className="h-4 w-4"/>} label="Ver detalles" onClick={() => onAction("detalles")} />
+          <MenuItem icon={<Download className="h-4 w-4"/>} label="Descargar Audio" onClick={() => onAction("descargar")} />
+          <MenuItem icon={<Share2 className="h-4 w-4"/>} label="Compartir" onClick={() => onAction("compartir")} />
+        </div>
+      )}
+    </div>
   );
 }
 
 function MenuItem({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick?: () => void }) {
   return (
-    <DropdownMenuItem
+    <button
       onClick={onClick}
-      className="group flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-700 focus:bg-indigo-50 focus:text-indigo-700 cursor-pointer"
+      className="group flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 cursor-pointer text-left"
     >
       <span className="text-slate-500 group-hover:text-indigo-700">{icon}</span>
       <span>{label}</span>
-    </DropdownMenuItem>
+    </button>
   );
 }
 
