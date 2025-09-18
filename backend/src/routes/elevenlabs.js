@@ -1,7 +1,5 @@
 const express = require('express');
 const router = express.Router();
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
 
 // ✅ ENDPOINT PARA OBTENER DETALLES DE UNA CONVERSACIÓN ESPECÍFICA
 router.get('/conversation/:conversationId', async (req, res) => {
@@ -9,13 +7,7 @@ router.get('/conversation/:conversationId', async (req, res) => {
     const { conversationId } = req.params;
     console.log(`🔍 Railway: Fetching details for ${conversationId}`);
 
-    // TODO: Verificar en base de datos cuando el schema esté actualizado
-    // Por ahora siempre obtenemos de ElevenLabs
-    console.log('📡 Fetching from ElevenLabs (DB check disabled)');
-
-    // 2. Si no está en DB, obtener de ElevenLabs
-    console.log('📡 Fetching from ElevenLabs...');
-    
+    // Obtener de ElevenLabs
     const response = await fetch(
       `https://api.elevenlabs.io/v1/convai/conversations/${conversationId}`,
       {
@@ -66,12 +58,6 @@ router.get('/conversation/:conversationId', async (req, res) => {
       data.call_summary_title ||
       null;
 
-    // TODO: Guardar en DB cuando el schema esté actualizado
-    // Por ahora solo devolvemos la transcripción sin guardar
-    if (transcript) {
-      console.log('✅ Transcript found, skipping DB save for now');
-    }
-
     res.json({
       success: true,
       transcript: transcript || 'No hay transcripción disponible',
@@ -109,10 +95,7 @@ router.get('/conversations', async (req, res) => {
     const enrichedConversations = await Promise.all(
       conversations.slice(0, 20).map(async (conv) => {
         try {
-          // TODO: Verificar en base de datos cuando el schema esté actualizado
-          // Por ahora siempre obtenemos de ElevenLabs
-
-          // Si no, intentar obtener de ElevenLabs
+          // Obtener detalles de ElevenLabs
           const detailResponse = await fetch(
             `https://api.elevenlabs.io/v1/convai/conversations/${conv.conversation_id}`,
             {
@@ -205,56 +188,6 @@ router.get('/audio/:conversationId', async (req, res) => {
       success: false,
       error: 'Audio no disponible'
     });
-  }
-});
-
-// ✅ WEBHOOK: POST /api/elevenlabs/webhook
-// Recibe transcripciones de ElevenLabs
-router.post('/webhook', async (req, res) => {
-  try {
-    console.log('📨 Webhook received from ElevenLabs');
-    
-    const {
-      conversation_id,
-      type,
-      transcript,
-      summary,
-      analysis,
-      metadata,
-      conversation_initiation_client_data
-    } = req.body;
-
-    console.log(`Processing webhook type: ${type} for conversation: ${conversation_id}`);
-
-    // Guardar en base de datos
-    if (type === 'post_call_transcription' || type === 'conversation.completed') {
-      await prisma.isabelaConversation.upsert({
-        where: { conversationId: conversation_id },
-        update: {
-          transcript: transcript || analysis?.transcript,
-          summary: summary || analysis?.transcript_summary,
-          variables: conversation_initiation_client_data?.dynamic_variables,
-          metadata: metadata,
-          updatedAt: new Date()
-        },
-        create: {
-          conversationId: conversation_id,
-          transcript: transcript || analysis?.transcript,
-          summary: summary || analysis?.transcript_summary,
-          variables: conversation_initiation_client_data?.dynamic_variables,
-          metadata: metadata
-        }
-      });
-
-      console.log(`✅ Transcription saved for ${conversation_id}`);
-    }
-
-    // Responder inmediatamente a ElevenLabs
-    res.status(200).json({ received: true });
-
-  } catch (error) {
-    console.error('❌ Webhook error:', error);
-    res.status(500).json({ error: 'Webhook processing failed' });
   }
 });
 
