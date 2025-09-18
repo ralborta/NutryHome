@@ -8,6 +8,11 @@ export async function POST(request: NextRequest) {
   try {
     console.log('🔄 Starting historical data recovery from frontend...');
     
+    // Verificar que las variables de entorno estén disponibles
+    if (!process.env.ELEVENLABS_API_KEY || !process.env.ELEVENLABS_AGENT_ID) {
+      throw new Error('Missing ElevenLabs API credentials');
+    }
+
     // Obtener todas las conversaciones de ElevenLabs
     const conversationsResponse = await fetch(
       `https://api.elevenlabs.io/v1/convai/conversations?agent_id=${process.env.ELEVENLABS_AGENT_ID}&limit=50`,
@@ -45,7 +50,7 @@ export async function POST(request: NextRequest) {
           `https://api.elevenlabs.io/v1/convai/conversations/${conv.conversation_id}`,
           {
             headers: {
-              'xi-api-key': process.env.ELEVENLABS_API_KEY
+              'xi-api-key': process.env.ELEVENLABS_API_KEY!
             }
           }
         );
@@ -85,7 +90,7 @@ export async function POST(request: NextRequest) {
           `https://api.elevenlabs.io/v1/convai/conversations/${conv.conversation_id}/audio`,
           {
             headers: {
-              'xi-api-key': process.env.ELEVENLABS_API_KEY,
+              'xi-api-key': process.env.ELEVENLABS_API_KEY!,
               'Accept': 'audio/mpeg'
             }
           }
