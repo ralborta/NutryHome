@@ -140,8 +140,8 @@ function ConversacionesUI() {
           break; 
         }
         
-        // Reproducir audio usando el nuevo endpoint
-        const audioUrl = `/api/audio/${c.conversation_id}`;
+        // Reproducir audio usando el backend de Railway
+        const audioUrl = `https://nutryhome-production.up.railway.app/api/isabela/audio/${c.conversation_id}`;
         const audio = new Audio(audioUrl);
         
         audio.play().then(() => {
