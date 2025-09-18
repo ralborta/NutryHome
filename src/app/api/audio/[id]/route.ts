@@ -1,3 +1,6 @@
+// src/app/api/audio/[id]/route.ts
+// Basado en tu código que funcionaba - solo audio bajo demanda
+
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(
@@ -8,11 +11,16 @@ export async function GET(
   
   try {
     if (!process.env.ELEVENLABS_API_KEY) {
-      return new Response('API key not configured', { status: 500 });
+      return new Response('API key no configurada', { status: 500 });
     }
 
-    console.log(`🎵 Fetching audio for conversation: ${id}`);
+    if (!id || id.length < 10) {
+      return new Response('ID de conversación inválido', { status: 400 });
+    }
 
+    console.log(`Obteniendo audio para conversación: ${id}`);
+
+    // Llamada directa a ElevenLabs - igual que tenías funcionando
     const response = await fetch(
       `https://api.elevenlabs.io/v1/convai/conversations/${id}/audio`,
       {
@@ -24,22 +32,33 @@ export async function GET(
     );
 
     if (!response.ok) {
-      console.log(`❌ Audio not available for ${id}: ${response.status}`);
-      return new Response('Audio no disponible', { status: 404 });
+      console.log(`Audio no disponible para ${id}: ${response.status}`);
+      if (response.status === 404) {
+        return new Response('Audio no encontrado', { status: 404 });
+      }
+      return new Response(`Error ElevenLabs: ${response.status}`, { status: response.status });
     }
 
     const audioBuffer = await response.arrayBuffer();
     
+    // Validar que el audio no esté vacío
+    if (audioBuffer.byteLength < 1000) {
+      return new Response('Audio vacío o corrupto', { status: 404 });
+    }
+
+    console.log(`Audio obtenido para ${id}: ${audioBuffer.byteLength} bytes`);
+
     return new Response(audioBuffer, {
       headers: {
         'Content-Type': 'audio/mpeg',
+        'Content-Length': audioBuffer.byteLength.toString(),
         'Cache-Control': 'public, max-age=3600',
-        'Content-Length': audioBuffer.byteLength.toString()
+        'Accept-Ranges': 'bytes'
       }
     });
 
   } catch (error) {
-    console.error(`Error fetching audio for ${id}:`, error);
-    return new Response('Error interno', { status: 500 });
+    console.error(`Error obteniendo audio para ${id}:`, error);
+    return new Response('Error interno del servidor', { status: 500 });
   }
 }
