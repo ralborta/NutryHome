@@ -70,6 +70,7 @@ export async function GET(
       if (Array.isArray(data.transcript)) {
         // Si es un array de mensajes, convertir a texto
         processedTranscript = data.transcript
+          .filter((msg: any) => msg.message && msg.message.trim()) // Solo mensajes con contenido
           .map((msg: any) => {
             const role = msg.role === 'agent' ? 'Isabela' : 'Cliente';
             const message = msg.message || msg.content || '';
@@ -81,6 +82,9 @@ export async function GET(
         processedTranscript = data.transcript;
       }
     }
+    
+    console.log(`[Vercel] Processed transcript length: ${processedTranscript.length}`);
+    console.log(`[Vercel] First 200 chars: ${processedTranscript.substring(0, 200)}`);
     
     return NextResponse.json({
       success: true,
