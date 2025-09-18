@@ -191,6 +191,15 @@ router.get('/audio/:conversationId', async (req, res) => {
   }
 });
 
+// ✅ ENDPOINT DE PRUEBA
+router.get('/test', (req, res) => {
+  res.json({ 
+    message: 'ElevenLabs routes working!',
+    timestamp: new Date().toISOString(),
+    webhook_endpoint: '/api/elevenlabs/webhooks/post-call'
+  });
+});
+
 // ✅ WEBHOOK POST-CALL - ENDPOINT QUE ELEVENLABS ESTÁ ESPERANDO
 router.post('/webhooks/post-call', async (req, res) => {
   try {
