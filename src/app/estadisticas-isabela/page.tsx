@@ -39,6 +39,7 @@ interface Conversation {
   resultado?: string; // ej: "Venta"
   data_collection?: Record<string, any>; // Datos recolectados de ElevenLabs
   evaluation_data?: Record<string, any>; // Datos de evaluación de ElevenLabs
+  transcript?: string | any[]; // Transcripción completa de la conversación
 }
 
 interface StatsData {
