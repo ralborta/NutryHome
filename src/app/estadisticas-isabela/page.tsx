@@ -140,11 +140,16 @@ function ConversacionesUI() {
           break; 
         }
         
-        // Verificar si el audio está disponible
-        const audioUrl = `https://nutryhome-production.up.railway.app/api/audio/${c.conversation_id}`;
+        // Reproducir audio usando el nuevo endpoint
+        const audioUrl = `/api/audio/${c.conversation_id}`;
+        const audio = new Audio(audioUrl);
         
-        // Mostrar mensaje temporal
-        alert(`🎵 AUDIO DE GRABACIÓN\n\n⚠️ No disponible por el momento\n\nEsta funcionalidad será habilitada próximamente.`);
+        audio.play().then(() => {
+          console.log('Audio reproduciéndose correctamente');
+        }).catch((error) => {
+          console.error('Error reproduciendo audio:', error);
+          alert(`🎵 AUDIO DE GRABACIÓN\n\n⚠️ No se pudo reproducir el audio\n\nPuede que no esté disponible para esta conversación.`);
+        });
         break;
       }
       case "resumen": {
