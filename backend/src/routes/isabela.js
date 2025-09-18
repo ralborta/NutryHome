@@ -411,4 +411,66 @@ router.get('/conversations/:id', async (req, res) => {
   }
 });
 
+// GET /api/isabela/audio/:id - Obtener audio de conversación
+router.get('/audio/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    if (!process.env.ELEVENLABS_API_KEY) {
+      return res.status(500).json({ error: 'API key no configurada' });
+    }
+
+    if (!id || id.length < 10) {
+      return res.status(400).json({ error: 'ID de conversación inválido' });
+    }
+
+    console.log(`🎵 Obteniendo audio para conversación: ${id}`);
+
+    // Llamada directa a ElevenLabs
+    const response = await fetch(
+      `https://api.elevenlabs.io/v1/convai/conversations/${id}/audio`,
+      {
+        headers: {
+          'xi-api-key': process.env.ELEVENLABS_API_KEY,
+          'Accept': 'audio/mpeg'
+        }
+      }
+    );
+
+    if (!response.ok) {
+      console.log(`❌ Audio no disponible para ${id}: ${response.status}`);
+      if (response.status === 404) {
+        return res.status(404).json({ error: 'Audio no encontrado' });
+      }
+      return res.status(response.status).json({ 
+        error: `Error ElevenLabs: ${response.status}` 
+      });
+    }
+
+    const audioBuffer = await response.arrayBuffer();
+    
+    // Validar que el audio no esté vacío
+    if (audioBuffer.byteLength < 1000) {
+      return res.status(404).json({ error: 'Audio vacío o corrupto' });
+    }
+
+    console.log(`✅ Audio obtenido para ${id}: ${audioBuffer.byteLength} bytes`);
+
+    // Configurar headers para audio
+    res.setHeader('Content-Type', 'audio/mpeg');
+    res.setHeader('Content-Length', audioBuffer.byteLength.toString());
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.setHeader('Accept-Ranges', 'bytes');
+
+    // Enviar el buffer de audio
+    res.send(Buffer.from(audioBuffer));
+
+  } catch (error) {
+    console.error(`❌ Error obteniendo audio para ${id}:`, error);
+    res.status(500).json({ 
+      error: 'Error interno del servidor' 
+    });
+  }
+});
+
 module.exports = router;
