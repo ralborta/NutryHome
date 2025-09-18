@@ -9,20 +9,9 @@ router.get('/conversation/:conversationId', async (req, res) => {
     const { conversationId } = req.params;
     console.log(`🔍 Railway: Fetching details for ${conversationId}`);
 
-    // 1. Verificar en base de datos primero
-    const dbConversation = await prisma.isabelaConversation.findUnique({
-      where: { conversationId }
-    });
-
-    if (dbConversation && dbConversation.variables?.transcript) {
-      console.log('✅ Found in PostgreSQL');
-      return res.json({
-        success: true,
-        transcript: dbConversation.variables.transcript,
-        summary: dbConversation.summary,
-        source: 'database'
-      });
-    }
+    // TODO: Verificar en base de datos cuando el schema esté actualizado
+    // Por ahora siempre obtenemos de ElevenLabs
+    console.log('📡 Fetching from ElevenLabs (DB check disabled)');
 
     // 2. Si no está en DB, obtener de ElevenLabs
     console.log('📡 Fetching from ElevenLabs...');
@@ -77,21 +66,10 @@ router.get('/conversation/:conversationId', async (req, res) => {
       data.call_summary_title ||
       null;
 
-    // Guardar en DB si encontramos transcripción
+    // TODO: Guardar en DB cuando el schema esté actualizado
+    // Por ahora solo devolvemos la transcripción sin guardar
     if (transcript) {
-      await prisma.isabelaConversation.upsert({
-        where: { conversationId },
-        update: { 
-          summary: summary,
-          variables: { transcript: transcript }
-        },
-        create: { 
-          conversationId, 
-          summary: summary,
-          variables: { transcript: transcript }
-        }
-      });
-      console.log('✅ Saved to PostgreSQL');
+      console.log('✅ Transcript found, skipping DB save for now');
     }
 
     res.json({
@@ -131,20 +109,8 @@ router.get('/conversations', async (req, res) => {
     const enrichedConversations = await Promise.all(
       conversations.slice(0, 20).map(async (conv) => {
         try {
-          // Verificar si tenemos datos en DB
-          const dbData = await prisma.isabelaConversation.findUnique({
-            where: { conversationId: conv.conversation_id }
-          });
-
-          if (dbData) {
-            return {
-              ...conv,
-              transcript: dbData.variables?.transcript,
-              summary: dbData.summary,
-              hasTranscript: !!dbData.variables?.transcript,
-              hasAudio: true
-            };
-          }
+          // TODO: Verificar en base de datos cuando el schema esté actualizado
+          // Por ahora siempre obtenemos de ElevenLabs
 
           // Si no, intentar obtener de ElevenLabs
           const detailResponse = await fetch(
