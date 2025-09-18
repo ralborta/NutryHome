@@ -96,7 +96,8 @@ export async function POST(request: NextRequest) {
           }
         );
         
-        const hasAudio = audioResponse.ok && audioResponse.headers.get('content-length') > 1000;
+        const contentLength = audioResponse.headers.get('content-length');
+        const hasAudio = audioResponse.ok && contentLength && parseInt(contentLength) > 1000;
         
         // Crear objeto de conversación enriquecido
         const enrichedConversation = {
