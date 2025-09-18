@@ -63,12 +63,33 @@ export async function GET(
     const data = await response.json();
     console.log(`[Vercel] Data received:`, data);
     
+    // Procesar la transcripción para convertir array de objetos a texto simple
+    let processedTranscript = 'No hay transcripción disponible';
+    
+    if (data.transcript) {
+      if (Array.isArray(data.transcript)) {
+        // Si es un array de mensajes, convertir a texto
+        processedTranscript = data.transcript
+          .map((msg: any) => {
+            const role = msg.role === 'agent' ? 'Isabela' : 'Cliente';
+            const message = msg.message || msg.content || '';
+            return `${role}: ${message}`;
+          })
+          .join('\n\n');
+      } else if (typeof data.transcript === 'string') {
+        // Si ya es string, usar directamente
+        processedTranscript = data.transcript;
+      }
+    }
+    
     return NextResponse.json({
       success: true,
       conversationId: conversationId,
-      transcript: data.transcript || 'No hay transcripción disponible',
+      transcript: processedTranscript,
       summary: data.summary || null,
-      source: data.source || 'unknown'
+      source: data.source || 'unknown',
+      // Incluir también la transcripción original para debugging
+      rawTranscript: data.transcript
     });
 
   } catch (error) {
