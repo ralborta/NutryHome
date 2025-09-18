@@ -208,7 +208,7 @@ function ConversacionesUI() {
             onAction={(a) => handleAction(a, c)}
             isMenuOpen={openMenuId === c.conversation_id}
             onToggleMenu={() => setOpenMenuId(
-              openMenuId === c.conversation_id ? null : c.conversation_id
+              openMenuId === c.conversation_id ? null : (c.conversation_id || null)
             )}
           />
         ))}
