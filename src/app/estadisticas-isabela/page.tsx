@@ -63,6 +63,7 @@ function ConversacionesUI() {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [showTranscripcion, setShowTranscripcion] = useState(false);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
+  const [isRecovering, setIsRecovering] = useState(false);
 
   // ✅ CORREGIDO: no-store, cache-bust, abort de requests previos, y adaptación de datos
   const fetchStats = async () => {
@@ -130,6 +131,47 @@ function ConversacionesUI() {
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
   }, [openMenuId]);
+
+  // ===== Función de recuperación de datos históricos =====
+  const recoverHistoricalData = async () => {
+    try {
+      setIsRecovering(true);
+      console.log('🔄 Starting historical data recovery...');
+      
+      const response = await fetch('/api/recover-historical', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Recovery failed: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      console.log('✅ Recovery completed:', result);
+      
+      // Mostrar resultados
+      alert(`🔄 RECUPERACIÓN COMPLETADA:
+      
+✅ Procesadas: ${result.results.processed}
+📝 Con transcripción: ${result.results.withTranscript}
+🔊 Con audio: ${result.results.withAudio}
+❌ Errores: ${result.results.errors}
+
+Los datos se han recuperado correctamente.`);
+      
+      // Refrescar los datos
+      await fetchStats();
+      
+    } catch (error) {
+      console.error('❌ Recovery error:', error);
+      alert(`❌ Error en la recuperación: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+    } finally {
+      setIsRecovering(false);
+    }
+  };
 
   // ===== Lógica de acciones =====
   const handleAction = (action: ActionId, c: Conversation) => {
@@ -307,14 +349,31 @@ ${c.summary ? c.summary.substring(0, 200) + (c.summary.length > 200 ? "..." : ""
             <h1 className="text-3xl font-bold tracking-tight text-slate-900">Conversaciones</h1>
             <p className="text-sm text-slate-500">Historial y gestión de las conversaciones</p>
           </div>
-          <button
-            onClick={fetchStats}
-            disabled={loading}
-            className="inline-flex items-center gap-2 h-9 px-3 rounded-lg border border-slate-300 text-sm hover:bg-slate-50 disabled:opacity-50"
-            title="Traer últimos registros"
-          >
-            {loading ? 'Actualizando…' : 'Actualizar'}
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={recoverHistoricalData}
+              disabled={isRecovering || loading}
+              className="inline-flex items-center gap-2 h-9 px-3 rounded-lg bg-green-500 text-white text-sm hover:bg-green-600 disabled:opacity-50"
+              title="Recuperar datos históricos de ElevenLabs"
+            >
+              {isRecovering ? (
+                <>
+                  <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin"></div>
+                  Recuperando...
+                </>
+              ) : (
+                '🔄 Recuperar Histórico'
+              )}
+            </button>
+            <button
+              onClick={fetchStats}
+              disabled={loading}
+              className="inline-flex items-center gap-2 h-9 px-3 rounded-lg border border-slate-300 text-sm hover:bg-slate-50 disabled:opacity-50"
+              title="Traer últimos registros"
+            >
+              {loading ? 'Actualizando…' : 'Actualizar'}
+            </button>
+          </div>
         </div>
       </div>
 
