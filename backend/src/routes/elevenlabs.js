@@ -3,128 +3,220 @@ const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
-// Endpoint para obtener resumen de conversación y guardarlo en DB
-router.get('/conversations/:conversation_id', async (req, res) => {
+// ✅ ENDPOINT: GET /api/elevenlabs/conversations
+// Obtiene conversaciones con transcripciones desde ElevenLabs
+router.get('/conversations', async (req, res) => {
   try {
-    const { conversation_id } = req.params;
+    console.log('📥 Fetching conversations from ElevenLabs...');
     
-    // Verificar que tenemos la API key
-    if (!process.env.ELEVENLABS_API_KEY) {
-      return res.status(500).json({ 
-        error: 'ELEVENLABS_API_KEY no configurada',
-        message: 'Configura la variable de entorno ELEVENLABS_API_KEY'
-      });
-    }
+    const { limit = 50, include_transcripts = 'true' } = req.query;
     
-    // 1. Verificar si ya tenemos el resumen en la DB
-    let existingConversation = await prisma.isabelaConversation.findUnique({
-      where: { conversationId: conversation_id }
-    });
-    
-    if (existingConversation && existingConversation.summary) {
-      console.log('✅ Resumen encontrado en DB:', conversation_id);
-      return res.json({
-        conversation_id: existingConversation.conversationId,
-        summary: existingConversation.summary,
-        source: 'database',
-        cached: true
-      });
-    }
-    
-    // 2. Si no está en DB, obtenerlo de ElevenLabs
-    console.log('🔄 Obteniendo resumen de ElevenLabs:', conversation_id);
-    
+    // 1. Obtener conversaciones de ElevenLabs
     const response = await fetch(
-      `https://api.elevenlabs.io/v1/convai/conversations/${conversation_id}`,
+      `https://api.elevenlabs.io/v1/convai/conversations?agent_id=${process.env.ELEVENLABS_AGENT_ID}&limit=${limit}`,
       {
         headers: {
-          'xi-api-key': process.env.ELEVENLABS_API_KEY
+          'xi-api-key': process.env.ELEVENLABS_API_KEY,
+          'Accept': 'application/json'
         }
       }
     );
-    
+
     if (!response.ok) {
-      return res.status(response.status).json({ 
-        error: `Error ${response.status}: ${response.statusText}`,
-        message: 'No se pudo obtener la conversación de ElevenLabs'
-      });
+      throw new Error(`ElevenLabs API error: ${response.status}`);
     }
-    
-    const conversation = await response.json();
-    
-    // 3. Extraer el resumen
-    const summary = conversation.analysis?.transcript_summary || 'Sin resumen disponible';
-    
-    // 4. Guardar en la DB
-    try {
-      if (existingConversation) {
-        // Actualizar conversación existente
-        await prisma.isabelaConversation.update({
-          where: { conversationId: conversation_id },
-          data: { 
-            summary: summary,
-            updatedAt: new Date()
+
+    const data = await response.json();
+    const conversations = data.conversations || [];
+
+    // 2. Obtener detalles completos (incluyendo transcripciones)
+    const conversationsWithDetails = await Promise.all(
+      conversations.map(async (conv) => {
+        try {
+          // Primero verificar si tenemos la transcripción en DB
+          const dbConversation = await prisma.isabelaConversation.findUnique({
+            where: { conversationId: conv.conversation_id }
+          });
+
+          // Si tenemos transcripción en DB y es reciente, usarla
+          if (dbConversation?.transcript) {
+            console.log(`✅ Using cached transcript for ${conv.conversation_id}`);
+            return {
+              ...conv,
+              transcript: dbConversation.transcript,
+              summary: dbConversation.summary,
+              variables: dbConversation.variables,
+              source: 'database'
+            };
           }
-        });
-      } else {
-        // Crear nueva conversación
-        await prisma.isabelaConversation.create({
-          data: {
-            conversationId: conversation_id,
-            summary: summary
+
+          // Si no, obtener de ElevenLabs
+          console.log(`🔄 Fetching fresh data for ${conv.conversation_id}`);
+          const detailResponse = await fetch(
+            `https://api.elevenlabs.io/v1/convai/conversations/${conv.conversation_id}`,
+            {
+              headers: {
+                'xi-api-key': process.env.ELEVENLABS_API_KEY,
+                'Accept': 'application/json'
+              }
+            }
+          );
+
+          if (detailResponse.ok) {
+            const details = await detailResponse.json();
+            
+            // Guardar en DB para cache
+            if (details.transcript || details.analysis?.transcript) {
+              await prisma.isabelaConversation.upsert({
+                where: { conversationId: conv.conversation_id },
+                update: {
+                  transcript: details.transcript || details.analysis?.transcript,
+                  summary: details.analysis?.transcript_summary,
+                  variables: details.conversation_initiation_client_data?.dynamic_variables,
+                  updatedAt: new Date()
+                },
+                create: {
+                  conversationId: conv.conversation_id,
+                  transcript: details.transcript || details.analysis?.transcript,
+                  summary: details.analysis?.transcript_summary,
+                  variables: details.conversation_initiation_client_data?.dynamic_variables
+                }
+              });
+            }
+
+            return {
+              ...conv,
+              ...details,
+              transcript: include_transcripts === 'true' ? (details.transcript || details.analysis?.transcript) : undefined,
+              summary: details.analysis?.transcript_summary || conv.call_summary_title,
+              variables: details.conversation_initiation_client_data?.dynamic_variables,
+              source: 'elevenlabs'
+            };
           }
-        });
-      }
-      console.log('✅ Resumen guardado en DB:', conversation_id);
-    } catch (dbError) {
-      console.error('⚠️ Error guardando en DB:', dbError);
-      // Continuar aunque falle la DB
-    }
-    
-    // 5. Devolver respuesta
+        } catch (error) {
+          console.error(`Error fetching details for ${conv.conversation_id}:`, error);
+        }
+        return conv;
+      })
+    );
+
     res.json({
-      conversation_id: conversation_id,
-      summary: summary,
-      source: 'elevenlabs',
-      cached: false,
-      status: conversation.status,
-      agent_id: conversation.agent_id
+      success: true,
+      conversations: conversationsWithDetails,
+      total: conversationsWithDetails.length,
+      timestamp: new Date().toISOString()
     });
-    
+
   } catch (error) {
-    console.error('❌ Error ElevenLabs:', error);
-    res.status(500).json({ 
-      error: 'Error interno del servidor',
-      details: error.message 
+    console.error('❌ Error in /conversations:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Internal server error'
     });
   }
 });
 
-// Endpoint para obtener todas las conversaciones con resúmenes
-router.get('/conversations', async (req, res) => {
+// ✅ ENDPOINT: GET /api/elevenlabs/audio/:id
+// Proxy para obtener audio de ElevenLabs
+router.get('/audio/:id', async (req, res) => {
   try {
-    const conversations = await prisma.isabelaConversation.findMany({
-      orderBy: { createdAt: 'desc' },
-      select: {
-        id: true,
-        conversationId: true,
-        summary: true,
-        createdAt: true,
-        updatedAt: true
+    const { id } = req.params;
+    console.log(`🔊 Fetching audio for: ${id}`);
+
+    // Obtener audio de ElevenLabs
+    const response = await fetch(
+      `https://api.elevenlabs.io/v1/convai/conversations/${id}/audio`,
+      {
+        headers: {
+          'xi-api-key': process.env.ELEVENLABS_API_KEY,
+          'Accept': 'audio/mpeg'
+        }
       }
-    });
-    
-    res.json({
-      total: conversations.length,
-      conversations: conversations
-    });
-    
+    );
+
+    if (!response.ok) {
+      // Intentar con el endpoint de history si falla
+      const historyResponse = await fetch(
+        `https://api.elevenlabs.io/v1/history/${id}/audio`,
+        {
+          headers: {
+            'xi-api-key': process.env.ELEVENLABS_API_KEY,
+            'Accept': 'audio/mpeg'
+          }
+        }
+      );
+
+      if (!historyResponse.ok) {
+        throw new Error('Audio not found');
+      }
+
+      const audioBuffer = await historyResponse.arrayBuffer();
+      res.set('Content-Type', 'audio/mpeg');
+      res.send(Buffer.from(audioBuffer));
+      return;
+    }
+
+    const audioBuffer = await response.arrayBuffer();
+    res.set('Content-Type', 'audio/mpeg');
+    res.set('Cache-Control', 'public, max-age=3600');
+    res.send(Buffer.from(audioBuffer));
+
   } catch (error) {
-    console.error('❌ Error obteniendo conversaciones:', error);
-    res.status(500).json({ 
-      error: 'Error obteniendo conversaciones de la DB',
-      details: error.message 
+    console.error(`❌ Error fetching audio ${req.params.id}:`, error);
+    res.status(404).json({
+      success: false,
+      error: 'Audio not found'
     });
+  }
+});
+
+// ✅ WEBHOOK: POST /api/elevenlabs/webhook
+// Recibe transcripciones de ElevenLabs
+router.post('/webhook', async (req, res) => {
+  try {
+    console.log('📨 Webhook received from ElevenLabs');
+    
+    const {
+      conversation_id,
+      type,
+      transcript,
+      summary,
+      analysis,
+      metadata,
+      conversation_initiation_client_data
+    } = req.body;
+
+    console.log(`Processing webhook type: ${type} for conversation: ${conversation_id}`);
+
+    // Guardar en base de datos
+    if (type === 'post_call_transcription' || type === 'conversation.completed') {
+      await prisma.isabelaConversation.upsert({
+        where: { conversationId: conversation_id },
+        update: {
+          transcript: transcript || analysis?.transcript,
+          summary: summary || analysis?.transcript_summary,
+          variables: conversation_initiation_client_data?.dynamic_variables,
+          metadata: metadata,
+          updatedAt: new Date()
+        },
+        create: {
+          conversationId: conversation_id,
+          transcript: transcript || analysis?.transcript,
+          summary: summary || analysis?.transcript_summary,
+          variables: conversation_initiation_client_data?.dynamic_variables,
+          metadata: metadata
+        }
+      });
+
+      console.log(`✅ Transcription saved for ${conversation_id}`);
+    }
+
+    // Responder inmediatamente a ElevenLabs
+    res.status(200).json({ received: true });
+
+  } catch (error) {
+    console.error('❌ Webhook error:', error);
+    res.status(500).json({ error: 'Webhook processing failed' });
   }
 });
 

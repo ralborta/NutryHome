@@ -64,7 +64,10 @@ const corsOptions = {
     const allowedOrigins = [
       'http://localhost:3000',
       'https://nutry-home.vercel.app',
-    ];
+      'https://nutry-home-1pryhsayv-nivel-41.vercel.app',
+      'https://nutryhome.vercel.app',
+      process.env.FRONTEND_URL
+    ].filter(Boolean);
     
     // Permite CUALQUIER subdominio de vercel.app (temporal para debug)
     const isVercelApp = origin.endsWith('.vercel.app') && origin.includes('nutry-home');
