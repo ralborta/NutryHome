@@ -73,8 +73,8 @@ function ConversacionesUI() {
       setLoading(true);
       setError(null);
 
-      // NOTA: si cambiaste el dominio, ajusta esta URL:
-      const url = `https://nutryhome-production.up.railway.app/api/isabela/conversations?limit=50&ts=${Date.now()}`;
+      // Usar el nuevo endpoint de conversaciones a través del proxy de Next.js
+      const url = `/api/conversations?limit=50&ts=${Date.now()}`;
 
       const res = await fetch(url, {
         cache: 'no-store',
@@ -140,8 +140,8 @@ function ConversacionesUI() {
           break; 
         }
         
-        // Reproducir audio usando el backend de Railway
-        const audioUrl = `https://nutryhome-production.up.railway.app/api/isabela/audio/${c.conversation_id}`;
+        // Reproducir audio usando el proxy de Next.js
+        const audioUrl = `/api/audio/${c.conversation_id}`;
         const audio = new Audio(audioUrl);
         
         audio.play().then(() => {
