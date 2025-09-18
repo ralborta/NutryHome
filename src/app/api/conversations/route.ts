@@ -9,9 +9,9 @@ export async function GET(request: NextRequest) {
     
     console.log('Fetching conversations from Railway backend...');
     
-    // Llamar al backend de Railway (usar endpoint que funciona)
+    // Llamar al backend de Railway (usar endpoint mejorado)
     const response = await fetch(
-      `${RAILWAY_API}/api/isabela/conversations?limit=50`,
+      `${RAILWAY_API}/api/elevenlabs/conversations`,
       {
         headers: {
           'Accept': 'application/json'
