@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
-import { X, MessageSquare, User, Bot } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, MessageSquare, User, Bot, Loader2 } from 'lucide-react';
 
 interface Conversation {
   conversation_id?: string;
@@ -21,63 +21,81 @@ const TranscripcionModal: React.FC<TranscripcionModalProps> = ({
   onClose, 
   conversation 
 }) => {
+  const [transcript, setTranscript] = useState<string>('');
+  const [loading, setLoading] = useState(true);
+  const [audioError, setAudioError] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && conversation?.conversation_id) {
+      fetchTranscript();
+    }
+  }, [isOpen, conversation?.conversation_id]);
+
+  const fetchTranscript = async () => {
+    if (!conversation?.conversation_id) return;
+    
+    try {
+      setLoading(true);
+      console.log(`[Modal] Fetching transcript for: ${conversation.conversation_id}`);
+      
+      // Usar query params en lugar de ruta dinámica
+      const response = await fetch(`/api/get-transcript?id=${conversation.conversation_id}`);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch transcript: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('[Modal] Transcript data received:', data);
+      
+      setTranscript(data.transcript || 'No hay transcripción disponible');
+    } catch (error) {
+      console.error('[Modal] Error fetching transcript:', error);
+      setTranscript('Error cargando transcripción');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const playAudio = () => {
+    if (!conversation?.conversation_id) return;
+    
+    setAudioError(false);
+    console.log(`[Modal] Playing audio for: ${conversation.conversation_id}`);
+    
+    // Usar query params para el audio
+    const audio = new Audio(`/api/get-audio?id=${conversation.conversation_id}`);
+    
+    audio.onerror = () => {
+      console.error('[Modal] Audio playback error');
+      setAudioError(true);
+      alert('No se pudo reproducir el audio. Puede que no esté disponible.');
+    };
+    
+    audio.play().catch(err => {
+      console.error('[Modal] Audio play error:', err);
+      setAudioError(true);
+    });
+  };
+
   if (!isOpen || !conversation) return null;
-
-  // DEBUG: Verificar qué datos llegan
-  console.log('📋 Transcripción modal data:', {
-    conversation_id: conversation.conversation_id,
-    has_transcript: !!conversation.transcript,
-    transcript_type: typeof conversation.transcript,
-    transcript_length: conversation.transcript?.length,
-    transcript_sample: conversation.transcript?.slice(0, 2)
-  });
-
-  const transcript = conversation.transcript || [];
   
   // Función para renderizar el contenido del transcript
   const renderTranscriptContent = () => {
-    // Si es un array (formato esperado)
-    if (Array.isArray(transcript) && transcript.length > 0) {
+    if (loading) {
       return (
-        <div className="space-y-3">
-          {transcript.map((message, index) => (
-            <div key={index} className={`p-3 rounded-lg ${
-              message.role === 'agent' || message.speaker === 'agent'
-                ? 'bg-blue-50 border-l-4 border-blue-400' 
-                : 'bg-green-50 border-l-4 border-green-400'
-            }`}>
-              <div className="flex items-center gap-2 mb-2">
-                {message.role === 'agent' || message.speaker === 'agent' ? (
-                  <Bot className="h-4 w-4 text-blue-600" />
-                ) : (
-                  <User className="h-4 w-4 text-green-600" />
-                )}
-                <span className="font-medium text-sm text-gray-700">
-                  {message.role === 'agent' || message.speaker === 'agent' ? 'Isabela' : 'Cliente'}
-                </span>
-                <span className="text-xs text-gray-500">
-                  Mensaje {index + 1}
-                </span>
-              </div>
-              <div className="text-sm text-gray-800">
-                {message.message || message.content || message.text || message.transcript || 'Mensaje sin contenido'}
-              </div>
-              {message.timestamp && (
-                <div className="text-xs text-gray-500 mt-1">
-                  {new Date(message.timestamp).toLocaleTimeString('es-ES')}
-                </div>
-              )}
-            </div>
-          ))}
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="w-6 h-6 animate-spin mr-2" />
+          <span>Cargando transcripción...</span>
         </div>
       );
     }
     
-    // Si es un string (transcript simple)
+    // Si es un string (transcript procesado)
     if (typeof transcript === 'string' && transcript.trim().length > 0) {
       return (
         <div className="bg-gray-50 p-4 rounded-lg">
-          <div className="text-sm text-gray-800 whitespace-pre-wrap">
+          <div className="text-sm text-gray-800 whitespace-pre-wrap font-mono">
             {transcript}
           </div>
         </div>
@@ -88,10 +106,9 @@ const TranscripcionModal: React.FC<TranscripcionModalProps> = ({
     return (
       <div className="text-center py-8">
         <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-        <p className="text-gray-500 mb-2">No hay transcripción disponible</p>
+        <p className="text-gray-500 mb-2">{transcript || 'No hay transcripción disponible'}</p>
         <div className="text-xs text-gray-400 space-y-1">
-          <p>Tipo de transcript: {typeof conversation.transcript}</p>
-          <p>Contenido: {JSON.stringify(conversation.transcript)?.substring(0, 100)}...</p>
+          <p>Conversación ID: {conversation.conversation_id}</p>
         </div>
       </div>
     );
@@ -111,21 +128,18 @@ const TranscripcionModal: React.FC<TranscripcionModalProps> = ({
           <div className="flex items-center gap-3">
             {/* Botón de Audio */}
             <button
-              onClick={() => {
-                if (conversation.conversation_id) {
-                  const audioUrl = `/api/audio/${conversation.conversation_id}`;
-                  const audio = new Audio(audioUrl);
-                  audio.play().catch(() => {
-                    alert('No se pudo reproducir el audio. Puede que no esté disponible.');
-                  });
-                }
-              }}
-              className="flex items-center gap-2 px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+              onClick={playAudio}
+              disabled={audioError}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+                audioError 
+                  ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
+                  : 'bg-blue-500 text-white hover:bg-blue-600'
+              }`}
             >
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.617.793L5.5 13H3a1 1 0 01-1-1V8a1 1 0 011-1h2.5l2.883-3.793a1 1 0 011.617.793zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z" clipRule="evenodd" />
               </svg>
-              Audio
+              {audioError ? 'Audio no disponible' : 'Audio'}
             </button>
             <button
               onClick={onClose}

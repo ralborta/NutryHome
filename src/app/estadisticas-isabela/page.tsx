@@ -140,8 +140,8 @@ function ConversacionesUI() {
           break; 
         }
         
-        // Reproducir audio usando el proxy de Next.js
-        const audioUrl = `/api/audio/${c.conversation_id}`;
+        // Reproducir audio usando query params
+        const audioUrl = `/api/get-audio?id=${c.conversation_id}`;
         const audio = new Audio(audioUrl);
         
         audio.play().then(() => {

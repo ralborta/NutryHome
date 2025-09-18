@@ -4,25 +4,23 @@ export const runtime = 'nodejs';
 
 const RAILWAY_API = process.env.NEXT_PUBLIC_API_URL || 'https://nutryhome-production.up.railway.app';
 
-export async function GET(
-  request: NextRequest,
-  context: { params: { id: string } }
-) {
+export async function GET(request: NextRequest) {
   try {
-    const audioId = context.params.id;
+    const searchParams = request.nextUrl.searchParams;
+    const conversationId = searchParams.get('id');
     
-    console.log(`[Vercel] Fetching audio for: ${audioId}`);
-    
-    if (!audioId) {
+    if (!conversationId) {
       return NextResponse.json(
-        { error: 'Audio ID is required' },
+        { error: 'ID de conversación requerido' },
         { status: 400 }
       );
     }
 
-    // Proxy al backend de Railway
+    console.log(`[Vercel] Fetching audio for: ${conversationId}`);
+
+    // Proxy a Railway
     const response = await fetch(
-      `${RAILWAY_API}/api/elevenlabs/audio/${audioId}`,
+      `${RAILWAY_API}/api/elevenlabs/audio/${conversationId}`,
       {
         headers: {
           'Accept': 'audio/mpeg'
@@ -38,7 +36,6 @@ export async function GET(
       );
     }
 
-    // Stream el audio
     const audioBuffer = await response.arrayBuffer();
     
     return new Response(audioBuffer, {
