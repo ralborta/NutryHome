@@ -3,6 +3,7 @@
 import React from "react";
 import { useEffect, useState, useRef } from "react";
 import ConversacionesList from "@/components/ConversacionesList";
+import TranscripcionModal from "@/components/TranscripcionModal";
 // DropdownMenu removido - usando menú personalizado
 import {
   MoreVertical,
@@ -59,6 +60,8 @@ function ConversacionesUI() {
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [showTranscripcion, setShowTranscripcion] = useState(false);
+  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
 
   // ✅ CORREGIDO: no-store, cache-bust, abort de requests previos, y adaptación de datos
   const fetchStats = async () => {
@@ -217,6 +220,16 @@ function ConversacionesUI() {
       <div className="max-w-6xl mx-auto px-6 py-8 text-center text-xs text-slate-400">
         Última actualización: {new Date().toLocaleString("es-AR")}
       </div>
+
+      {/* Modal de Transcripción */}
+      <TranscripcionModal
+        isOpen={showTranscripcion}
+        onClose={() => {
+          setShowTranscripcion(false);
+          setSelectedConversation(null);
+        }}
+        conversation={selectedConversation}
+      />
     </div>
   );
 }
@@ -418,7 +431,10 @@ function handleAction(action: ActionId, c: Conversation) {
       break;
     }
     case "transcripcion":
-      alert("📝 Transcripción en desarrollo");
+      console.log('🔍 Opening transcript for:', c.conversation_id);
+      console.log('🔍 Transcript data:', c.transcript);
+      setSelectedConversation(c);
+      setShowTranscripcion(true);
       break;
     case "evaluacion":
       if (!c.evaluation_data) {
