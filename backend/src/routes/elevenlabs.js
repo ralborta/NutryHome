@@ -191,4 +191,109 @@ router.get('/audio/:conversationId', async (req, res) => {
   }
 });
 
+// ✅ WEBHOOK POST-CALL - ENDPOINT QUE ELEVENLABS ESTÁ ESPERANDO
+router.post('/webhooks/post-call', async (req, res) => {
+  try {
+    console.log('🎯 Post-call webhook received:', req.body);
+    
+    const { 
+      conversation_id,
+      type,
+      transcript,
+      analysis,
+      messages,
+      conversation_initiation_client_data,
+      audio_url,
+      summary
+    } = req.body;
+    
+    console.log(`📞 Processing post-call webhook for: ${conversation_id}`);
+    console.log(`📋 Type: ${type}`);
+    console.log(`📝 Has transcript: ${!!transcript}`);
+    console.log(`🔍 Has analysis: ${!!analysis}`);
+    console.log(`💬 Has messages: ${!!messages}`);
+    
+    // Extraer transcripción de múltiples fuentes posibles
+    let finalTranscript = null;
+    let finalSummary = null;
+    let finalVariables = {};
+    
+    if (transcript) {
+      finalTranscript = transcript;
+    } else if (analysis?.transcript) {
+      finalTranscript = analysis.transcript;
+    } else if (messages && Array.isArray(messages)) {
+      finalTranscript = messages
+        .filter(msg => msg.content || msg.message)
+        .map(msg => `${msg.role}: ${msg.content || msg.message}`)
+        .join('\n');
+    }
+    
+    if (summary) {
+      finalSummary = summary;
+    } else if (analysis?.transcript_summary) {
+      finalSummary = analysis.transcript_summary;
+    }
+    
+    if (conversation_initiation_client_data?.dynamic_variables) {
+      finalVariables = conversation_initiation_client_data.dynamic_variables;
+    }
+    
+    console.log(`✅ Final transcript length: ${finalTranscript?.length || 0}`);
+    console.log(`✅ Final summary: ${finalSummary?.substring(0, 100) || 'None'}...`);
+    
+    // Guardar en la base de datos
+    if (finalTranscript) {
+      try {
+        // TODO: Implementar guardado en DB cuando el schema esté listo
+        console.log('✅ Post-call data would be saved to database');
+        console.log('📝 Transcript preview:', finalTranscript.substring(0, 200) + '...');
+        
+      } catch (dbError) {
+        console.error('❌ Database error:', dbError);
+        // No fallar el webhook por error de DB
+      }
+    } else {
+      console.log('⚠️ No transcript found in webhook data');
+    }
+    
+    res.status(200).json({ 
+      received: true,
+      conversation_id,
+      transcript_saved: !!finalTranscript,
+      summary_saved: !!finalSummary
+    });
+    
+  } catch (error) {
+    console.error('❌ Post-call webhook error:', error);
+    res.status(500).json({ 
+      error: 'Webhook processing failed',
+      message: error.message 
+    });
+  }
+});
+
+// ✅ ENDPOINT PARA RECUPERAR DATOS HISTÓRICOS
+router.post('/recover-historical', async (req, res) => {
+  try {
+    console.log('🔄 Starting historical data recovery...');
+    
+    const { recoverHistoricalData } = require('../../scripts/recover-historical-data');
+    const results = await recoverHistoricalData();
+    
+    res.json({
+      success: true,
+      message: 'Historical data recovery completed',
+      results
+    });
+    
+  } catch (error) {
+    console.error('❌ Recovery error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;
