@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
       withTranscript: 0,
       withAudio: 0,
       errors: 0,
-      conversations: []
+      conversations: [] as any[]
     };
     
     for (const conv of conversations.slice(0, 10)) { // Limitar a 10 para prueba
