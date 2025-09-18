@@ -14,11 +14,11 @@ router.get('/conversation/:conversationId', async (req, res) => {
       where: { conversationId }
     });
 
-    if (dbConversation && dbConversation.transcript) {
+    if (dbConversation && dbConversation.variables?.transcript) {
       console.log('✅ Found in PostgreSQL');
       return res.json({
         success: true,
-        transcript: dbConversation.transcript,
+        transcript: dbConversation.variables.transcript,
         summary: dbConversation.summary,
         source: 'database'
       });
@@ -81,8 +81,15 @@ router.get('/conversation/:conversationId', async (req, res) => {
     if (transcript) {
       await prisma.isabelaConversation.upsert({
         where: { conversationId },
-        update: { transcript, summary },
-        create: { conversationId, transcript, summary }
+        update: { 
+          summary: summary,
+          variables: { transcript: transcript }
+        },
+        create: { 
+          conversationId, 
+          summary: summary,
+          variables: { transcript: transcript }
+        }
       });
       console.log('✅ Saved to PostgreSQL');
     }
@@ -132,9 +139,9 @@ router.get('/conversations', async (req, res) => {
           if (dbData) {
             return {
               ...conv,
-              transcript: dbData.transcript,
+              transcript: dbData.variables?.transcript,
               summary: dbData.summary,
-              hasTranscript: !!dbData.transcript,
+              hasTranscript: !!dbData.variables?.transcript,
               hasAudio: true
             };
           }
