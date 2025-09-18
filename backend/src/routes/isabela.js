@@ -3,6 +3,111 @@ const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
+// Función de traducción con múltiples fallbacks
+async function traducirTexto(texto) {
+  if (!texto || texto.trim().length === 0) {
+    return texto;
+  }
+  
+  // 1. Google Translate (gratuito)
+  try {
+    const translate = require('google-translate-api-x');
+    const result = await translate(texto, { from: 'en', to: 'es' });
+    if (result.text && result.text !== texto) {
+      console.log('✅ Traducido con Google Translate');
+      return result.text;
+    }
+  } catch (error) {
+    console.log('⚠️ Google Translate falló:', error.message);
+  }
+
+  // 2. Free Translate API (Ismal Zikri)
+  try {
+    const res = await fetch('https://translate.ismailzikri.com/translate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        q: texto,
+        source: 'en',
+        target: 'es',
+        format: 'text'
+      })
+    });
+    const data = await res.json();
+    if (data.translatedText && data.translatedText !== texto) {
+      console.log('✅ Traducido con Free Translate API');
+      return data.translatedText;
+    }
+  } catch (error) {
+    console.log('⚠️ Free Translate API falló:', error.message);
+  }
+
+  // 3. LibreTranslate
+  try {
+    const res = await fetch('https://libretranslate.com/translate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        q: texto,
+        source: 'en',
+        target: 'es',
+        format: 'text'
+      })
+    });
+    const data = await res.json();
+    if (data.translatedText && data.translatedText !== texto) {
+      console.log('✅ Traducido con LibreTranslate');
+      return data.translatedText;
+    }
+  } catch (error) {
+    console.log('⚠️ LibreTranslate falló:', error.message);
+  }
+
+  // 4. MyMemory API (último recurso)
+  try {
+    const res = await fetch(
+      `https://api.mymemory.translated.net/get?q=${encodeURIComponent(texto)}&langpair=en|es`
+    );
+    const data = await res.json();
+    if (data.responseStatus === 200 && data.responseData?.translatedText) {
+      console.log('✅ Traducido con MyMemory API');
+      return data.responseData.translatedText;
+    }
+  } catch (error) {
+    console.log('⚠️ MyMemory API falló:', error.message);
+  }
+
+  console.log('❌ Todas las APIs de traducción fallaron, devolviendo texto original');
+  return texto;
+}
+
+// Función específica para traducir resúmenes
+async function traducirResumen(resumen) {
+  if (!resumen || resumen.trim().length === 0 || resumen === 'Sin resumen disponible') {
+    return resumen;
+  }
+  
+  // Si ya está en español, no traducir
+  if (esTextoEnEspanol(resumen)) {
+    console.log('📝 Resumen ya está en español, no traduciendo');
+    return resumen;
+  }
+  
+  console.log('🌐 Traduciendo resumen de inglés a español...');
+  return await traducirTexto(resumen);
+}
+
+// Función simple para detectar si el texto ya está en español
+function esTextoEnEspanol(texto) {
+  const palabrasEspanol = ['el', 'la', 'de', 'que', 'y', 'a', 'en', 'un', 'es', 'se', 'no', 'te', 'lo', 'le', 'da', 'su', 'por', 'son', 'con', 'para', 'al', 'del', 'los', 'las', 'una', 'está', 'han', 'muy', 'más', 'pero', 'sus', 'todo', 'sobre', 'también', 'después', 'vida', 'años', 'trabajo', 'tiempo', 'casa', 'día', 'año', 'vez', 'hacer', 'dijo', 'cada', 'días', 'hasta', 'desde', 'mismo', 'parte', 'tanto', 'nueva', 'nuevo', 'nuevos', 'nuevas', 'mejor', 'mejores', 'peor', 'peores', 'bueno', 'buena', 'buenos', 'buenas', 'malo', 'mala', 'malos', 'malas', 'grande', 'grandes', 'pequeño', 'pequeña', 'pequeños', 'pequeñas', 'mucho', 'mucha', 'muchos', 'muchas', 'poco', 'poca', 'pocos', 'pocas', 'todo', 'toda', 'todos', 'todas', 'nada', 'nadie', 'nunca', 'siempre', 'aquí', 'allí', 'ahí', 'donde', 'cuando', 'como', 'porque', 'aunque', 'mientras', 'antes', 'después', 'durante', 'hasta', 'desde', 'entre', 'sobre', 'bajo', 'contra', 'hacia', 'mediante', 'según', 'sin', 'tras', 'durante', 'excepto', 'salvo', 'menos', 'más', 'muy', 'bastante', 'demasiado', 'suficiente', 'poco', 'mucho', 'tanto', 'cuanto', 'cuanta', 'cuantos', 'cuantas', 'cuál', 'cuáles', 'qué', 'quién', 'quiénes', 'cuándo', 'dónde', 'cómo', 'por qué', 'para qué', 'con qué', 'de qué', 'en qué', 'sobre qué', 'bajo qué', 'contra qué', 'hacia qué', 'mediante qué', 'según qué', 'sin qué', 'tras qué', 'durante qué', 'excepto qué', 'salvo qué', 'menos qué', 'más qué', 'muy qué', 'bastante qué', 'demasiado qué', 'suficiente qué', 'poco qué', 'mucho qué', 'tanto qué', 'cuanto qué', 'cuanta qué', 'cuantos qué', 'cuantas qué'];
+  
+  const palabras = texto.toLowerCase().split(/\s+/);
+  const palabrasEspanolEncontradas = palabras.filter(palabra => palabrasEspanol.includes(palabra));
+  
+  // Si más del 30% de las palabras son en español, asumir que ya está en español
+  return (palabrasEspanolEncontradas.length / palabras.length) > 0.3;
+}
+
 // POST /api/isabela/conversations - Guardar conversación en DB
 router.post('/conversations', async (req, res) => {
   try {
@@ -84,15 +189,21 @@ router.get('/conversations', async (req, res) => {
         const elevenConversations = elevenLabsData.conversations || [];
         for (const conv of elevenConversations) {
           try {
+            // Traducir resumen antes de guardar
+            let resumen = conv.call_summary_title || conv.summary || null;
+            if (resumen) {
+              resumen = await traducirResumen(resumen);
+            }
+            
             await prisma.isabelaConversation.upsert({
               where: { conversationId: conv.conversation_id },
               update: {
-                summary: conv.call_summary_title || conv.summary || null,
+                summary: resumen,
                 updatedAt: new Date()
               },
               create: {
                 conversationId: conv.conversation_id,
-                summary: conv.call_summary_title || conv.summary || null,
+                summary: resumen,
                 createdAt: new Date(conv.start_time_unix_secs * 1000),
                 updatedAt: new Date()
               }
@@ -179,8 +290,8 @@ router.get('/conversations', async (req, res) => {
               agent_name: elevenLabsData.agent_name || 'Isabela',
               message_count: elevenLabsData.message_count || 0,
               start_time_unix_secs: elevenLabsData.metadata?.start_time_unix_secs || conv.start_time_unix_secs || Math.floor(Date.now() / 1000),
-              // Resumen de la conversación
-              summary: elevenLabsData.analysis?.transcript_summary || elevenLabsData.call_summary_title || conv.summary || 'Sin resumen disponible',
+              // Resumen de la conversación (traducido)
+              summary: await traducirResumen(elevenLabsData.analysis?.transcript_summary || elevenLabsData.call_summary_title || conv.summary || 'Sin resumen disponible'),
               // Datos adicionales
               producto: 'NutryHome',
               resultado: elevenLabsData.analysis?.call_successful === 'success' ? 'Completada' : 'Fallida',
