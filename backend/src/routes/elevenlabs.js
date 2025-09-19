@@ -17,55 +17,15 @@ router.get('/conversations', async (req, res) => {
     }
 
     // Obtener lista de conversaciones de ElevenLabs
-    const response = await fetch(
-      `https://api.elevenlabs.io/v1/convai/conversations?agent_id=${agentId}&limit=${limit}`,
-      {
-        headers: {
-          'xi-api-key': process.env.ELEVENLABS_API_KEY,
-          'Accept': 'application/json'
-        }
-      }
-    );
-
-    if (!response.ok) {
-      console.error(`❌ ElevenLabs error: ${response.status} ${response.statusText}`);
-      return res.status(response.status).json({
-        success: false,
-        error: `ElevenLabs API error: ${response.status}`
-      });
-    }
-
-    const data = await response.json();
-    const conversations = data.conversations || [];
+    // Nota: ElevenLabs no tiene endpoint para listar conversaciones
+    // Vamos a devolver un array vacío por ahora
+    console.log('⚠️ ElevenLabs no tiene endpoint para listar conversaciones');
     
-    console.log(`✅ Found ${conversations.length} conversations`);
-    
-    // Normalizar y enriquecer cada conversación
-    const enrichedConversations = conversations.map(conv => ({
-      conversation_id: conv.conversation_id || conv.id,
-      summary: conv.summary || '',
-      start_time_unix_secs: conv.start_time_unix_secs || conv.created_at,
-      nombre_paciente: conv.nombre_paciente || 'Cliente NutryHome',
-      telefono_destino: conv.telefono_destino || 'N/A',
-      call_duration_secs: conv.call_duration_secs || 0,
-      status: conv.status || 'completed',
-      producto: conv.producto || 'NutryHome',
-      agent_name: conv.agent_name || 'Isabela',
-      agent_id: conv.agent_id,
-      message_count: conv.message_count || 0,
-      call_successful: conv.call_successful || 'true',
-      resultado: conv.resultado || 'Completada',
-      rating: conv.rating || null,
-      // Campos adicionales
-      transcript: conv.transcript,
-      hasTranscript: !!conv.transcript,
-      hasAudio: conv.has_audio || false,
-    }));
-
     res.json({
       success: true,
-      conversations: enrichedConversations,
-      total: enrichedConversations.length
+      conversations: [],
+      total: 0,
+      message: 'ElevenLabs no tiene endpoint para listar conversaciones. Usar recover-historical para obtener datos.'
     });
 
   } catch (error) {
