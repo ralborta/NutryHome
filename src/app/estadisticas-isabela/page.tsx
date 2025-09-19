@@ -100,8 +100,11 @@ function ConversacionesUI() {
           conversation_id: c.conversation_id,
           summary: c.summary ?? '',
           start_time_unix_secs: c.start_time_unix_secs ?? (c.createdAt ? Math.floor(new Date(c.createdAt).getTime()/1000) : undefined),
-          nombre_paciente: c.nombre_paciente ?? 'Cliente NutryHome',
-          telefono_destino: c.telefono_destino ?? 'N/A',
+          // Replicar la misma lógica que en conversaciones
+          nombre_paciente: c.nombre_paciente && c.nombre_paciente !== "Cliente NutryHome" 
+            ? c.nombre_paciente 
+            : "Sin nombre",
+          telefono_destino: c.telefono_destino || 'Sin teléfono',
           call_duration_secs: c.call_duration_secs ?? 0,
           status: c.status ?? 'completed',
           producto: c.producto ?? 'NutryHome',
