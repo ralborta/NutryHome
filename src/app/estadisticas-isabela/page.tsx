@@ -124,7 +124,6 @@ function ConversacionesUI() {
           hasTranscript: c.hasTranscript,
           hasAudio: c.hasAudio,
         },
-        }),
       };
 
       setData(adaptedData);
