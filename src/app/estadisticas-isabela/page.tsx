@@ -8,6 +8,8 @@ import TranscripcionModal from "@/components/TranscripcionModal";
 import {
   MoreVertical,
   Play,
+  Pause,
+  Square,
   Star,
   Calendar,
   Clock3,
@@ -64,6 +66,9 @@ function ConversacionesUI() {
   const [showTranscripcion, setShowTranscripcion] = useState(false);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [isRecovering, setIsRecovering] = useState(false);
+  const [isPlaying, setIsPlaying] = useState<string | null>(null);
+  const [isPaused, setIsPaused] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // ✅ CORREGIDO: no-store, cache-bust, abort de requests previos, y adaptación de datos
   const fetchStats = async () => {
@@ -206,6 +211,70 @@ Los datos se han recuperado correctamente.`);
     }
   };
 
+  // ===== Funciones de control de audio =====
+  const handlePlayAudio = (conversationId: string) => {
+    if (!conversationId) {
+      alert("ID de conversación no disponible");
+      return;
+    }
+
+    // Si ya hay un audio reproduciéndose, reanudar
+    if (audioRef.current && isPaused && isPlaying === conversationId) {
+      audioRef.current.play().then(() => {
+        setIsPlaying(conversationId);
+        setIsPaused(false);
+      }).catch(err => {
+        console.error('Error reanudando audio:', err);
+        alert('No se pudo reanudar el audio');
+      });
+      return;
+    }
+
+    // Crear nuevo audio
+    const audioUrl = `/api/get-audio?id=${conversationId}`;
+    const audio = new Audio(audioUrl);
+    audioRef.current = audio;
+
+    audio.onerror = () => {
+      console.error('Error de reproducción de audio');
+      alert('No se pudo reproducir el audio. Puede que no esté disponible para esta conversación.');
+      setIsPlaying(null);
+      setIsPaused(false);
+    };
+
+    audio.onended = () => {
+      setIsPlaying(null);
+      setIsPaused(false);
+    };
+
+    audio.play().then(() => {
+      setIsPlaying(conversationId);
+      setIsPaused(false);
+      console.log('Audio reproduciéndose correctamente');
+    }).catch((error) => {
+      console.error('Error reproduciendo audio:', error);
+      alert(`🎵 AUDIO DE GRABACIÓN\n\n⚠️ No se pudo reproducir el audio\n\nPuede que no esté disponible para esta conversación.`);
+      setIsPlaying(null);
+      setIsPaused(false);
+    });
+  };
+
+  const handlePauseAudio = () => {
+    if (audioRef.current && isPlaying) {
+      audioRef.current.pause();
+      setIsPaused(true);
+    }
+  };
+
+  const handleStopAudio = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      setIsPlaying(null);
+      setIsPaused(false);
+    }
+  };
+
   // ===== Lógica de acciones =====
   const handleAction = (action: ActionId, c: Conversation) => {
   switch (action) {
@@ -215,16 +284,18 @@ Los datos se han recuperado correctamente.`);
         break; 
       }
       
-        // Reproducir audio usando query params
-        const audioUrl = `/api/get-audio?id=${c.conversation_id}`;
-        const audio = new Audio(audioUrl);
-        
-        audio.play().then(() => {
-          console.log('Audio reproduciéndose correctamente');
-        }).catch((error) => {
-          console.error('Error reproduciendo audio:', error);
-          alert(`🎵 AUDIO DE GRABACIÓN\n\n⚠️ No se pudo reproducir el audio\n\nPuede que no esté disponible para esta conversación.`);
-        });
+      // Si ya está reproduciéndose, pausar
+      if (isPlaying === c.conversation_id) {
+        handlePauseAudio();
+      } else {
+        // Si está pausado, reanudar
+        if (isPaused && isPlaying === c.conversation_id) {
+          handlePlayAudio(c.conversation_id);
+        } else {
+          // Reproducir nuevo audio
+          handlePlayAudio(c.conversation_id);
+        }
+      }
       break;
     }
     case "resumen": {
@@ -456,6 +527,11 @@ ${c.summary ? c.summary.substring(0, 200) + (c.summary.length > 200 ? "..." : ""
             onToggleMenu={() => setOpenMenuId(
               openMenuId === c.conversation_id ? null : (c.conversation_id || null)
             )}
+            isPlaying={isPlaying === c.conversation_id}
+            isPaused={isPaused}
+            onPlay={() => handlePlayAudio(c.conversation_id!)}
+            onPause={handlePauseAudio}
+            onStop={handleStopAudio}
           />
         ))}
       </div>
@@ -496,12 +572,22 @@ function ConversationCard({
   c, 
   onAction, 
   isMenuOpen, 
-  onToggleMenu 
+  onToggleMenu,
+  isPlaying,
+  isPaused,
+  onPlay,
+  onPause,
+  onStop
 }: { 
   c: Conversation; 
   onAction: (a: ActionId) => void;
   isMenuOpen: boolean;
   onToggleMenu: () => void;
+  isPlaying: boolean;
+  isPaused: boolean;
+  onPlay: () => void;
+  onPause: () => void;
+  onStop: () => void;
 }) {
   // Lógica corregida: solo uno de los estados
   const isSuccessful = c.call_successful === "true";
@@ -557,14 +643,39 @@ function ConversationCard({
         </div>
       </div>
 
-      {/* Botón de reproducir audio */}
-      <button
-        title="Reproducir grabación"
-        className="grid h-10 w-10 place-items-center rounded-full bg-red-500 text-white hover:bg-red-600 transition-colors"
-        onClick={() => onAction("audio")}
-      >
-        <Play className="h-4 w-4"/>
-      </button>
+      {/* Controles de audio */}
+      <div className="flex items-center gap-1">
+        {/* Botón Play/Pause */}
+        <button
+          title={isPlaying ? "Pausar audio" : "Reproducir audio"}
+          className={`grid h-10 w-10 place-items-center rounded-full text-white transition-colors ${
+            isPlaying
+              ? 'bg-orange-500 hover:bg-orange-600'
+              : 'bg-green-500 hover:bg-green-600'
+          }`}
+          onClick={isPlaying ? onPause : onPlay}
+        >
+          {isPlaying ? (
+            <Pause className="h-4 w-4"/>
+          ) : (
+            <Play className="h-4 w-4"/>
+          )}
+        </button>
+
+        {/* Botón Stop */}
+        <button
+          title="Detener audio"
+          className={`grid h-10 w-10 place-items-center rounded-full text-white transition-colors ${
+            isPlaying || isPaused
+              ? 'bg-red-500 hover:bg-red-600'
+              : 'bg-gray-400 cursor-not-allowed'
+          }`}
+          onClick={onStop}
+          disabled={!isPlaying && !isPaused}
+        >
+          <Square className="h-4 w-4"/>
+        </button>
+      </div>
 
       {/* Menú de tres puntos */}
       <MoreMenu 

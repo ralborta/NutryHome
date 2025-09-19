@@ -205,6 +205,31 @@ export default function Conversations() {
     console.log('Reproduciendo grabación:', conversationId);
   };
 
+  // Función para manejar audio de ElevenLabs
+  const handlePlayElevenLabsAudio = (conversationId: string) => {
+    if (isPlaying === conversationId) {
+      // Si está reproduciéndose, pausar
+      setIsPlaying(null);
+      // Aquí podrías agregar lógica para pausar el audio si es necesario
+    } else {
+      // Si no está reproduciéndose, reproducir
+      setIsPlaying(conversationId);
+      console.log('Reproduciendo audio ElevenLabs:', conversationId);
+      
+      // Reproducir audio usando la API
+      const audioUrl = `/api/get-audio?id=${conversationId}`;
+      const audio = new Audio(audioUrl);
+      
+      audio.play().then(() => {
+        console.log('Audio ElevenLabs reproduciéndose correctamente');
+      }).catch((error) => {
+        console.error('Error reproduciendo audio ElevenLabs:', error);
+        alert('No se pudo reproducir el audio. Puede que no esté disponible para esta conversación.');
+        setIsPlaying(null);
+      });
+    }
+  };
+
   // Cargar conversaciones de Isabela desde ElevenLabs
   useEffect(() => {
     const fetchIsabelaConversations = async () => {
@@ -519,11 +544,26 @@ export default function Conversations() {
 
                 {/* Right side - Actions */}
                 <div className="flex items-center space-x-3 ml-6">
-                  {/* Recording Play Button */}
+                  {/* Recording Play Button - para grabaciones locales */}
                   {conversation.recordingUrl && (
                     <button
                       onClick={() => handlePlayRecording(conversation.id)}
                       className="w-12 h-12 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center text-white shadow-lg hover:shadow-xl transition-all duration-200"
+                    >
+                      {isPlaying === conversation.id ? (
+                        <Pause className="w-5 h-5" />
+                      ) : (
+                        <Play className="w-5 h-5 ml-1" />
+                      )}
+                    </button>
+                  )}
+
+                  {/* Audio Button - para conversaciones de Isabela (ElevenLabs) */}
+                  {activeTab === 'isabela' && conversation.id && (
+                    <button
+                      onClick={() => handlePlayElevenLabsAudio(conversation.id)}
+                      className="w-12 h-12 bg-blue-500 hover:bg-blue-600 rounded-full flex items-center justify-center text-white shadow-lg hover:shadow-xl transition-all duration-200"
+                      title="Reproducir audio de la conversación"
                     >
                       {isPlaying === conversation.id ? (
                         <Pause className="w-5 h-5" />

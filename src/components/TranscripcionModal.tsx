@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { X, MessageSquare, User, Bot, Loader2 } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, MessageSquare, User, Bot, Loader2, Play, Pause, Square } from 'lucide-react';
 
 interface Conversation {
   conversation_id?: string;
@@ -24,6 +24,9 @@ const TranscripcionModal: React.FC<TranscripcionModalProps> = ({
   const [transcript, setTranscript] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [audioError, setAudioError] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     if (isOpen && conversation?.conversation_id) {
@@ -78,6 +81,66 @@ const TranscripcionModal: React.FC<TranscripcionModalProps> = ({
     });
   };
 
+  // Nuevas funciones de control de audio
+  const handlePlay = () => {
+    if (!conversation?.conversation_id) return;
+    
+    setAudioError(false);
+    console.log(`[Modal] Playing audio for: ${conversation.conversation_id}`);
+    
+    // Si ya hay un audio reproduciéndose, reanudar
+    if (audioRef.current && isPaused) {
+      audioRef.current.play().then(() => {
+        setIsPlaying(true);
+        setIsPaused(false);
+      }).catch(err => {
+        console.error('[Modal] Audio resume error:', err);
+        setAudioError(true);
+      });
+      return;
+    }
+    
+    // Crear nuevo audio
+    const audio = new Audio(`/api/get-audio?id=${conversation.conversation_id}`);
+    audioRef.current = audio;
+    
+    audio.onerror = () => {
+      console.error('[Modal] Audio playback error');
+      setAudioError(true);
+      alert('No se pudo reproducir el audio. Puede que no esté disponible.');
+    };
+    
+    audio.onended = () => {
+      setIsPlaying(false);
+      setIsPaused(false);
+    };
+    
+    audio.play().then(() => {
+      setIsPlaying(true);
+      setIsPaused(false);
+    }).catch(err => {
+      console.error('[Modal] Audio play error:', err);
+      setAudioError(true);
+    });
+  };
+
+  const handlePause = () => {
+    if (audioRef.current && isPlaying) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+      setIsPaused(true);
+    }
+  };
+
+  const handleStop = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      setIsPlaying(false);
+      setIsPaused(false);
+    }
+  };
+
   if (!isOpen || !conversation) return null;
   
   // Función para renderizar el contenido del transcript
@@ -125,22 +188,45 @@ const TranscripcionModal: React.FC<TranscripcionModalProps> = ({
               Conversación ID: {conversation.conversation_id}
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            {/* Botón de Audio */}
-            <button
-              onClick={playAudio}
-              disabled={audioError}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
-                audioError 
-                  ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
-                  : 'bg-blue-500 text-white hover:bg-blue-600'
-              }`}
-            >
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.617.793L5.5 13H3a1 1 0 01-1-1V8a1 1 0 011-1h2.5l2.883-3.793a1 1 0 011.617.793zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z" clipRule="evenodd" />
-              </svg>
-              {audioError ? 'Audio no disponible' : 'Audio'}
-            </button>
+          <div className="flex items-center gap-2">
+            {/* Controles de Audio */}
+            <div className="flex items-center gap-1">
+              {/* Botón Play/Pause */}
+              <button
+                onClick={isPlaying ? handlePause : handlePlay}
+                disabled={audioError}
+                className={`flex items-center gap-1 px-3 py-2 rounded-lg transition-colors ${
+                  audioError 
+                    ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
+                    : isPlaying
+                    ? 'bg-orange-500 text-white hover:bg-orange-600'
+                    : 'bg-green-500 text-white hover:bg-green-600'
+                }`}
+                title={isPlaying ? 'Pausar audio' : 'Reproducir audio'}
+              >
+                {isPlaying ? (
+                  <Pause className="w-4 h-4" />
+                ) : (
+                  <Play className="w-4 h-4" />
+                )}
+                {audioError ? 'Error' : isPlaying ? 'Pausar' : 'Play'}
+              </button>
+
+              {/* Botón Stop */}
+              <button
+                onClick={handleStop}
+                disabled={audioError || (!isPlaying && !isPaused)}
+                className={`flex items-center gap-1 px-3 py-2 rounded-lg transition-colors ${
+                  audioError || (!isPlaying && !isPaused)
+                    ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
+                    : 'bg-red-500 text-white hover:bg-red-600'
+                }`}
+                title="Detener audio"
+              >
+                <Square className="w-4 h-4" />
+                Stop
+              </button>
+            </div>
             <button
               onClick={onClose}
               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
