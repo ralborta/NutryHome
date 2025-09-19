@@ -321,10 +321,10 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-xl font-semibold text-gray-900">
-                    Razones de Derivación
+                    Pacientes de Seguimiento
                   </h2>
                   <p className="text-sm text-gray-500 mt-1">
-                    Top 5 motivos de derivación
+                    Total de pacientes en seguimiento nutricional
                   </p>
                 </div>
                 <div className="flex items-center space-x-2">

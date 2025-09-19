@@ -16,24 +16,8 @@ export default function DerivationsChart({ data = [] }: DerivationsChartProps) {
     const derivations: { [key: string]: number } = {};
     
     data.forEach(conv => {
-      // Extraer motivo de derivación del summary
-      const summary = conv.summary || '';
-      let motivo = 'Consulta General';
-      
-      if (summary.toLowerCase().includes('nutrición') || summary.toLowerCase().includes('aliment')) {
-        motivo = 'Consulta Nutricional';
-      } else if (summary.toLowerCase().includes('cita') || summary.toLowerCase().includes('turno')) {
-        motivo = 'Solicitud de Cita';
-      } else if (summary.toLowerCase().includes('precio') || summary.toLowerCase().includes('costo')) {
-        motivo = 'Consulta de Precios';
-      } else if (summary.toLowerCase().includes('información') || summary.toLowerCase().includes('info')) {
-        motivo = 'Información General';
-      } else if (summary.toLowerCase().includes('reclamo') || summary.toLowerCase().includes('queja')) {
-        motivo = 'Reclamo';
-      } else if (summary.toLowerCase().includes('soporte') || summary.toLowerCase().includes('ayuda')) {
-        motivo = 'Soporte Técnico';
-      }
-      
+      // Todos son pacientes de seguimiento nutricional
+      const motivo = 'Pacientes de Seguimiento';
       derivations[motivo] = (derivations[motivo] || 0) + 1;
     });
 
@@ -95,7 +79,7 @@ export default function DerivationsChart({ data = [] }: DerivationsChartProps) {
                 boxShadow: '0 4px 25px -5px rgba(0, 0, 0, 0.1)',
               }}
               formatter={(value: any, name: any) => [
-                `${value} derivaciones`,
+                `${value} pacientes`,
                 'Cantidad'
               ]}
             />
@@ -134,7 +118,7 @@ export default function DerivationsChart({ data = [] }: DerivationsChartProps) {
                 boxShadow: '0 4px 25px -5px rgba(0, 0, 0, 0.1)',
               }}
               formatter={(value: any, name: any) => [
-                `${value} derivaciones`,
+                `${value} pacientes`,
                 name
               ]}
             />
@@ -148,19 +132,19 @@ export default function DerivationsChart({ data = [] }: DerivationsChartProps) {
           <p className="text-2xl font-bold text-primary-600">
             {derivationsData.reduce((sum, item) => sum + item.value, 0)}
           </p>
-          <p className="text-sm text-gray-600">Total Derivaciones</p>
+          <p className="text-sm text-gray-600">Total Pacientes</p>
         </div>
         <div className="text-center p-3 bg-warning-50 rounded-lg">
           <p className="text-2xl font-bold text-warning-600">
             {Math.max(...derivationsData.map(item => item.value))}
           </p>
-          <p className="text-sm text-gray-600">Máximo por Motivo</p>
+          <p className="text-sm text-gray-600">En Seguimiento</p>
         </div>
       </div>
 
-      {/* Lista de motivos */}
+      {/* Lista de pacientes */}
       <div className="space-y-2">
-        <h4 className="text-sm font-semibold text-gray-700 mb-3">Distribución por Motivo</h4>
+        <h4 className="text-sm font-semibold text-gray-700 mb-3">Distribución de Pacientes</h4>
         {derivationsData.map((item, index) => (
           <div key={item.name} className="flex items-center justify-between">
             <div className="flex items-center">
