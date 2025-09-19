@@ -126,20 +126,6 @@ export default function LoginForm() {
             </button>
           </form>
 
-          {/* Credenciales de prueba */}
-          <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-            <p className="text-sm text-blue-800 font-medium text-center mb-2">
-              Credenciales de prueba:
-            </p>
-            <div className="text-center">
-              <p className="text-sm text-blue-700">
-                <span className="font-semibold">Usuario:</span> admin
-              </p>
-              <p className="text-sm text-blue-700">
-                <span className="font-semibold">Contraseña:</span> admin
-              </p>
-            </div>
-          </div>
         </div>
 
         {/* Footer */}
