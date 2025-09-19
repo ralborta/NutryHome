@@ -131,7 +131,7 @@ export default function LoginForm() {
         {/* Footer */}
         <div className="text-center mt-8">
           <p className="text-xs text-gray-500">
-            NutriHome v1.0.0 - © 2024 Todos los derechos reservados
+            NutriHome v3.5.1 - © 2025 IAsolutions - Todos los derechos reservados
           </p>
         </div>
       </div>

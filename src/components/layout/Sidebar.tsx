@@ -185,10 +185,10 @@ export default function Sidebar() {
         <div className="p-4 border-t border-gray-200 bg-gray-50">
           <div className="text-center">
             <p className="text-xs text-gray-600 font-medium">
-              NutriHome v1.0.0
+              NutriHome v3.5.1
             </p>
             <p className="text-xs text-gray-400 mt-1">
-              © 2024 Todos los derechos reservados
+              © 2025 IAsolutions - Todos los derechos reservados
             </p>
           </div>
         </div>
