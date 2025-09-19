@@ -50,6 +50,28 @@ interface StatsData {
   conversations: Conversation[];
 }
 
+// Función para extraer nombre del cliente del summary
+const extractNameFromSummary = (summary: string): string | null => {
+  if (!summary) return null;
+  
+  // Buscar patrones comunes en el summary
+  const patterns = [
+    /contacted\s+([A-Za-z\s]+?)\s+regarding/i,  // "contacted Carlos Perez regarding"
+    /Hola soy\s+([A-Za-z\s]+?)\s+de/i,          // "Hola soy [Nombre] de"
+    /cliente\s+([A-Za-z\s]+?)\s+sobre/i,        // "cliente [Nombre] sobre"
+    /([A-Z][a-z]+\s+[A-Z][a-z]+)/g              // Cualquier "Nombre Apellido"
+  ];
+  
+  for (const pattern of patterns) {
+    const match = summary.match(pattern);
+    if (match && match[1]) {
+      return match[1].trim();
+    }
+  }
+  
+  return null;
+};
+
 export default function ConversacionesPage() {
   return <ConversacionesUI/>;
 }
@@ -193,7 +215,7 @@ Los datos se han recuperado correctamente.`);
             conversation_id: c.conversation_id,
             summary: c.summary ?? '',
             start_time_unix_secs: c.start_time_unix_secs ?? (c.createdAt ? Math.floor(new Date(c.createdAt).getTime()/1000) : undefined),
-            nombre_paciente: c.nombre_paciente ?? 'Cliente NutryHome',
+            nombre_paciente: extractNameFromSummary(c.summary) || 'Sin nombre',
             telefono_destino: c.telefono_destino ?? 'N/A',
             call_duration_secs: c.call_duration_secs ?? 0,
             status: c.status ?? 'completed',
