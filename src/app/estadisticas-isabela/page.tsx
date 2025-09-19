@@ -123,7 +123,7 @@ function ConversacionesUI() {
           transcript: c.transcript,
           hasTranscript: c.hasTranscript,
           hasAudio: c.hasAudio,
-        });
+        },
         }),
       };
 
