@@ -12,67 +12,58 @@ interface Call {
   duracion: number;
   fecha: string;
   status: string;
+  nombre_paciente?: string;
+  summary?: string;
   _count: {
     derivations: number;
     complaints: number;
   };
 }
 
-export default function RecentCalls() {
+interface RecentCallsProps {
+  data?: Array<{
+    conversation_id: string;
+    telefono_destino?: string;
+    nombre_paciente?: string;
+    created_at: string;
+    summary?: string;
+    duration?: number;
+    [key: string]: any;
+  }>;
+}
+
+export default function RecentCalls({ data = [] }: RecentCallsProps) {
   const [calls, setCalls] = useState<Call[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    fetchRecentCalls();
-  }, []);
+    processCallsData();
+  }, [data]);
 
-  const fetchRecentCalls = async () => {
-    try {
-      setLoading(true);
-      const response = await apiClient.get('/api/calls', {
-        params: {
-          page: 1,
-          limit: 5,
-          sortBy: 'createdAt',
-          sortOrder: 'desc',
+  const processCallsData = () => {
+    setLoading(true);
+    
+    // Procesar datos de Isabela
+    const processedCalls = data
+      .slice(0, 5) // Solo las 5 más recientes
+      .map((conv, index) => ({
+        id: conv.conversation_id || `conv-${index}`,
+        callId: `ISABELA-${conv.conversation_id?.slice(-6) || index + 1}`,
+        telefono: conv.telefono_destino || 'Sin teléfono',
+        duracion: conv.duration || 0,
+        fecha: conv.created_at,
+        status: 'ACTIVE',
+        nombre_paciente: conv.nombre_paciente || 'Sin nombre',
+        summary: conv.summary || '',
+        _count: {
+          derivations: conv.summary?.toLowerCase().includes('derivar') ? 1 : 0,
+          complaints: conv.summary?.toLowerCase().includes('reclamo') ? 1 : 0,
         },
-      });
-      setCalls(response.data.data.calls);
-    } catch (error) {
-      console.error('Error fetching recent calls:', error);
-      // Datos de ejemplo si hay error
-      setCalls([
-        {
-          id: '1',
-          callId: 'CALL001',
-          telefono: '+5491137710010',
-          duracion: 180,
-          fecha: '2024-01-15T10:00:00.000Z',
-          status: 'ACTIVE',
-          _count: { derivations: 1, complaints: 0 },
-        },
-        {
-          id: '2',
-          callId: 'CALL002',
-          telefono: '+5491145623789',
-          duracion: 240,
-          fecha: '2024-01-15T09:00:00.000Z',
-          status: 'ACTIVE',
-          _count: { derivations: 0, complaints: 1 },
-        },
-        {
-          id: '3',
-          callId: 'CALL003',
-          telefono: '+5491156345678',
-          duracion: 120,
-          fecha: '2024-01-15T08:00:00.000Z',
-          status: 'ACTIVE',
-          _count: { derivations: 2, complaints: 0 },
-        },
-      ]);
-    } finally {
-      setLoading(false);
-    }
+      }))
+      .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+
+    setCalls(processedCalls);
+    setLoading(false);
   };
 
   const formatDuration = (seconds: number) => {
@@ -129,7 +120,7 @@ export default function RecentCalls() {
               <div className="flex items-center space-x-4 mt-1">
                 <div className="flex items-center space-x-1 text-xs text-gray-500">
                   <User className="h-3 w-3" />
-                  <span>{call.telefono}</span>
+                  <span>{call.nombre_paciente || call.telefono}</span>
                 </div>
                 <div className="flex items-center space-x-1 text-xs text-gray-500">
                   <Clock className="h-3 w-3" />

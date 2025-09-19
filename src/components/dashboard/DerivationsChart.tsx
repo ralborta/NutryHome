@@ -2,25 +2,60 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
 
-// Datos de ejemplo para derivaciones
-const derivationsData = [
-  { name: 'Consulta Técnica', value: 45, color: '#3b82f6' },
-  { name: 'Facturación', value: 32, color: '#10b981' },
-  { name: 'Soporte', value: 28, color: '#f59e0b' },
-  { name: 'Reclamo', value: 22, color: '#ef4444' },
-  { name: 'Información', value: 18, color: '#8b5cf6' },
-  { name: 'Otros', value: 15, color: '#06b6d4' },
-];
+interface DerivationsChartProps {
+  data?: Array<{
+    summary?: string;
+    variables?: any;
+    [key: string]: any;
+  }>;
+}
 
-const barData = [
-  { motivo: 'Consulta Técnica', cantidad: 45, porcentaje: 28 },
-  { motivo: 'Facturación', cantidad: 32, porcentaje: 20 },
-  { motivo: 'Soporte', cantidad: 28, porcentaje: 18 },
-  { motivo: 'Reclamo', cantidad: 22, porcentaje: 14 },
-  { motivo: 'Información', cantidad: 18, porcentaje: 11 },
-];
+export default function DerivationsChart({ data = [] }: DerivationsChartProps) {
+  // Procesar datos reales para derivaciones
+  const processDerivationsData = () => {
+    const derivations: { [key: string]: number } = {};
+    
+    data.forEach(conv => {
+      // Extraer motivo de derivación del summary
+      const summary = conv.summary || '';
+      let motivo = 'Consulta General';
+      
+      if (summary.toLowerCase().includes('nutrición') || summary.toLowerCase().includes('aliment')) {
+        motivo = 'Consulta Nutricional';
+      } else if (summary.toLowerCase().includes('cita') || summary.toLowerCase().includes('turno')) {
+        motivo = 'Solicitud de Cita';
+      } else if (summary.toLowerCase().includes('precio') || summary.toLowerCase().includes('costo')) {
+        motivo = 'Consulta de Precios';
+      } else if (summary.toLowerCase().includes('información') || summary.toLowerCase().includes('info')) {
+        motivo = 'Información General';
+      } else if (summary.toLowerCase().includes('reclamo') || summary.toLowerCase().includes('queja')) {
+        motivo = 'Reclamo';
+      } else if (summary.toLowerCase().includes('soporte') || summary.toLowerCase().includes('ayuda')) {
+        motivo = 'Soporte Técnico';
+      }
+      
+      derivations[motivo] = (derivations[motivo] || 0) + 1;
+    });
 
-export default function DerivationsChart() {
+    // Convertir a array y ordenar
+    const derivationsArray = Object.entries(derivations)
+      .map(([name, value], index) => ({
+        name,
+        value,
+        color: COLORS[index % COLORS.length]
+      }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 6); // Top 6
+
+    return derivationsArray;
+  };
+
+  const derivationsData = processDerivationsData();
+  const barData = derivationsData.map(item => ({
+    motivo: item.name,
+    cantidad: item.value,
+    porcentaje: Math.round((item.value / derivationsData.reduce((sum, i) => sum + i.value, 0)) * 100)
+  }));
   return (
     <div className="space-y-6">
       {/* Gráfico de barras */}

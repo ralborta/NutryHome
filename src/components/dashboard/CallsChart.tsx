@@ -11,26 +11,37 @@ interface CallsChartProps {
 }
 
 export default function CallsChart({ data = [] }: CallsChartProps) {
-  // Formatear datos para el gráfico
-  const chartData = data.map(item => {
+  // Agrupar datos por día
+  const groupedData: { [key: string]: number } = {};
+  
+  data.forEach(item => {
     const safeDate = createDateSafe(item.fecha);
-    return {
-      fecha: safeDate ? format(safeDate, 'dd/MM', { locale: es }) : 'N/A',
-      llamadas: item.cantidad,
-      originalDate: item.fecha,
-    };
+    if (safeDate) {
+      const dayKey = format(safeDate, 'yyyy-MM-dd');
+      groupedData[dayKey] = (groupedData[dayKey] || 0) + item.cantidad;
+    }
   });
+
+  // Convertir a array y formatear
+  const chartData = Object.entries(groupedData).map(([dateKey, cantidad]) => {
+    const date = new Date(dateKey);
+    return {
+      fecha: format(date, 'dd/MM', { locale: es }),
+      llamadas: cantidad,
+      originalDate: dateKey,
+    };
+  }).sort((a, b) => new Date(a.originalDate).getTime() - new Date(b.originalDate).getTime());
 
   // Si no hay datos, mostrar datos de ejemplo
   if (chartData.length === 0) {
     const exampleData = [];
     for (let i = 6; i >= 0; i--) {
-      const baseDate = new Date('2024-01-15');
+      const baseDate = new Date();
       const date = new Date(baseDate);
       date.setDate(date.getDate() - i);
       exampleData.push({
         fecha: format(date, 'dd/MM', { locale: es }),
-        llamadas: Math.floor(Math.random() * 50) + 10,
+        llamadas: Math.floor(Math.random() * 10) + 1,
         originalDate: date.toISOString(),
       });
     }

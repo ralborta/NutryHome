@@ -27,6 +27,26 @@ export default function DashboardPage() {
   const [currentDate, setCurrentDate] = useState<string>('');
   const [mounted, setMounted] = useState(false);
 
+  // Cargar estadísticas de Isabela
+  useEffect(() => {
+    const fetchIsabelaStats = async () => {
+      try {
+        setIsabelaLoading(true);
+        const response = await fetch('/api/estadisticas-isabela');
+        if (response.ok) {
+          const data = await response.json();
+          setIsabelaStats(data);
+        }
+      } catch (error) {
+        console.error('Error fetching Isabela stats:', error);
+      } finally {
+        setIsabelaLoading(false);
+      }
+    };
+
+    fetchIsabelaStats();
+  }, []);
+
   // Evitar hydration mismatch
   useEffect(() => {
     setMounted(true);
@@ -160,6 +180,29 @@ export default function DashboardPage() {
                 <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                   Agente Activo
                 </span>
+                <button 
+                  onClick={() => {
+                    const fetchIsabelaStats = async () => {
+                      try {
+                        setIsabelaLoading(true);
+                        const response = await fetch('/api/estadisticas-isabela');
+                        if (response.ok) {
+                          const data = await response.json();
+                          setIsabelaStats(data);
+                        }
+                      } catch (error) {
+                        console.error('Error fetching Isabela stats:', error);
+                      } finally {
+                        setIsabelaLoading(false);
+                      }
+                    };
+                    fetchIsabelaStats();
+                  }}
+                  disabled={isabelaLoading}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  <RefreshCw className={`h-4 w-4 text-gray-600 ${isabelaLoading ? 'animate-spin' : ''}`} />
+                </button>
               </div>
             </div>
           </div>
@@ -173,7 +216,9 @@ export default function DashboardPage() {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-blue-600">Total de Llamadas</p>
-                    <p className="text-2xl font-bold text-blue-900">--</p>
+                    <p className="text-2xl font-bold text-blue-900">
+                      {isabelaLoading ? '...' : (isabelaStats?.total_calls || 0)}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -186,7 +231,9 @@ export default function DashboardPage() {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-green-600">Tiempo Total</p>
-                    <p className="text-2xl font-bold text-green-900">-- min</p>
+                    <p className="text-2xl font-bold text-green-900">
+                      {isabelaLoading ? '...' : `${isabelaStats?.total_minutes || 0} min`}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -198,8 +245,10 @@ export default function DashboardPage() {
                     <TrendingUp className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-purple-600">Tasa de Éxito</p>
-                    <p className="text-2xl font-bold text-purple-900">--%</p>
+                    <p className="text-sm font-medium text-purple-600">Conversaciones</p>
+                    <p className="text-2xl font-bold text-purple-900">
+                      {isabelaLoading ? '...' : (isabelaStats?.conversations?.length || 0)}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -212,7 +261,13 @@ export default function DashboardPage() {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-cyan-600">Duración Promedio</p>
-                    <p className="text-2xl font-bold text-cyan-900">-- min</p>
+                    <p className="text-2xl font-bold text-cyan-900">
+                      {isabelaLoading ? '...' : 
+                        isabelaStats?.conversations?.length > 0 
+                          ? `${Math.round((isabelaStats.total_minutes || 0) / isabelaStats.conversations.length)} min`
+                          : '0 min'
+                      }
+                    </p>
                   </div>
                 </div>
               </div>
@@ -249,7 +304,10 @@ export default function DashboardPage() {
               </div>
             </div>
             <div className="p-6">
-              <CallsChart />
+              <CallsChart data={isabelaStats?.conversations?.map((conv: any) => ({
+                fecha: conv.created_at,
+                cantidad: 1
+              })) || []} />
             </div>
           </motion.div>
 
@@ -280,7 +338,7 @@ export default function DashboardPage() {
               </div>
             </div>
             <div className="p-6">
-              <DerivationsChart />
+              <DerivationsChart data={isabelaStats?.conversations || []} />
             </div>
           </motion.div>
         </div>
@@ -300,7 +358,7 @@ export default function DashboardPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.9 }}
         >
-          <RecentCalls />
+          <RecentCalls data={isabelaStats?.conversations || []} />
         </motion.div>
       </div>
     </div>
