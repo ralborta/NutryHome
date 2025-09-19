@@ -167,8 +167,36 @@ function ConversacionesUI() {
 
 Los datos se han recuperado correctamente.`);
       
-      // Refrescar los datos
-      await fetchStats();
+      // Mostrar los datos recuperados directamente
+      if (result.results.conversations && result.results.conversations.length > 0) {
+        const adaptedData = {
+          total_calls: result.results.conversations.length,
+          total_minutes: Math.floor(result.results.conversations.reduce((acc: number, c: any) => acc + (c.call_duration_secs || 0), 0) / 60),
+          conversations: result.results.conversations.map((c: any) => ({
+            conversation_id: c.conversation_id,
+            summary: c.summary ?? '',
+            start_time_unix_secs: c.start_time_unix_secs ?? (c.createdAt ? Math.floor(new Date(c.createdAt).getTime()/1000) : undefined),
+            nombre_paciente: c.nombre_paciente ?? 'Cliente NutryHome',
+            telefono_destino: c.telefono_destino ?? 'N/A',
+            call_duration_secs: c.call_duration_secs ?? 0,
+            status: c.status ?? 'completed',
+            producto: c.producto ?? 'NutryHome',
+            agent_name: c.agent_name ?? 'Isabela',
+            agent_id: c.agent_id,
+            message_count: c.message_count ?? 0,
+            call_successful: c.call_successful ?? 'true',
+            resultado: c.resultado ?? 'Completada',
+            rating: c.rating ?? null,
+            transcript: c.transcript,
+            hasTranscript: c.hasTranscript,
+            hasAudio: c.hasAudio,
+          }))
+        };
+        setData(adaptedData);
+      } else {
+        // Si no hay datos recuperados, intentar cargar desde el endpoint
+        await fetchStats();
+      }
       
     } catch (error) {
       console.error('❌ Recovery error:', error);
