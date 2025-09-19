@@ -594,10 +594,8 @@ function ConversationCard({
   const isSuccessful = c.call_successful === "true";
   const isFailed = c.call_successful === "false";
   
-  // Obtener nombre real del contacto o fallback
-  const displayName = c.nombre_paciente && c.nombre_paciente !== "Cliente NutryHome" 
-    ? c.nombre_paciente 
-    : "Sin nombre";
+  // Usar directamente el nombre que ya viene procesado desde la API
+  const displayName = c.nombre_paciente || "Sin nombre";
 
   return (
     <div className="flex items-center gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm hover:shadow-md transition-shadow">
@@ -635,7 +633,7 @@ function ConversationCard({
             <Clock3 className="h-4 w-4"/>
             {formatDuration(c.call_duration_secs || 0)}
           </span>
-          {c.telefono_destino && c.telefono_destino !== "N/A" && (
+          {c.telefono_destino && c.telefono_destino !== "Sin teléfono" && (
             <span className="flex items-center gap-1">
               <Phone className="h-4 w-4"/>
               {c.telefono_destino}
