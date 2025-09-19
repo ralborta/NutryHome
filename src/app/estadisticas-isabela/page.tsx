@@ -139,13 +139,10 @@ function ConversacionesUI() {
       setLoading(true);
       setError(null);
 
-      // Usar el nuevo endpoint de conversaciones a través del proxy de Next.js
-      const url = `/api/conversations?limit=50&ts=${Date.now()}`;
-
-      const res = await fetch(url, {
-        cache: 'no-store',
-        headers: { 'accept': 'application/json' },
+      // Usar el mismo endpoint que funciona en Conversaciones
+      const res = await fetch('/api/estadisticas-isabela', {
         signal: abortRef.current.signal,
+        headers: { 'Content-Type': 'application/json' }
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
@@ -234,6 +231,13 @@ function ConversacionesUI() {
       const result = await response.json();
       console.log('✅ Recovery completed:', result);
       
+      // Debug: ver estructura de una conversación individual
+      if (result.results?.conversations?.[0]) {
+        console.log('🔍 Estructura de conversación individual:', result.results.conversations[0]);
+        console.log('🔍 Variables de la conversación:', result.results.conversations[0].variables);
+        console.log('🔍 Todos los campos disponibles:', Object.keys(result.results.conversations[0]));
+      }
+      
       // Mostrar resultados
       alert(`🔄 RECUPERACIÓN COMPLETADA:
       
@@ -253,8 +257,8 @@ Los datos se han recuperado correctamente.`);
             conversation_id: c.conversation_id,
             summary: c.summary ?? '',
             start_time_unix_secs: c.start_time_unix_secs ?? (c.createdAt ? Math.floor(new Date(c.createdAt).getTime()/1000) : undefined),
-            nombre_paciente: extractNameFromSummary(c.summary) || 'Nombre del Paciente',
-            telefono_destino: extractPhoneFromSummary(c.summary) || c.telefono_destino || 'Teléfono del Paciente',
+            nombre_paciente: c.nombre_paciente || "Sin nombre",
+            telefono_destino: c.telefono_destino || 'Sin teléfono',
             call_duration_secs: c.call_duration_secs ?? 0,
             status: c.status ?? 'completed',
             producto: c.producto ?? 'NutryHome',
