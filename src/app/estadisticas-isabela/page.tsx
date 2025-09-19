@@ -602,8 +602,10 @@ function ConversationCard({
   const isSuccessful = c.call_successful === "true";
   const isFailed = c.call_successful === "false";
   
-  // Usar directamente el nombre que ya viene procesado desde la API
-  const displayName = c.nombre_paciente || "Sin nombre";
+  // Replicar la misma lógica que funciona en conversaciones
+  const displayName = c.nombre_paciente && c.nombre_paciente !== "Cliente NutryHome" 
+    ? c.nombre_paciente 
+    : "Sin nombre";
 
   return (
     <div className="flex items-center gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm hover:shadow-md transition-shadow">
