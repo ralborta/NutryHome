@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useAuthStore } from '@/store/authStore';
+import toast from 'react-hot-toast';
 import {
   LayoutDashboard,
   Phone,
@@ -15,7 +17,8 @@ import {
   X,
   User,
   Bell,
-  Search
+  Search,
+  LogOut
 } from 'lucide-react';
 
 const menuItems = [
@@ -54,6 +57,12 @@ const menuItems = [
 export default function Sidebar() {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const pathname = usePathname();
+  const { logout } = useAuthStore();
+
+  const handleLogout = () => {
+    logout();
+    toast.success('Sesión cerrada correctamente');
+  };
 
   return (
     <>
@@ -79,7 +88,7 @@ export default function Sidebar() {
               <Phone className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-900">NutiHome</h1>
+              <h1 className="text-xl font-bold text-gray-900">NutriHome</h1>
               <p className="text-xs text-gray-600 font-medium">Call Center</p>
             </div>
           </div>
@@ -154,13 +163,29 @@ export default function Sidebar() {
               </Link>
             );
           })}
+          
+          {/* Logout Button */}
+          <button
+            onClick={handleLogout}
+            className="w-full group flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 text-gray-700 hover:bg-red-50 hover:text-red-600 hover:shadow-md"
+          >
+            <div className="p-2 rounded-lg transition-colors bg-gray-100 group-hover:bg-red-100">
+              <LogOut className="w-5 h-5 text-gray-600 group-hover:text-red-600" />
+            </div>
+            <div className="flex-1 text-left">
+              <span className="text-sm font-semibold">Cerrar Sesión</span>
+              <p className="text-xs mt-1 text-gray-500 group-hover:text-red-500">
+                Salir del sistema
+              </p>
+            </div>
+          </button>
         </nav>
 
         {/* Footer */}
         <div className="p-4 border-t border-gray-200 bg-gray-50">
           <div className="text-center">
             <p className="text-xs text-gray-600 font-medium">
-              NutiHome v1.0.0
+              NutriHome v1.0.0
             </p>
             <p className="text-xs text-gray-400 mt-1">
               © 2024 Todos los derechos reservados

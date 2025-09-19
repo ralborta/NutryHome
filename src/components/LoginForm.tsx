@@ -1,27 +1,30 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Phone, Eye, EyeOff, Lock, User } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useAuthStore } from '@/store/authStore';
 
 export default function LoginForm() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
+  const { login } = useAuthStore();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    // Simular validación con credenciales quemadas
-    if (username === 'admin' && password === 'admin') {
+    console.log('🔐 Intentando login con:', { username, password });
+    const success = login(username, password);
+    console.log('🔐 Resultado del login:', success);
+    
+    if (success) {
       toast.success('¡Bienvenido! Iniciando sesión...');
-      // Simular delay de autenticación
+      // Pequeño delay para que se vea el toast
       setTimeout(() => {
-        router.push('/');
+        setIsLoading(false);
       }, 1000);
     } else {
       toast.error('Credenciales incorrectas. Usuario: admin, Contraseña: admin');
@@ -37,7 +40,7 @@ export default function LoginForm() {
           <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-xl mx-auto mb-4">
             <Phone className="w-10 h-10 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">NutiHome</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">NutriHome</h1>
           <p className="text-gray-600 font-medium">Dashboard de Call Center</p>
         </div>
 
@@ -142,7 +145,7 @@ export default function LoginForm() {
         {/* Footer */}
         <div className="text-center mt-8">
           <p className="text-xs text-gray-500">
-            NutiHome v1.0.0 - © 2024 Todos los derechos reservados
+            NutriHome v1.0.0 - © 2024 Todos los derechos reservados
           </p>
         </div>
       </div>

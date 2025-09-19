@@ -7,7 +7,7 @@ import ConditionalLayout from '@/components/ConditionalLayout';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'NutiHome - Dashboard de Call Center',
+  title: 'NutriHome - Dashboard de Call Center',
   description: 'Sistema de gestión de llamadas para call center con métricas en tiempo real',
 };
 
