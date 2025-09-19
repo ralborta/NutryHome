@@ -9,6 +9,7 @@ interface DashboardStatsProps {
   change?: string;
   changeType?: 'positive' | 'negative';
   isIsabela?: boolean;
+  isRealData?: boolean;
 }
 
 const colorClasses = {
@@ -64,8 +65,20 @@ export default function DashboardStats({
   change,
   changeType,
   isIsabela = false,
+  isRealData = false,
 }: DashboardStatsProps) {
   const colors = colorClasses[color];
+
+  // Formatear el valor para mostrar 0 cuando no hay datos
+  const formatValue = (val: string | number) => {
+    if (val === 0 || val === '0' || val === '0m 0s' || val === '0h 0m') {
+      return '0';
+    }
+    return val;
+  };
+
+  // Determinar si mostrar indicadores de cambio
+  const shouldShowChange = change && changeType && change !== '+0%' && change !== '-0%';
 
   return (
     <motion.div
@@ -94,12 +107,19 @@ export default function DashboardStats({
                 <Icon className={`h-6 w-6 ${colors.icon}`} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-600 mb-1">{title}</p>
-                <p className="text-2xl font-bold text-gray-900">{value}</p>
+                <div className="flex items-center gap-2 mb-1">
+                  <p className="text-sm font-medium text-gray-600">{title}</p>
+                  {isRealData && (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                      ✓ Real
+                    </span>
+                  )}
+                </div>
+                <p className="text-2xl font-bold text-gray-900">{formatValue(value)}</p>
               </div>
             </div>
           </div>
-          {!isIsabela && change && changeType && (
+          {!isIsabela && shouldShowChange && (
             <div className="flex flex-col items-end space-y-1">
               <div className={`
                 flex items-center text-sm font-semibold
@@ -125,8 +145,8 @@ export default function DashboardStats({
           )}
         </div>
         
-        {/* Progress bar - solo mostrar si no es Isabela y hay change */}
-        {!isIsabela && change && changeType && (
+        {/* Progress bar - solo mostrar si no es Isabela y hay change real */}
+        {!isIsabela && shouldShowChange && (
           <div className="mt-6">
             <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
               <span>Progreso</span>

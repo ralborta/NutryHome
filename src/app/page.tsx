@@ -58,7 +58,101 @@ export default function DashboardPage() {
     }));
   }, []);
 
-  // Datos de ejemplo para el dashboard
+  // Calcular métricas reales basadas en datos de Isabela
+  const calculateRealMetrics = () => {
+    if (!isabelaStats?.conversations || isabelaLoading) {
+      return {
+        totalCalls: 0,
+        avgDuration: '0m 0s',
+        successRate: 0,
+        derivations: 0,
+        complaints: 0,
+        totalTime: '0h 0m'
+      };
+    }
+
+    const conversations = isabelaStats.conversations;
+    const totalCalls = conversations.length;
+    
+    // Calcular duración promedio
+    const totalSeconds = conversations.reduce((acc: number, conv: any) => 
+      acc + (conv.call_duration_secs || 0), 0);
+    const avgSeconds = totalCalls > 0 ? Math.round(totalSeconds / totalCalls) : 0;
+    const avgMinutes = Math.floor(avgSeconds / 60);
+    const avgRemainingSeconds = avgSeconds % 60;
+    const avgDuration = `${avgMinutes}m ${avgRemainingSeconds}s`;
+
+    // Calcular tasa de éxito
+    const successfulCalls = conversations.filter((conv: any) => 
+      conv.call_successful === 'true').length;
+    const successRate = totalCalls > 0 ? Math.round((successfulCalls / totalCalls) * 100) : 0;
+
+    // Calcular derivaciones (buscar en resúmenes y datos de evaluación)
+    const derivations = conversations.filter((conv: any) => {
+      const summary = conv.summary?.toLowerCase() || '';
+      const evaluationData = conv.evaluation_data || {};
+      
+      // Buscar en resumen
+      const hasDerivationInSummary = summary.includes('derivar') || 
+                                   summary.includes('derivación') ||
+                                   summary.includes('derivado') ||
+                                   summary.includes('referir') ||
+                                   summary.includes('especialista');
+      
+      // Buscar en datos de evaluación
+      const hasDerivationInEvaluation = Object.values(evaluationData).some((criteria: any) => 
+        criteria && typeof criteria === 'object' && 
+        (criteria.rationale?.toLowerCase().includes('derivar') ||
+         criteria.rationale?.toLowerCase().includes('derivación') ||
+         criteria.result?.toLowerCase().includes('derivar'))
+      );
+      
+      return hasDerivationInSummary || hasDerivationInEvaluation;
+    }).length;
+
+    // Calcular reclamos (buscar en resúmenes y datos de evaluación)
+    const complaints = conversations.filter((conv: any) => {
+      const summary = conv.summary?.toLowerCase() || '';
+      const evaluationData = conv.evaluation_data || {};
+      
+      // Buscar en resumen
+      const hasComplaintInSummary = summary.includes('reclamo') || 
+                                  summary.includes('queja') ||
+                                  summary.includes('complaint') ||
+                                  summary.includes('insatisfecho') ||
+                                  summary.includes('problema') ||
+                                  summary.includes('malestar');
+      
+      // Buscar en datos de evaluación
+      const hasComplaintInEvaluation = Object.values(evaluationData).some((criteria: any) => 
+        criteria && typeof criteria === 'object' && 
+        (criteria.rationale?.toLowerCase().includes('reclamo') ||
+         criteria.rationale?.toLowerCase().includes('queja') ||
+         criteria.result?.toLowerCase().includes('reclamo'))
+      );
+      
+      return hasComplaintInSummary || hasComplaintInEvaluation;
+    }).length;
+
+    // Calcular tiempo total
+    const totalMinutes = Math.round(totalSeconds / 60);
+    const totalHours = Math.floor(totalMinutes / 60);
+    const remainingMinutes = totalMinutes % 60;
+    const totalTime = `${totalHours}h ${remainingMinutes}m`;
+
+    return {
+      totalCalls,
+      avgDuration,
+      successRate,
+      derivations,
+      complaints,
+      totalTime
+    };
+  };
+
+  const realMetrics = calculateRealMetrics();
+
+  // Datos reales para el dashboard
   const stats: Array<{
     title: string;
     value: string | number;
@@ -69,50 +163,50 @@ export default function DashboardPage() {
   }> = [
     {
       title: 'Total de Llamadas',
-      value: 1247,
+      value: realMetrics.totalCalls,
       icon: Phone,
       color: 'primary',
-      change: '+12%',
+      change: '+0%', // Por ahora estático, se puede calcular con datos históricos
       changeType: 'positive',
     },
     {
       title: 'Duración Promedio',
-      value: '4m 32s',
+      value: realMetrics.avgDuration,
       icon: Clock,
       color: 'secondary',
-      change: '+5%',
+      change: '+0%',
       changeType: 'positive',
     },
     {
       title: 'Tasa de Éxito',
-      value: '87%',
+      value: `${realMetrics.successRate}%`,
       icon: TrendingUp,
-      color: 'success',
-      change: '+8%',
+      color: realMetrics.successRate >= 80 ? 'success' : realMetrics.successRate >= 60 ? 'warning' : 'danger',
+      change: '+0%',
       changeType: 'positive',
     },
     {
       title: 'Derivaciones',
-      value: 89,
+      value: realMetrics.derivations,
       icon: AlertTriangle,
       color: 'warning',
-      change: '-3%',
+      change: '+0%',
       changeType: 'negative',
     },
     {
       title: 'Reclamos',
-      value: 23,
+      value: realMetrics.complaints,
       icon: Users,
       color: 'danger',
-      change: '-15%',
+      change: '+0%',
       changeType: 'positive',
     },
     {
       title: 'Tiempo Total',
-      value: '94h 12m',
+      value: realMetrics.totalTime,
       icon: Activity,
       color: 'info',
-      change: '+7%',
+      change: '+0%',
       changeType: 'positive',
     },
   ];
@@ -135,9 +229,29 @@ export default function DashboardPage() {
                 {mounted ? currentDate : 'Cargando...'}
               </span>
             </div>
-            <button className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-              <RefreshCw className="h-4 w-4" />
-              <span>Actualizar</span>
+            <button 
+              onClick={() => {
+                const fetchIsabelaStats = async () => {
+                  try {
+                    setIsabelaLoading(true);
+                    const response = await fetch('/api/estadisticas-isabela');
+                    if (response.ok) {
+                      const data = await response.json();
+                      setIsabelaStats(data);
+                    }
+                  } catch (error) {
+                    console.error('Error fetching Isabela stats:', error);
+                  } finally {
+                    setIsabelaLoading(false);
+                  }
+                };
+                fetchIsabelaStats();
+              }}
+              disabled={isabelaLoading}
+              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`h-4 w-4 ${isabelaLoading ? 'animate-spin' : ''}`} />
+              <span>{isabelaLoading ? 'Actualizando...' : 'Actualizar'}</span>
             </button>
           </div>
         </div>
@@ -145,7 +259,7 @@ export default function DashboardPage() {
 
       {/* Main Content */}
       <div className="p-6 space-y-6">
-        {/* Stats Grid */}
+        {/* Stats Grid - Tarjetas principales con datos reales de Isabela */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {stats.map((stat, index) => (
             <motion.div
@@ -154,7 +268,10 @@ export default function DashboardPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: index * 0.1 }}
             >
-              <DashboardStats {...stat} />
+              <DashboardStats 
+                {...stat} 
+                isRealData={!isabelaLoading && isabelaStats?.conversations?.length > 0}
+              />
             </motion.div>
           ))}
         </div>
