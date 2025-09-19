@@ -272,9 +272,14 @@ export default function Conversations() {
     
     const unixDate = fromUnixTimestamp(conv.start_time_unix_secs);
     
+    // Replicar la misma lógica que en estadisticas-isabela
+    const displayName = conv.nombre_paciente && conv.nombre_paciente !== "Cliente NutryHome" 
+      ? conv.nombre_paciente 
+      : "Sin nombre";
+    
     return {
       id: conv.conversation_id || conv.id,
-      contactName: conv.nombre_paciente || 'Sin nombre',
+      contactName: displayName,
       phoneNumber: conv.telefono_destino || 'Sin teléfono',
       date: unixDate ? unixDate.toISOString().split('T')[0] : 'N/A',
       time: unixDate ? formatTimeSafe(unixDate, { hour: '2-digit', minute: '2-digit' }) : 'N/A',
