@@ -92,10 +92,17 @@ function ConversacionesUI() {
       const json = await res.json();
 
       // ✅ El backend ya devuelve datos enriquecidos y normalizados, usar directamente
+      console.log('🔍 Datos recibidos de la API:', json.conversations?.[0]); // Debug
       const adaptedData = {
         total_calls: json.total ?? 0,
         total_minutes: Math.floor((json.conversations ?? []).reduce((acc: number, c: any) => acc + (c.call_duration_secs || 0), 0) / 60),
-        conversations: (json.conversations ?? []).map((c: any) => ({
+        conversations: (json.conversations ?? []).map((c: any) => {
+          console.log('🔍 Conversación individual:', { 
+            conversation_id: c.conversation_id, 
+            nombre_paciente: c.nombre_paciente,
+            telefono_destino: c.telefono_destino 
+          }); // Debug
+          return {
           // Usar siempre conversation_id (ya normalizado por el backend)
           conversation_id: c.conversation_id,
           summary: c.summary ?? '',
@@ -116,7 +123,8 @@ function ConversacionesUI() {
           transcript: c.transcript,
           hasTranscript: c.hasTranscript,
           hasAudio: c.hasAudio,
-        })),
+        });
+        }),
       };
 
       setData(adaptedData);
