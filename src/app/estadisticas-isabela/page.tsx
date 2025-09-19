@@ -59,10 +59,48 @@ const extractNameFromSummary = (summary: string): string | null => {
     /contacted\s+([A-Za-z\s]+?)\s+regarding/i,  // "contacted Carlos Perez regarding"
     /Hola soy\s+([A-Za-z\s]+?)\s+de/i,          // "Hola soy [Nombre] de"
     /cliente\s+([A-Za-z\s]+?)\s+sobre/i,        // "cliente [Nombre] sobre"
-    /([A-Z][a-z]+\s+[A-Z][a-z]+)/g              // Cualquier "Nombre Apellido"
+    /([A-Z][a-z]+\s+[A-Z][a-z]+)/g,             // Cualquier "Nombre Apellido"
+    /([A-Z][a-z]+\s+[A-Z][a-z]+\s+[A-Z][a-z]+)/g, // "Nombre Apellido Apellido"
+    /([A-Z][a-z]+)/g                             // Cualquier nombre con mayúscula inicial
   ];
   
   for (const pattern of patterns) {
+    const match = summary.match(pattern);
+    if (match && match[1]) {
+      const name = match[1].trim();
+      // Filtrar nombres comunes que no son de clientes
+      if (!['NutryHome', 'Isabela', 'Gregorio', 'AI', 'Agent'].includes(name)) {
+        return name;
+      }
+    }
+  }
+  
+  // Si no encuentra nada, buscar cualquier palabra con mayúscula
+  const words = summary.match(/\b[A-Z][a-z]+\b/g);
+  if (words && words.length > 0) {
+    for (const word of words) {
+      if (!['NutryHome', 'Isabela', 'Gregorio', 'AI', 'Agent', 'The', 'This', 'That'].includes(word)) {
+        return word;
+      }
+    }
+  }
+  
+  return null;
+};
+
+// Función para extraer teléfono del summary
+const extractPhoneFromSummary = (summary: string): string | null => {
+  if (!summary) return null;
+  
+  // Buscar patrones de teléfono
+  const phonePatterns = [
+    /(\+?54\s?9?\d{2}\s?\d{4}\s?\d{4})/g,        // +54 9 11 1234 5678
+    /(\+?54\s?\d{2}\s?\d{4}\s?\d{4})/g,          // +54 11 1234 5678
+    /(\d{2,4}\s?\d{4}\s?\d{4})/g,                // 11 1234 5678
+    /(\+?\d{10,15})/g                             // Cualquier número de 10-15 dígitos
+  ];
+  
+  for (const pattern of phonePatterns) {
     const match = summary.match(pattern);
     if (match && match[1]) {
       return match[1].trim();
@@ -215,8 +253,8 @@ Los datos se han recuperado correctamente.`);
             conversation_id: c.conversation_id,
             summary: c.summary ?? '',
             start_time_unix_secs: c.start_time_unix_secs ?? (c.createdAt ? Math.floor(new Date(c.createdAt).getTime()/1000) : undefined),
-            nombre_paciente: extractNameFromSummary(c.summary) || 'Sin nombre',
-            telefono_destino: c.telefono_destino ?? 'N/A',
+            nombre_paciente: extractNameFromSummary(c.summary) || 'Nombre del Paciente',
+            telefono_destino: extractPhoneFromSummary(c.summary) || c.telefono_destino || 'Teléfono del Paciente',
             call_duration_secs: c.call_duration_secs ?? 0,
             status: c.status ?? 'completed',
             producto: c.producto ?? 'NutryHome',
