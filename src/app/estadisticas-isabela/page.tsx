@@ -86,12 +86,13 @@ function ConversacionesUI() {
 
       const json = await res.json();
 
-      // ✅ El backend ya devuelve datos enriquecidos, solo mapear los campos necesarios
+      // ✅ El backend ya devuelve datos enriquecidos y normalizados, usar directamente
       const adaptedData = {
         total_calls: json.total ?? 0,
         total_minutes: Math.floor((json.conversations ?? []).reduce((acc: number, c: any) => acc + (c.call_duration_secs || 0), 0) / 60),
         conversations: (json.conversations ?? []).map((c: any) => ({
-          conversation_id: c.conversationId ?? c.conversation_id ?? c.id,
+          // Usar siempre conversation_id (ya normalizado por el backend)
+          conversation_id: c.conversation_id,
           summary: c.summary ?? '',
           start_time_unix_secs: c.start_time_unix_secs ?? (c.createdAt ? Math.floor(new Date(c.createdAt).getTime()/1000) : undefined),
           nombre_paciente: c.nombre_paciente ?? 'Cliente NutryHome',
@@ -105,6 +106,10 @@ function ConversacionesUI() {
           call_successful: c.call_successful ?? 'true',
           resultado: c.resultado ?? 'Completada',
           rating: c.rating ?? null,
+          // Campos adicionales del backend mejorado
+          transcript: c.transcript,
+          hasTranscript: c.hasTranscript,
+          hasAudio: c.hasAudio,
         })),
       };
 
@@ -175,13 +180,13 @@ Los datos se han recuperado correctamente.`);
 
   // ===== Lógica de acciones =====
   const handleAction = (action: ActionId, c: Conversation) => {
-    switch (action) {
-      case "audio": {
-        if (!c.conversation_id) { 
-          alert("ID de conversación no disponible"); 
-          break; 
-        }
-        
+  switch (action) {
+    case "audio": {
+      if (!c.conversation_id) { 
+        alert("ID de conversación no disponible"); 
+        break; 
+      }
+      
         // Reproducir audio usando query params
         const audioUrl = `/api/get-audio?id=${c.conversation_id}`;
         const audio = new Audio(audioUrl);
@@ -192,94 +197,94 @@ Los datos se han recuperado correctamente.`);
           console.error('Error reproduciendo audio:', error);
           alert(`🎵 AUDIO DE GRABACIÓN\n\n⚠️ No se pudo reproducir el audio\n\nPuede que no esté disponible para esta conversación.`);
         });
-        break;
+      break;
+    }
+    case "resumen": {
+      if (!c.conversation_id) { 
+        alert("conversation_id no disponible"); 
+        break; 
       }
-      case "resumen": {
-        if (!c.conversation_id) { 
-          alert("conversation_id no disponible"); 
-          break; 
-        }
-        
-        if (c.summary) { 
-          alert(`📋 RESUMEN:\n\n${c.summary}`); 
-          break; 
-        }
+      
+      if (c.summary) { 
+        alert(`📋 RESUMEN:\n\n${c.summary}`); 
+        break; 
+      }
 
-        // Fallback: obtener resumen del backend
-        fetch(`https://nutryhome-production.up.railway.app/api/elevenlabs/conversations/${c.conversation_id}`)
-          .then(r => r.json())
-          .then(j => {
-            const resumen = j.summary ?? j.analysis?.summary ?? "Sin resumen disponible";
-            alert(`📋 RESUMEN:\n\n${resumen}`);
-          })
-          .catch(e => {
-            alert("❌ Error al obtener el resumen: " + e.message);
-          });
-        break;
-      }
-      case "transcripcion":
+      // Fallback: obtener resumen del backend
+      fetch(`https://nutryhome-production.up.railway.app/api/elevenlabs/conversations/${c.conversation_id}`)
+        .then(r => r.json())
+        .then(j => {
+          const resumen = j.summary ?? j.analysis?.summary ?? "Sin resumen disponible";
+          alert(`📋 RESUMEN:\n\n${resumen}`);
+        })
+        .catch(e => {
+          alert("❌ Error al obtener el resumen: " + e.message);
+        });
+      break;
+    }
+    case "transcripcion":
         console.log('🔍 Opening transcript for:', c.conversation_id);
         console.log('🔍 Transcript data:', c.transcript);
         setSelectedConversation(c);
         setShowTranscripcion(true);
+      break;
+    case "evaluacion":
+      if (!c.evaluation_data) {
+        alert("📊 No hay datos de evaluación disponibles para esta conversación");
         break;
-      case "evaluacion":
-        if (!c.evaluation_data) {
-          alert("📊 No hay datos de evaluación disponibles para esta conversación");
-          break;
-        }
+      }
 
-        // Procesar datos de evaluación de ElevenLabs - SOLO evaluación
-        const evalData = c.evaluation_data;
-        let evaluacion = "📊 EVALUACIÓN DE LA LLAMADA:\n\n";
+      // Procesar datos de evaluación de ElevenLabs - SOLO evaluación
+      const evalData = c.evaluation_data;
+      let evaluacion = "📊 EVALUACIÓN DE LA LLAMADA:\n\n";
 
-        // SOLO mostrar evaluation_criteria_results
-        if (evalData && Object.keys(evalData).length > 0) {
-          Object.entries(evalData).forEach(([key, criteriaObj]) => {
-            if (criteriaObj && typeof criteriaObj === 'object') {
-              const criteria = criteriaObj as any;
-              evaluacion += `🔸 ${key.toUpperCase()}:\n`;
-              
-              if (criteria.result) {
-                evaluacion += `✅ Resultado: ${criteria.result}\n`;
-              }
-              
-              if (criteria.rationale) {
-                evaluacion += `📋 Descripción: ${criteria.rationale}\n\n`;
-              }
-              
-              if (criteria.value) {
-                evaluacion += `🔹 Valor: ${criteria.value}\n\n`;
-              }
+      // SOLO mostrar evaluation_criteria_results
+      if (evalData && Object.keys(evalData).length > 0) {
+        Object.entries(evalData).forEach(([key, criteriaObj]) => {
+          if (criteriaObj && typeof criteriaObj === 'object') {
+            const criteria = criteriaObj as any;
+            evaluacion += `🔸 ${key.toUpperCase()}:\n`;
+            
+            if (criteria.result) {
+              evaluacion += `✅ Resultado: ${criteria.result}\n`;
             }
-          });
-        } else {
-          evaluacion += "No hay datos de evaluación disponibles.";
-        }
-
-        alert(evaluacion);
-        break;
-      case "notas":
-        if (!c.data_collection) {
-          alert("📝 No hay datos de recolección disponibles para esta conversación");
-          break;
-        }
-
-        // Procesar data collection - SOLO data collection
-        const data = c.data_collection;
-        let notasHTML = "📝 DATOS RECOLECTADOS:\n\n";
-        
-        // SOLO mostrar los datos recolectados tal como vienen de ElevenLabs
-        Object.entries(data).forEach(([key, value]) => {
-          if (value !== null && value !== undefined && value !== "N/A" && value !== "") {
-            notasHTML += `• ${key}: ${value}\n`;
+            
+            if (criteria.rationale) {
+              evaluacion += `📋 Descripción: ${criteria.rationale}\n\n`;
+            }
+            
+            if (criteria.value) {
+              evaluacion += `🔹 Valor: ${criteria.value}\n\n`;
+            }
           }
         });
+      } else {
+        evaluacion += "No hay datos de evaluación disponibles.";
+      }
 
-        alert(notasHTML);
+      alert(evaluacion);
+      break;
+    case "notas":
+      if (!c.data_collection) {
+        alert("📝 No hay datos de recolección disponibles para esta conversación");
         break;
-      case "detalles":
-        const detalles = `
+      }
+
+      // Procesar data collection - SOLO data collection
+      const data = c.data_collection;
+      let notasHTML = "📝 DATOS RECOLECTADOS:\n\n";
+      
+      // SOLO mostrar los datos recolectados tal como vienen de ElevenLabs
+      Object.entries(data).forEach(([key, value]) => {
+        if (value !== null && value !== undefined && value !== "N/A" && value !== "") {
+          notasHTML += `• ${key}: ${value}\n`;
+        }
+      });
+
+      alert(notasHTML);
+      break;
+    case "detalles":
+      const detalles = `
 📞 DETALLES COMPLETOS DE LA LLAMADA:
 
 👤 INFORMACIÓN DEL CLIENTE:
@@ -305,22 +310,22 @@ Los datos se han recuperado correctamente.`);
 
 📋 RESUMEN:
 ${c.summary ? c.summary.substring(0, 200) + (c.summary.length > 200 ? "..." : "") : "No disponible"}
-        `.trim();
-        alert(detalles);
-        break;
-      case "descargar":
-        if (!c.conversation_id) { 
-          alert("ID de conversación no disponible"); 
-          break; 
-        }
-        
-        // Mostrar mensaje de descarga no disponible
-        alert(`💾 DESCARGAR AUDIO\n\n⚠️ No disponible por el momento\n\nEsta funcionalidad será habilitada próximamente.`);
-        break;
-      case "compartir":
-        alert("🔗 Compartir en desarrollo");
-        break;
-    }
+      `.trim();
+      alert(detalles);
+      break;
+    case "descargar":
+      if (!c.conversation_id) { 
+        alert("ID de conversación no disponible"); 
+        break; 
+      }
+      
+      // Mostrar mensaje de descarga no disponible
+      alert(`💾 DESCARGAR AUDIO\n\n⚠️ No disponible por el momento\n\nEsta funcionalidad será habilitada próximamente.`);
+      break;
+    case "compartir":
+      alert("🔗 Compartir en desarrollo");
+      break;
+  }
   };
 
 

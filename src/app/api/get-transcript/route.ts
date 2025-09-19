@@ -22,9 +22,9 @@ export async function GET(request: NextRequest) {
 
     console.log(`[Vercel] Fetching transcript for: ${conversationId}`);
 
-    // Llamar a Railway
+    // Llamar a Railway (usando endpoint corregido)
     const response = await fetch(
-      `${RAILWAY_API}/api/elevenlabs/conversation/${conversationId}`,
+      `${RAILWAY_API}/api/elevenlabs/conversations/${conversationId}`,
       {
         headers: {
           'Accept': 'application/json'

@@ -36,8 +36,22 @@ export async function GET() {
         metadataKeys: Object.keys(data.metadata || {})
       };
       
-      // Extraer transcripción
-      results.transcript = (data.transcript || data.analysis?.transcript)?.substring(0, 200) + '...';
+            // Extraer transcripción (puede ser array o string)
+            let transcriptText = '';
+            if (data.transcript) {
+              if (Array.isArray(data.transcript)) {
+                transcriptText = data.transcript.map((msg: any) => `${msg.role}: ${msg.message}`).join('\n');
+              } else if (typeof data.transcript === 'string') {
+                transcriptText = data.transcript;
+              }
+            } else if (data.analysis?.transcript) {
+              if (Array.isArray(data.analysis.transcript)) {
+                transcriptText = data.analysis.transcript.map((msg: any) => `${msg.role}: ${msg.message}`).join('\n');
+              } else if (typeof data.analysis.transcript === 'string') {
+                transcriptText = data.analysis.transcript;
+              }
+            }
+            results.transcript = transcriptText.substring(0, 200) + '...';
     } else {
       results.tests.conversation = { found: false, status: convResponse.status };
     }
