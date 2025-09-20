@@ -78,7 +78,7 @@ export default function CallsManagement() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Estados para ElevenLabs
+  // Estados para NutriHome
   const [executingBatch, setExecutingBatch] = useState<string | null>(null);
   const [batchStatus, setBatchStatus] = useState<any>(null);
   const [cancellingBatch, setCancellingBatch] = useState<string | null>(null);
@@ -265,13 +265,13 @@ export default function CallsManagement() {
     }
   };
 
-  // Función para ejecutar batch con ElevenLabs
+  // Función para ejecutar batch con NutriHome
   const executeBatch = async (batchId: string) => {
     try {
       setExecutingBatch(batchId);
       setError(null);
       
-      console.log(`🚀 Ejecutando batch ${batchId} con ElevenLabs...`);
+      console.log(`🚀 Ejecutando batch ${batchId} con NutriHome...`);
       
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://nutryhome-production.up.railway.app'}/api/campaigns/batch/${batchId}/execute`, {
         method: 'POST',
@@ -416,11 +416,11 @@ export default function CallsManagement() {
     }
   };
 
-  // 🔄 Función para sincronizar batch con ElevenLabs
+  // 🔄 Función para sincronizar batch con NutriHome
   const syncBatch = async (batchId: string) => {
     try {
       setError(null);
-      console.log(`🔄 Sincronizando batch ${batchId} con ElevenLabs...`);
+      console.log(`🔄 Sincronizando batch ${batchId} con NutriHome...`);
       
       // Mostrar indicador de sincronización
       const syncButton = document.querySelector(`[onclick="syncBatch('${batchId}')"]`);
@@ -882,7 +882,7 @@ export default function CallsManagement() {
                                     onClick={() => executeBatch(batch.id)}
                                     disabled={executingBatch === batch.id}
                                     className="text-green-600 hover:text-green-900 disabled:opacity-50"
-                                    title="Ejecutar Batch con ElevenLabs"
+                                    title="Ejecutar Batch con NutriHome"
                                   >
                                     {executingBatch === batch.id ? (
                                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
@@ -914,7 +914,7 @@ export default function CallsManagement() {
                                 <button
                                   onClick={() => syncBatch(batch.id)}
                                   className="text-blue-600 hover:text-blue-900"
-                                  title="Sincronizar con ElevenLabs"
+                                  title="Sincronizar con NutriHome"
                                 >
                                   <RefreshCw className="w-4 h-4" />
                                 </button>
@@ -1147,7 +1147,7 @@ export default function CallsManagement() {
                   )}
                   {testPhoneNumber && validatePhoneNumber(testPhoneNumber) && (
                     <p className="mt-1 text-xs text-green-600">
-                      ✓ Formato válido para ElevenLabs
+                      ✓ Formato válido para NutriHome
                     </p>
                   )}
                 </div>

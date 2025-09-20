@@ -27,7 +27,7 @@ export default function DashboardPage() {
   const [currentDate, setCurrentDate] = useState<string>('');
   const [mounted, setMounted] = useState(false);
 
-  // Cargar estadísticas de Isabela
+  // Cargar estadísticas de NutriHome
   useEffect(() => {
     const fetchIsabelaStats = async () => {
       try {
@@ -38,7 +38,7 @@ export default function DashboardPage() {
           setIsabelaStats(data);
         }
       } catch (error) {
-        console.error('Error fetching Isabela stats:', error);
+        console.error('Error fetching NutriHome stats:', error);
       } finally {
         setIsabelaLoading(false);
       }
@@ -58,7 +58,7 @@ export default function DashboardPage() {
     }));
   }, []);
 
-  // Calcular métricas reales basadas en datos de Isabela
+  // Calcular métricas reales basadas en datos de NutriHome
   const calculateRealMetrics = () => {
     if (!isabelaStats?.conversations || isabelaLoading) {
       return {
@@ -259,7 +259,7 @@ export default function DashboardPage() {
 
       {/* Main Content */}
       <div className="p-6 space-y-6">
-        {/* Stats Grid - Tarjetas principales con datos reales de Isabela */}
+        {/* Stats Grid - Tarjetas principales con datos reales de NutriHome */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {stats.map((stat, index) => (
             <motion.div
@@ -276,7 +276,7 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        {/* Isabela Stats Section */}
+        {/* NutriHome Stats Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -287,10 +287,10 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-semibold text-gray-900">
-                  📊 Estadísticas de Isabela
+                  📊 Estadísticas de NutriHome
                 </h2>
                 <p className="text-sm text-gray-500 mt-1">
-                  Agente ElevenLabs - Resumen de llamadas y conversaciones
+                  Sistema NutriHome - Resumen de llamadas y conversaciones
                 </p>
               </div>
               <div className="flex items-center space-x-2">

@@ -409,7 +409,7 @@ Los datos se han recuperado correctamente.`);
         break;
       }
 
-      // Procesar datos de evaluación de ElevenLabs - SOLO evaluación
+      // Procesar datos de evaluación de NutriHome - SOLO evaluación
       const evalData = c.evaluation_data;
       let evaluacion = "📊 EVALUACIÓN DE LA LLAMADA:\n\n";
 
@@ -449,7 +449,7 @@ Los datos se han recuperado correctamente.`);
       const data = c.data_collection;
       let notasHTML = "📝 DATOS RECOLECTADOS:\n\n";
       
-      // SOLO mostrar los datos recolectados tal como vienen de ElevenLabs
+      // SOLO mostrar los datos recolectados tal como vienen de NutriHome
       Object.entries(data).forEach(([key, value]) => {
         if (value !== null && value !== undefined && value !== "N/A" && value !== "") {
           notasHTML += `• ${key}: ${value}\n`;
@@ -534,7 +534,7 @@ ${c.summary ? c.summary.substring(0, 200) + (c.summary.length > 200 ? "..." : ""
               onClick={recoverHistoricalData}
               disabled={isRecovering || loading}
               className="inline-flex items-center gap-2 h-9 px-3 rounded-lg bg-green-500 text-white text-sm hover:bg-green-600 disabled:opacity-50"
-              title="Recuperar datos históricos de ElevenLabs"
+              title="Recuperar datos históricos de NutriHome"
             >
               {isRecovering ? (
                 <>
@@ -571,7 +571,7 @@ ${c.summary ? c.summary.substring(0, 200) + (c.summary.length > 200 ? "..." : ""
             <span className="absolute -bottom-px left-0 right-0 h-0.5 bg-indigo-600" />
           </button>
           <button className="pb-3 text-sm text-slate-500 hover:text-slate-700">Llamadas Entrantes</button>
-          <button className="pb-3 text-sm text-slate-500 hover:text-slate-700">Isabela (ElevenLabs)</button>
+          <button className="pb-3 text-sm text-slate-500 hover:text-slate-700">NutriHome (IA)</button>
           <div className="ml-auto flex gap-3 py-2">
             <div className="relative">
               <input
