@@ -311,7 +311,7 @@ export default function UploadPage() {
                     <div>• +5493411234567 (Rosario)</div>
                   </div>
                   <p className="text-xs text-green-600 mt-2">
-                    <strong>Importante:</strong> ElevenLabs requiere este formato exacto para procesar las llamadas correctamente.
+                    <strong>Importante:</strong> NutriHome requiere este formato exacto para procesar las llamadas correctamente.
                   </p>
                 </div>
               </div>

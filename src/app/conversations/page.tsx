@@ -230,7 +230,7 @@ export default function Conversations() {
     }
   };
 
-  // Cargar conversaciones de Isabela desde ElevenLabs
+  // Cargar conversaciones de NutriHome desde la API
   useEffect(() => {
     const fetchIsabelaConversations = async () => {
       try {
@@ -355,7 +355,7 @@ export default function Conversations() {
               }`}
             >
               <MessageSquare className="w-4 h-4 inline mr-2" />
-              Isabela (ElevenLabs)
+              NutriHome (IA)
             </button>
           </nav>
         </div>
@@ -563,7 +563,7 @@ export default function Conversations() {
                     </button>
                   )}
 
-                  {/* Audio Button - para conversaciones de Isabela (ElevenLabs) */}
+                  {/* Audio Button - para conversaciones de NutriHome (IA) */}
                   {activeTab === 'isabela' && conversation.id && (
                     <button
                       onClick={() => handlePlayElevenLabsAudio(conversation.id)}
