@@ -47,10 +47,10 @@ const menuItems = [
     description: 'Subir llamadas manualmente'
   },
   {
-    title: 'Estadísticas Isabela',
+    title: 'Llamadas NutriHome',
     icon: BarChart3,
     href: '/estadisticas-isabela',
-    description: 'Estadísticas del agente Isabela'
+    description: 'Llamadas NutriHome'
   }
 ];
 
