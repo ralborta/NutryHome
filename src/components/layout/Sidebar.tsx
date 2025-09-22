@@ -8,7 +8,6 @@ import toast from 'react-hot-toast';
 import {
   LayoutDashboard,
   Phone,
-  MessageSquare,
   Upload,
   Settings,
   BarChart3,
@@ -20,6 +19,15 @@ import {
   Search,
   LogOut
 } from 'lucide-react';
+
+// Icono de WhatsApp (SVG inline) para el menú
+function WhatsAppIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" {...props}>
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.1-.472-.149-.672.15-.197.297-.769.966-.941 1.166-.173.199-.347.224-.644.075-.297-.149-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.52.149-.173.198-.297.298-.496.099-.198.05-.372-.025-.521-.075-.149-.672-1.62-.92-2.22-.242-.58-.487-.501-.672-.51-.173-.009-.372-.011-.571-.011-.199 0-.521.074-.793.372-.273.297-1.04 1.016-1.04 2.479 0 1.463 1.065 2.875 1.213 3.074.149.198 2.095 3.2 5.077 4.487.709.306 1.262.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.718 2.006-1.41.248-.69.248-1.282.173-1.41-.074-.128-.272-.198-.57-.347zM12.002 2c5.514 0 9.998 4.486 9.998 10 0 5.515-4.484 10-9.998 10-1.76 0-3.405-.455-4.833-1.249L2 22l1.272-5.045C2.455 15.526 2 13.86 2 12c0-5.514 4.486-10 10.002-10z"/>
+    </svg>
+  );
+}
 
 const menuItems = [
   {
@@ -35,10 +43,10 @@ const menuItems = [
     description: 'Administrar llamadas'
   },
   {
-    title: 'Conversaciones',
-    icon: MessageSquare,
+    title: 'Mensajes',
+    icon: WhatsAppIcon,
     href: '/conversations',
-    description: 'Historial de conversaciones'
+    description: 'Historial de mensajes'
   },
   {
     title: 'Carga de Llamadas',
@@ -131,7 +139,7 @@ export default function Sidebar() {
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto bg-white">
           {menuItems.map((item) => {
             const isActive = pathname === item.href;
-            const Icon = item.icon;
+            const Icon = item.icon as any;
             
             return (
               <Link
