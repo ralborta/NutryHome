@@ -98,15 +98,26 @@ router.get('/productos', async (req, res) => {
         return res.status(400).json({ success: false, message: 'ELEVENLABS_AGENT_ID no configurado' });
       }
 
-      const limit = parseInt(req.query.limit || '100');
-      const url = `${base}/v1/convai/conversations?agent_id=${agentId}&limit=${limit}`;
-      const listResp = await fetch(url, { headers: elevenLabsHeaders() });
-      if (!listResp.ok) {
-        const txt = await listResp.text().catch(() => '');
-        return res.status(502).json({ success: false, message: 'Error listando conversaciones ElevenLabs', detail: txt, status: listResp.status });
+      // Replicar la paginación que usa Estadísticas Isabela
+      const maxToFetch = Math.min(parseInt(req.query.max || '200'), 1000);
+      const pageSize = Math.min(parseInt(req.query.page_size || '100'), 100);
+      let conversations = [];
+      let nextPageToken = null;
+      let hasMore = true;
+      while (hasMore && conversations.length < maxToFetch) {
+        let url = `${base}/v1/convai/conversations?agent_id=${agentId}&page_size=${pageSize}`;
+        if (nextPageToken) url += `&page_token=${nextPageToken}`;
+        const listResp = await fetch(url, { headers: elevenLabsHeaders() });
+        if (!listResp.ok) {
+          const txt = await listResp.text().catch(() => '');
+          return res.status(502).json({ success: false, message: 'Error listando conversaciones ElevenLabs', detail: txt, status: listResp.status });
+        }
+        const listData = await listResp.json();
+        const pageConvs = Array.isArray(listData.conversations) ? listData.conversations : [];
+        conversations = conversations.concat(pageConvs);
+        nextPageToken = listData.next_page_token || null;
+        hasMore = Boolean(nextPageToken);
       }
-      const listData = await listResp.json();
-      const conversations = Array.isArray(listData.conversations) ? listData.conversations : [];
 
       if (conversations.length === 0) {
         return res.status(404).json({ success: false, message: 'No hay conversaciones en ElevenLabs para generar el reporte' });
