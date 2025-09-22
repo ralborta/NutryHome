@@ -1,6 +1,23 @@
 import { NextResponse } from 'next/server';
 import translate from 'google-translate-api-x';
 
+function extractNameFallback(summary: string | null | undefined): string | null {
+  if (!summary) return null;
+  const s = String(summary);
+  const patterns = [
+    /Hola\s+([A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+(?:\s+[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+){0,2})\b/, // Hola Nombre Apellido
+    /contact(?:ed|o)\s+([A-Za-z\sÁÉÍÓÚÜÑáéíóúüñ]+?)\s+regarding/i,
+    /cliente\s+([A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+(?:\s+[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+){0,2})/i,
+  ];
+  for (const p of patterns) {
+    const m = s.match(p);
+    if (m && m[1]) return m[1].trim();
+  }
+  const words = s.match(/\b[A-ZÁÉÍÓÚÜÑ][a-záéíóúüñ]+\b/g);
+  if (words && words.length) return words[0];
+  return null;
+}
+
 interface Conversation {
   agent_id?: string;
   agent_name?: string;
@@ -126,55 +143,59 @@ export async function GET() {
     }
 
     // Por cada conversación, obtener el detalle y extraer los datos requeridos
-                    const detailedConversations: Conversation[] = await Promise.all(
-                  allConversations.map(async (conv) => {
-                    try {
-                      const res = await fetch(`https://api.elevenlabs.io/v1/convai/conversations/${conv.conversation_id}`, {
-                        headers: {
-                          'xi-api-key': API_KEY,
-                          'Content-Type': 'application/json',
-                        },
-                      });
-                      if (!res.ok) return conv;
-                      const data = await res.json();
-                      let nombre_paciente = data.conversation_initiation_client_data?.dynamic_variables?.nombre_paciente || null;
-                      if (nombre_paciente === 'Leonardo Viano') {
-                        nombre_paciente = 'Leonardo';
-                      }
-                      let resumen = data.analysis?.transcript_summary || null;
-                      if (resumen) {
-                        resumen = await traducirTexto(resumen);
-                        
-                        // 🔥 GUARDAR EN LA BASE DE DATOS
+                        const detailedConversations: Conversation[] = await Promise.all(
+                      allConversations.map(async (conv) => {
                         try {
-                          const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'https://nutryhome-production.up.railway.app';
-                          await fetch(`${backendUrl}/api/isabela/conversations`, {
-                            method: 'POST',
+                          const res = await fetch(`https://api.elevenlabs.io/v1/convai/conversations/${conv.conversation_id}`, {
                             headers: {
+                              'xi-api-key': API_KEY,
                               'Content-Type': 'application/json',
                             },
-                            body: JSON.stringify({
-                              conversationId: conv.conversation_id,
-                              summary: resumen
-                            })
                           });
-                          console.log('✅ Resumen guardado en DB:', conv.conversation_id);
-                        } catch (dbError) {
-                          console.warn('⚠️ Error guardando en DB:', dbError);
+                          if (!res.ok) return conv;
+                          const data = await res.json();
+                          const dyn = data.conversation_initiation_client_data?.dynamic_variables || {};
+                          let nombre_paciente = dyn.nombre_paciente || dyn.nombre_contacto || null;
+                          if (nombre_paciente === 'Leonardo Viano') {
+                            nombre_paciente = 'Leonardo';
+                          }
+                          let resumen = data.analysis?.transcript_summary || null;
+                          if (resumen) {
+                            resumen = await traducirTexto(resumen);
+                            try {
+                              const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'https://nutryhome-production.up.railway.app';
+                              await fetch(`${backendUrl}/api/isabela/conversations`, {
+                                method: 'POST',
+                                headers: {
+                                  'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({
+                                  conversationId: conv.conversation_id,
+                                  summary: resumen
+                                })
+                              });
+                              console.log('✅ Resumen guardado en DB:', conv.conversation_id);
+                            } catch (dbError) {
+                              console.warn('⚠️ Error guardando en DB:', dbError);
+                            }
+                          }
+                          if (!nombre_paciente) {
+                            const fromSummary = extractNameFallback(resumen);
+                            if (fromSummary) nombre_paciente = fromSummary;
+                          }
+                          if (!nombre_paciente) nombre_paciente = 'Cliente NutryHome';
+                          return {
+                            ...conv,
+                            telefono_destino: data.metadata?.phone_call?.external_number || data.conversation_initiation_client_data?.dynamic_variables?.system__called_number || null,
+                            nombre_paciente,
+                            producto: data.conversation_initiation_client_data?.dynamic_variables?.producto || null,
+                            summary: resumen,
+                          };
+                        } catch {
+                          return conv;
                         }
-                      }
-                      return {
-                        ...conv,
-                        telefono_destino: data.metadata?.phone_call?.external_number || data.conversation_initiation_client_data?.dynamic_variables?.system__called_number || null,
-                        nombre_paciente,
-                        producto: data.conversation_initiation_client_data?.dynamic_variables?.producto || null,
-                        summary: resumen,
-                      };
-                    } catch {
-                      return conv;
-                    }
-                  })
-                );
+                      })
+                    );
 
     // Ordenar por fecha de más reciente a más antigua
     detailedConversations.sort((a, b) => (b.start_time_unix_secs || 0) - (a.start_time_unix_secs || 0));
