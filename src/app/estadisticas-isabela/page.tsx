@@ -21,6 +21,7 @@ import {
   BadgeCheck,
   StickyNote,
   Phone,
+  BarChart3,
 } from "lucide-react";
 
 // ===== Tipos =====
@@ -129,6 +130,27 @@ function ConversacionesUI() {
   const [isPlaying, setIsPlaying] = useState<string | null>(null);
   const [isPaused, setIsPaused] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Descargar reporte de productos (transcripciones)
+  const handleGenerateProductReport = async () => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://nutryhome-production.up.railway.app';
+      const reportUrl = `${apiUrl}/api/reports/productos`;
+      const response = await fetch(reportUrl);
+      if (!response.ok) throw new Error(`Error ${response.status}`);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `reporte_productos_${new Date().toISOString().split('T')[0]}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (e) {
+      alert('No se pudo generar el reporte. Intenta nuevamente.');
+    }
+  };
 
   // ✅ CORREGIDO: no-store, cache-bust, abort de requests previos, y adaptación de datos
   const fetchStats = async () => {
@@ -530,6 +552,14 @@ ${c.summary ? c.summary.substring(0, 200) + (c.summary.length > 200 ? "..." : ""
             <p className="text-sm text-slate-500">Historial y gestión de las conversaciones</p>
           </div>
           <div className="flex gap-2">
+            <button
+              onClick={handleGenerateProductReport}
+              className="inline-flex items-center gap-2 h-9 px-3 rounded-lg border border-green-300 text-green-700 bg-green-50 text-sm hover:bg-green-100"
+              title="Descargar reporte de productos"
+            >
+              <BarChart3 className="h-4 w-4" />
+              Reporte de Productos
+            </button>
             <button
               onClick={recoverHistoricalData}
               disabled={isRecovering || loading}
