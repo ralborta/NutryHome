@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import translate from 'google-translate-api-x';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 function extractNameFallback(summary: string | null | undefined): string | null {
   if (!summary) return null;
   const s = String(summary);
@@ -126,6 +129,7 @@ export async function GET() {
           'xi-api-key': API_KEY,
           'Content-Type': 'application/json',
         },
+        cache: 'no-store'
       });
       if (!res.ok) {
         const text = await res.text();
@@ -151,6 +155,7 @@ export async function GET() {
                               'xi-api-key': API_KEY,
                               'Content-Type': 'application/json',
                             },
+                            cache: 'no-store'
                           });
                           if (!res.ok) return conv;
                           const data = await res.json();
