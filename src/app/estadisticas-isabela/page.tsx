@@ -146,7 +146,7 @@ function ConversacionesUI() {
       setError(null);
 
       // Usar el mismo endpoint que funciona en Conversaciones
-      const res = await fetch('/api/estadisticas-isabela', {
+      const res = await fetch('/api/estadisticas-isabela?t=' + Date.now(), {
         signal: abortRef.current.signal,
         headers: { 'Content-Type': 'application/json' }
       });
