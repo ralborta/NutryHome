@@ -134,9 +134,7 @@ function ConversacionesUI() {
   // Descargar reporte de productos (transcripciones)
   const handleGenerateProductReport = async () => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://nutryhome-production.up.railway.app';
-      const reportUrl = `${apiUrl}/api/reports/productos`;
-      const response = await fetch(reportUrl);
+      const response = await fetch('/api/reports/productos');
       if (!response.ok) throw new Error(`Error ${response.status}`);
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);

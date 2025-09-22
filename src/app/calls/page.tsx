@@ -81,10 +81,7 @@ export default function CallsManagement() {
   // Descargar reporte de productos (transcripciones)
   const handleGenerateProductReport = async () => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://nutryhome-production.up.railway.app';
-      const reportUrl = `${apiUrl}/api/reports/productos`;
-      
-      const response = await fetch(reportUrl, { method: 'GET' });
+      const response = await fetch('/api/reports/productos', { method: 'GET' });
       if (!response.ok) {
         throw new Error(`Error ${response.status}`);
       }
