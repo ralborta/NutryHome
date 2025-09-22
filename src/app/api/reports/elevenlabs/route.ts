@@ -50,7 +50,19 @@ export async function GET(req: NextRequest) {
     }
 
     // Helper: extraer cantidades desde transcripción
-    const normalize = (s: string) => (s || '').toLowerCase().replace(/\s+/g, ' ').trim();
+    const toText = (val: any): string => {
+      if (typeof val === 'string') return val;
+      if (Array.isArray(val)) {
+        return val
+          .map((m) => (typeof m === 'string' ? m : (m?.content || m?.message || '')))
+          .join(' ');
+      }
+      if (val && typeof val === 'object') {
+        return JSON.stringify(val);
+      }
+      return String(val ?? '');
+    };
+    const normalize = (s: any) => toText(s).toLowerCase().replace(/\s+/g, ' ').trim();
     const extractQty = (transcript: string, product: string): string | null => {
       if (!transcript || !product) return null;
       const t = normalize(transcript);
@@ -84,10 +96,10 @@ export async function GET(req: NextRequest) {
       const products: string[] = [];
       for (let i = 1; i <= 5; i++) {
         const pv = v[`producto${i}`] || (i === 1 ? v['producto'] : undefined);
-        if (pv) products.push(String(pv));
+        if (pv) products.push(toText(pv));
       }
       // Cantidades desde transcript
-      const qty: (string | null)[] = products.map(p => extractQty(d.transcript || '', p));
+      const qty: (string | null)[] = products.map(p => extractQty(toText(d.transcript), p));
       return {
         telefono: v.phone_number || v.telefono || '',
         nombre_contacto: v.nombre_contacto || '',
