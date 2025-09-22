@@ -49,9 +49,45 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    // Helper: extraer cantidades desde transcripción
+    const normalize = (s: string) => (s || '').toLowerCase().replace(/\s+/g, ' ').trim();
+    const extractQty = (transcript: string, product: string): string | null => {
+      if (!transcript || !product) return null;
+      const t = normalize(transcript);
+      const p = normalize(product);
+      const variations = [p, p.replace(/[^a-z0-9]+/g, ''), p.split(' ')[0], p.split(' ').slice(0, 2).join(' ')];
+      for (const v of variations) {
+        if (!v) continue;
+        // patrones: "12 unidades de v", "v 12", "cantidad 12 de v", soportar 1,5 y 1.5
+        const num = '(?:\\d+(?:[\.,]\\d+)?)';
+        const escaped = v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const patterns = [
+          new RegExp(`${num}\\s*(?:u(?:nidades?)?|botes|pack|cant(?:idad)?)?\\s*(?:de\\s+)?${escaped}`, 'i'),
+          new RegExp(`${escaped}[^\n\r\d]{0,10}${num}`, 'i'),
+          new RegExp(`(?:tengo|queda|quedan|restan|stock|cantidad)\s*(?:de\s+)?${escaped}[^\n\r\d]{0,10}${num}`, 'i'),
+        ];
+        for (const pat of patterns) {
+          const m = t.match(pat);
+          if (m) {
+            const val = m[1] || m[0].match(new RegExp(num))?.[0];
+            if (val) return val.replace(',', '.');
+          }
+        }
+      }
+      return null;
+    };
+
     // Map to rows
     const rows = detailed.map(d => {
       const v: any = d.dynamic_variables || {};
+      // Productos base
+      const products: string[] = [];
+      for (let i = 1; i <= 5; i++) {
+        const pv = v[`producto${i}`] || (i === 1 ? v['producto'] : undefined);
+        if (pv) products.push(String(pv));
+      }
+      // Cantidades desde transcript
+      const qty: (string | null)[] = products.map(p => extractQty(d.transcript || '', p));
       return {
         telefono: v.phone_number || v.telefono || '',
         nombre_contacto: v.nombre_contacto || '',
@@ -62,12 +98,11 @@ export async function GET(req: NextRequest) {
         fecha_llamada: d.start_time_unix_secs ? new Date(d.start_time_unix_secs * 1000).toLocaleDateString('es-AR') : '',
         duracion_seg: d.call_duration_secs || 0,
         estado: d.status || '',
-        producto1: v.producto1 || v.producto || '',
-        cantidad1: v.cantidad1 || '',
-        producto2: v.producto2 || '', cantidad2: v.cantidad2 || '',
-        producto3: v.producto3 || '', cantidad3: v.cantidad3 || '',
-        producto4: v.producto4 || '', cantidad4: v.cantidad4 || '',
-        producto5: v.producto5 || '', cantidad5: v.cantidad5 || '',
+        producto1: products[0] || '', cantidad1: (qty[0] ?? '') || '',
+        producto2: products[1] || '', cantidad2: (qty[1] ?? '') || '',
+        producto3: products[2] || '', cantidad3: (qty[2] ?? '') || '',
+        producto4: products[3] || '', cantidad4: (qty[3] ?? '') || '',
+        producto5: products[4] || '', cantidad5: (qty[4] ?? '') || '',
         transcript: d.transcript || '',
         summary: d.summary || ''
       };
