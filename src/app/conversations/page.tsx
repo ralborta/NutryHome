@@ -357,19 +357,15 @@ export default function Conversations() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Conversaciones</h1>
+              <h1 className="text-3xl font-bold text-gray-900 flex items-center">
+                <MessageSquare className="w-8 h-8 mr-3 text-green-500" />
+                Conversaciones
+              </h1>
               <p className="mt-1 text-sm text-gray-500">
-                Historial y gestión de todas las conversaciones
+                Historial de mensajes
               </p>
             </div>
             <div className="flex items-center space-x-3">
-              <button 
-                onClick={handleGenerateProductReport}
-                className="inline-flex items-center px-4 py-2 border border-green-300 text-sm font-medium rounded-lg text-green-700 bg-green-50 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-              >
-                <BarChart3 className="w-4 h-4 mr-2" />
-                Reporte de Productos
-              </button>
               <button className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                 <Download className="w-4 h-4 mr-2" />
                 Exportar
@@ -439,6 +435,17 @@ export default function Conversations() {
                 />
               </div>
             </div>
+
+            {/* Botón de Reporte de Productos - Solo para pestaña NutriHome */}
+            {activeTab === 'isabela' && (
+              <button 
+                onClick={handleGenerateProductReport}
+                className="inline-flex items-center px-4 py-2 border border-green-300 text-sm font-medium rounded-lg text-green-700 bg-green-50 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+              >
+                <BarChart3 className="w-4 h-4 mr-2" />
+                Reporte de Productos
+              </button>
+            )}
 
             {/* Filters */}
             <div className="flex gap-3">
