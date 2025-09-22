@@ -131,23 +131,9 @@ function ConversacionesUI() {
   const [isPaused, setIsPaused] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Descargar reporte de productos (transcripciones)
-  const handleGenerateProductReport = async () => {
-    try {
-      const response = await fetch('/api/reports/productos');
-      if (!response.ok) throw new Error(`Error ${response.status}`);
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `reporte_productos_${new Date().toISOString().split('T')[0]}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (e) {
-      alert('No se pudo generar el reporte. Intenta nuevamente.');
-    }
+  // Abrir vista del reporte (sin tocar lógica de Isabela)
+  const handleGenerateProductReport = () => {
+    window.location.href = '/reportes/productos';
   };
 
   // ✅ CORREGIDO: no-store, cache-bust, abort de requests previos, y adaptación de datos
