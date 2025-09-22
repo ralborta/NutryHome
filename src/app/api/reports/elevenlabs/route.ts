@@ -45,6 +45,7 @@ export async function GET(req: NextRequest) {
         status: det.status || conv.status || 'completed',
         dynamic_variables: det.dynamic_variables || det.conversation_initiation_client_data?.dynamic_variables || {},
         transcript: det.transcript || det.analysis?.transcript || null,
+        messages: det.messages || det.turns || null,
         summary: det.summary || det.analysis?.transcript_summary || null
       });
     }
@@ -89,8 +90,56 @@ export async function GET(req: NextRequest) {
       return null;
     };
 
+    // Detectar cantidad desde la primera respuesta del cliente tras la pregunta del agente sobre productos
+    const extractFirstClientReplyQty = (rawTranscript: any, rawMessages: any): string | null => {
+      const isAgentMsg = (m: any): boolean => {
+        const role = (m?.role || m?.speaker || m?.from || '').toString().toLowerCase();
+        const name = (m?.name || m?.author || '').toString().toLowerCase();
+        return role.includes('agent') || role.includes('assistant') || name.includes('agent') || name.includes('isabela');
+      };
+      const isUserMsg = (m: any): boolean => {
+        const role = (m?.role || m?.speaker || m?.from || '').toString().toLowerCase();
+        const name = (m?.name || m?.author || '').toString().toLowerCase();
+        return role.includes('user') || role.includes('caller') || role.includes('customer') || role.includes('client') || role.includes('usuario') || name.includes('cliente');
+      };
+      const textOf = (m: any): string => toText(m?.content ?? m?.message ?? m?.text ?? m);
+      const looksLikeProductQuestion = (s: string): boolean => {
+        const t = s.toLowerCase();
+        return /(producto|productos|cantidad|cu[aá]nt[oa]s?)/.test(t);
+      };
+      const numberFrom = (s: string): string | null => {
+        const m = s.match(/(\d+(?:[\.,]\d+)?)/);
+        return m ? m[1].replace(',', '.') : null;
+      };
+
+      const msgs = Array.isArray(rawMessages) ? rawMessages : (Array.isArray(rawTranscript) ? rawTranscript : null);
+      if (Array.isArray(msgs)) {
+        for (let i = 0; i < msgs.length; i++) {
+          const m = msgs[i];
+          if (isAgentMsg(m) && looksLikeProductQuestion(textOf(m))) {
+            for (let j = i + 1; j < msgs.length; j++) {
+              if (isUserMsg(msgs[j])) {
+                const n = numberFrom(textOf(msgs[j]));
+                if (n) return n;
+              }
+            }
+          }
+        }
+      }
+
+      const t = toText(rawTranscript);
+      const idx = t.toLowerCase().search(/(producto|productos|cantidad|cu[aá]nt[oa]s?)/);
+      if (idx >= 0) {
+        const slice = t.slice(idx);
+        const m = slice.match(/(\d+(?:[\.,]\d+)?)/);
+        if (m) return m[1].replace(',', '.');
+      }
+      return null;
+    };
+
     // Map to rows
-    const rows = detailed.map(d => {
+    const filtered = detailed.filter(d => String(d.status || '').toLowerCase() !== 'failed');
+    const rows = filtered.map(d => {
       const v: any = d.dynamic_variables || {};
       // Productos base
       const products: string[] = [];
@@ -99,7 +148,8 @@ export async function GET(req: NextRequest) {
         if (pv) products.push(toText(pv));
       }
       // Cantidades desde transcript
-      const qty: (string | null)[] = products.map(p => extractQty(toText(d.transcript), p));
+      const firstReplyQty = extractFirstClientReplyQty(d.transcript, (d as any).messages);
+      const qty: (string | null)[] = products.map((p, idx) => (idx === 0 && firstReplyQty ? firstReplyQty : extractQty(toText(d.transcript), p)));
       return {
         telefono: v.phone_number || v.telefono || '',
         nombre_contacto: v.nombre_contacto || '',
@@ -122,7 +172,41 @@ export async function GET(req: NextRequest) {
 
     if (format === 'xlsx') {
       const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.json_to_sheet(rows);
+      // Crear una fila por producto
+      const perProductRows: any[] = [];
+      rows.forEach(r => {
+        const base = {
+          nombre_contacto: r.nombre_contacto,
+          nombre_paciente: r.nombre_paciente,
+          domicilio_actual: r.domicilio_actual,
+          localidad: r.localidad,
+          delegacion: r.delegacion,
+          fecha_llamada: r.fecha_llamada,
+          transcript: r.transcript,
+          summary: r.summary,
+        };
+        const entries = [
+          { producto: r.producto1, cantidad: r.cantidad1 },
+          { producto: r.producto2, cantidad: r.cantidad2 },
+          { producto: r.producto3, cantidad: r.cantidad3 },
+          { producto: r.producto4, cantidad: r.cantidad4 },
+          { producto: r.producto5, cantidad: r.cantidad5 },
+        ];
+        entries.forEach(e => {
+          if (e.producto) {
+            perProductRows.push({
+              ...base,
+              producto: e.producto,
+              cantidad: e.cantidad ?? '',
+            });
+          }
+        });
+        // Si no hay productos, igual generar una fila vacía con base
+        if (perProductRows.length === 0) {
+          perProductRows.push({ ...base, producto: '', cantidad: '' });
+        }
+      });
+      const ws = XLSX.utils.json_to_sheet(perProductRows);
       XLSX.utils.book_append_sheet(wb, ws, 'Reporte');
       const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
       return new NextResponse(buf, {

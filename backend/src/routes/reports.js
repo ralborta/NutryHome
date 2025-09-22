@@ -83,6 +83,53 @@ function extractProductsFromTranscript(transcript, sentProducts) {
   return products;
 }
 
+function extractFirstClientReplyQty(rawTranscript, rawMessages) {
+  const toText = (val) => {
+    if (typeof val === 'string') return val;
+    if (Array.isArray(val)) return val.map(m => (typeof m === 'string' ? m : (m?.content || m?.message || ''))).join(' ');
+    if (val && typeof val === 'object') return JSON.stringify(val);
+    return String(val ?? '');
+  };
+  const isAgentMsg = (m) => {
+    const role = String(m?.role || m?.speaker || m?.from || '').toLowerCase();
+    const name = String(m?.name || m?.author || '').toLowerCase();
+    return role.includes('agent') || role.includes('assistant') || name.includes('agent') || name.includes('isabela');
+  };
+  const isUserMsg = (m) => {
+    const role = String(m?.role || m?.speaker || m?.from || '').toLowerCase();
+    const name = String(m?.name || m?.author || '').toLowerCase();
+    return role.includes('user') || role.includes('caller') || role.includes('customer') || role.includes('client') || role.includes('usuario') || name.includes('cliente');
+  };
+  const looksLikeProductQuestion = (s) => /(producto|productos|cantidad|cu[aá]nt[oa]s?)/i.test(String(s));
+  const numberFrom = (s) => {
+    const m = String(s).match(/(\d+(?:[\.,]\d+)?)/);
+    return m ? m[1].replace(',', '.') : null;
+  };
+
+  const msgs = Array.isArray(rawMessages) ? rawMessages : (Array.isArray(rawTranscript) ? rawTranscript : null);
+  if (Array.isArray(msgs)) {
+    for (let i = 0; i < msgs.length; i++) {
+      const m = msgs[i];
+      if (isAgentMsg(m) && looksLikeProductQuestion(m?.content || m?.message || m?.text || m)) {
+        for (let j = i + 1; j < msgs.length; j++) {
+          if (isUserMsg(msgs[j])) {
+            const n = numberFrom(msgs[j]?.content || msgs[j]?.message || msgs[j]?.text || msgs[j]);
+            if (n) return n;
+          }
+        }
+      }
+    }
+  }
+  const t = toText(rawTranscript);
+  const idx = t.toLowerCase().search(/(producto|productos|cantidad|cu[aá]nt[oa]s?)/);
+  if (idx >= 0) {
+    const slice = t.slice(idx);
+    const m = slice.match(/(\d+(?:[\.,]\d+)?)/);
+    if (m) return m[1].replace(',', '.');
+  }
+  return null;
+}
+
 // GET /reports/productos - Generar reporte de productos de transcripciones
 router.get('/productos', async (req, res) => {
   try {
@@ -139,6 +186,7 @@ router.get('/productos', async (req, res) => {
             status: detail.status || c.status || 'completed',
             dynamic_variables: detail.dynamic_variables || detail.conversation_initiation_client_data?.dynamic_variables || {},
             transcript: detail.transcript || detail.analysis?.transcript || null,
+            messages: detail.messages || detail.turns || null,
             summary: detail.summary || detail.analysis?.transcript_summary || null
           });
         } catch (_) { /* continuar */ }
@@ -148,8 +196,11 @@ router.get('/productos', async (req, res) => {
         return res.status(404).json({ success: false, message: 'No se pudieron recuperar detalles de conversaciones de ElevenLabs' });
       }
 
+      // Excluir llamadas failed
+      const filtered = detailed.filter(d => String(d.status || '').toLowerCase() !== 'failed');
+
       // Construir data de reporte desde ElevenLabs
-      const reportData = detailed.map(d => {
+      const reportData = filtered.map(d => {
         const vars = d.dynamic_variables || {};
         // Extraer productos base desde variables
         const sentProducts = [];
@@ -158,6 +209,11 @@ router.get('/productos', async (req, res) => {
           if (p) sentProducts.push(String(p));
         }
         const mentionedProducts = extractProductsFromTranscript(d.transcript || '', sentProducts);
+        // Ajustar cantidad del primer producto con primera respuesta del cliente
+        const firstQty = extractFirstClientReplyQty(d.transcript, d.messages);
+        if (mentionedProducts.length > 0 && firstQty) {
+          mentionedProducts[0].cantidadMencionada = Number.isNaN(Number(firstQty)) ? firstQty : Number(firstQty);
+        }
         return {
           telefono: vars.phone_number || vars.telefono || '',
           nombreContacto: vars.nombre_contacto || '',
@@ -180,30 +236,28 @@ router.get('/productos', async (req, res) => {
         if (!entry.productos || entry.productos.length === 0) {
           // Al menos una fila por llamada
           productosSheet.push({
-            'Teléfono': entry.telefono,
             'Nombre Contacto': entry.nombreContacto,
             'Nombre Paciente': entry.nombrePaciente,
+            'Domicilio': entry.domicilio,
             'Producto Enviado': '',
             'Cantidad Mencionada': 'No mencionada',
             'Encontrado en Transcripción': 'No',
             'Localidad': entry.localidad,
             'Delegación': entry.delegacion,
-            'Fecha Llamada': entry.fechaLlamada,
-            'Duración (min)': Math.round(entry.duracion / 60) || 0
+            'Fecha Llamada': entry.fechaLlamada
           });
         } else {
           entry.productos.forEach(product => {
             productosSheet.push({
-              'Teléfono': entry.telefono,
               'Nombre Contacto': entry.nombreContacto,
               'Nombre Paciente': entry.nombrePaciente,
+              'Domicilio': entry.domicilio,
               'Producto Enviado': product.producto,
               'Cantidad Mencionada': product.cantidadMencionada || 'No mencionada',
               'Encontrado en Transcripción': product.encontrado ? 'Sí' : 'No',
               'Localidad': entry.localidad,
               'Delegación': entry.delegacion,
-              'Fecha Llamada': entry.fechaLlamada,
-              'Duración (min)': Math.round(entry.duracion / 60) || 0
+              'Fecha Llamada': entry.fechaLlamada
             });
           });
         }
@@ -212,15 +266,12 @@ router.get('/productos', async (req, res) => {
       xlsx.utils.book_append_sheet(workbook, productosWS, 'Productos Mencionados');
 
       const llamadasSheet = reportData.map(entry => ({
-        'Teléfono': entry.telefono,
         'Nombre Contacto': entry.nombreContacto,
         'Nombre Paciente': entry.nombrePaciente,
         'Domicilio': entry.domicilio,
         'Localidad': entry.localidad,
         'Delegación': entry.delegacion,
         'Fecha Llamada': entry.fechaLlamada,
-        'Duración (min)': Math.round(entry.duracion / 60) || 0,
-        'Estado': entry.estado,
         'Productos Encontrados': entry.productos ? entry.productos.filter(p => p.encontrado).length : 0,
         'Total Productos': entry.productos ? entry.productos.length : 0
       }));

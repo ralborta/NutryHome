@@ -51,7 +51,7 @@ export default function ReporteProductosPage() {
           <table className="min-w-full border">
             <thead className="bg-gray-50">
               <tr>
-                {['Paciente','Contacto','Teléfono','Producto1','Cantidad1','Producto2','Cantidad2','Fecha','Duración (s)','Estado','Localidad','Delegación'].map(h => (
+                {['Paciente','Contacto','Producto1','Cantidad1','Producto2','Cantidad2','Fecha'].map(h => (
                   <th key={h} className="text-left px-3 py-2 border-b">{h}</th>
                 ))}
               </tr>
@@ -61,16 +61,11 @@ export default function ReporteProductosPage() {
                 <tr key={i} className="odd:bg-white even:bg-gray-50">
                   <td className="px-3 py-2 border-b">{r.nombre_paciente}</td>
                   <td className="px-3 py-2 border-b">{r.nombre_contacto}</td>
-                  <td className="px-3 py-2 border-b">{r.telefono}</td>
                   <td className="px-3 py-2 border-b">{r.producto1}</td>
                   <td className="px-3 py-2 border-b">{r.cantidad1}</td>
                   <td className="px-3 py-2 border-b">{r.producto2}</td>
                   <td className="px-3 py-2 border-b">{r.cantidad2}</td>
                   <td className="px-3 py-2 border-b">{r.fecha_llamada}</td>
-                  <td className="px-3 py-2 border-b">{r.duracion_seg}</td>
-                  <td className="px-3 py-2 border-b">{r.estado}</td>
-                  <td className="px-3 py-2 border-b">{r.localidad}</td>
-                  <td className="px-3 py-2 border-b">{r.delegacion}</td>
                 </tr>
               ))}
             </tbody>
