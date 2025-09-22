@@ -257,34 +257,11 @@ export default function Conversations() {
   // Función para generar reporte de productos
   const handleGenerateProductReport = async () => {
     try {
-      console.log('📊 Generando reporte de productos...');
-      
-      // Mostrar indicador de carga
-      const button = document.querySelector('button[onclick*="handleGenerateProductReport"]') as HTMLButtonElement;
-      if (button) {
-        button.disabled = true;
-        button.textContent = 'Generando...';
-      }
-      
-      // URL del backend en Railway
+      // URL del backend (Railway)
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://nutryhome-backend-production.up.railway.app';
       const reportUrl = `${backendUrl}/api/reports/productos`;
-      
-      console.log(`🔗 Llamando a: ${reportUrl}`);
-      
-      // Llamar directamente al backend de Railway
-      const response = await fetch(reportUrl, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`);
-      }
-      
-      // Crear blob y descargar
+      const response = await fetch(reportUrl);
+      if (!response.ok) throw new Error(`Error ${response.status}`);
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -294,19 +271,8 @@ export default function Conversations() {
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-      
-      console.log('✅ Reporte descargado exitosamente');
-      
     } catch (error) {
-      console.error('❌ Error generando reporte:', error);
-      alert('Error generando el reporte. Por favor, intenta de nuevo.');
-    } finally {
-      // Restaurar botón
-      const button = document.querySelector('button[onclick*="handleGenerateProductReport"]') as HTMLButtonElement;
-      if (button) {
-        button.disabled = false;
-        button.innerHTML = '<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>Reporte de Productos';
-      }
+      alert('No se pudo generar el reporte. Intenta nuevamente.');
     }
   };
 
