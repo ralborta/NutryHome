@@ -78,6 +78,30 @@ export default function CallsManagement() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
+  // Descargar reporte de productos (transcripciones)
+  const handleGenerateProductReport = async () => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://nutryhome-production.up.railway.app';
+      const reportUrl = `${apiUrl}/api/reports/productos`;
+      
+      const response = await fetch(reportUrl, { method: 'GET' });
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}`);
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `reporte_productos_${new Date().toISOString().split('T')[0]}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (e) {
+      alert('No se pudo generar el reporte. Intenta nuevamente.');
+    }
+  };
+  
   // Estados para NutriHome
   const [executingBatch, setExecutingBatch] = useState<string | null>(null);
   const [batchStatus, setBatchStatus] = useState<any>(null);
@@ -571,6 +595,13 @@ export default function CallsManagement() {
               </p>
             </div>
             <div className="flex items-center space-x-3">
+              <button
+                onClick={handleGenerateProductReport}
+                className="inline-flex items-center px-4 py-2 border border-green-300 text-sm font-medium rounded-lg text-green-700 bg-green-50 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+              >
+                <BarChart3 className="w-4 h-4 mr-2" />
+                Reporte de Productos
+              </button>
               <button
                 onClick={() => setShowTestCallModal(true)}
                 className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"

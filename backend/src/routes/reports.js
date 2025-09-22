@@ -75,14 +75,9 @@ router.get('/productos', async (req, res) => {
   try {
     console.log('📊 Generando reporte de productos de transcripciones...');
     
-    // Obtener llamadas completadas con transcripción
+    // Obtener TODAS las llamadas (con o sin transcripción, cualquier estado)
     const calls = await prisma.outboundCall.findMany({
-      where: {
-        estado: 'COMPLETED',
-        transcriptCompleto: {
-          not: null
-        }
-      },
+      where: {},
       include: {
         batch: {
           include: {
@@ -98,39 +93,40 @@ router.get('/productos', async (req, res) => {
     if (calls.length === 0) {
       return res.status(404).json({
         success: false,
-        message: 'No se encontraron llamadas completadas con transcripción'
+        message: 'No se encontraron llamadas para generar el reporte'
       });
     }
     
-    console.log(`📞 Procesando ${calls.length} llamadas completadas...`);
+    console.log(`📞 Procesando ${calls.length} llamadas...`);
     
     // Procesar cada llamada
     const reportData = [];
     
     for (const call of calls) {
       try {
-        // Extraer productos enviados de las variables
+        // Extraer productos enviados de las variables (con fallback a variablesDinamicas)
         const sentProducts = [];
-        if (call.variables) {
+        const baseVars = call.variables || call.variablesDinamicas || {};
+        if (baseVars) {
           for (let i = 1; i <= 5; i++) {
-            const product = call.variables[`producto${i}`];
+            const product = baseVars[`producto${i}`];
             if (product) {
               sentProducts.push(product);
             }
           }
         }
         
-        // Extraer productos mencionados en la transcripción
+        // Extraer productos mencionados en la transcripción (si hay transcript)
         const mentionedProducts = extractProductsFromTranscript(call.transcriptCompleto, sentProducts);
         
         // Crear entrada del reporte
         const reportEntry = {
           telefono: call.telefono,
-          nombreContacto: call.variables?.nombre_contacto || 'Sin nombre',
-          nombrePaciente: call.variables?.nombre_paciente || 'Sin nombre',
-          domicilio: call.variables?.domicilio_actual || 'Sin dirección',
-          localidad: call.variables?.localidad || 'Sin localidad',
-          delegacion: call.variables?.delegacion || 'Sin delegación',
+          nombreContacto: baseVars?.nombre_contacto || 'Sin nombre',
+          nombrePaciente: baseVars?.nombre_paciente || 'Sin nombre',
+          domicilio: baseVars?.domicilio_actual || 'Sin dirección',
+          localidad: baseVars?.localidad || 'Sin localidad',
+          delegacion: baseVars?.delegacion || 'Sin delegación',
           fechaLlamada: call.fechaEjecutada ? call.fechaEjecutada.toLocaleDateString('es-AR') : 'Sin fecha',
           duracion: call.duracion || 0,
           estado: call.estado,
