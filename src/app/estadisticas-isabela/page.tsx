@@ -499,9 +499,19 @@ ${c.summary ? c.summary.substring(0, 200) + (c.summary.length > 200 ? "..." : ""
         alert("ID de conversación no disponible"); 
         break; 
       }
-      
-      // Mostrar mensaje de descarga no disponible
-      alert(`💾 DESCARGAR AUDIO\n\n⚠️ No disponible por el momento\n\nEsta funcionalidad será habilitada próximamente.`);
+      try {
+        const url = `/api/get-audio?id=${encodeURIComponent(c.conversation_id)}`;
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `audio_${c.conversation_id}.mp3`;
+        a.rel = 'noopener';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      } catch (e: any) {
+        console.error('Error iniciando descarga de audio:', e);
+        alert('No se pudo iniciar la descarga del audio.');
+      }
       break;
     case "compartir":
       alert("🔗 Compartir en desarrollo");
