@@ -51,7 +51,7 @@ const groups: { label: string; items: NavItem[] }[] = [
       { title: 'Dashboard', href: '/', icon: Home },
       { title: 'Gestión de Llamadas', href: '/calls', icon: Phone },
       { title: 'Campañas y lotes', href: '/calls/campanas', icon: FolderKanban, activeMatch: 'prefix' },
-      { title: 'Mensajes', href: '/mensajes', icon: MessageSquare },
+      { title: 'Mensajes', href: '/mensajes', icon: MessageSquare, activeMatch: 'prefix' },
       { title: 'Carga de Llamadas', href: '/upload', icon: Upload },
     ],
   },
