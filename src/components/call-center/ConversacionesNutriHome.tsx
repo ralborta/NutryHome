@@ -28,7 +28,9 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
-  Activity,
+  Play,
+  Pause,
+  Square,
 } from 'lucide-react';
 
 // ===== Tipos =====
@@ -848,11 +850,19 @@ ${c.summary ? c.summary.substring(0, 200) + (c.summary.length > 200 ? "..." : ""
                       onToggleMenu={() =>
                         setOpenMenuId(openMenuId === c.conversation_id ? null : c.conversation_id || null)
                       }
-                      isPlaying={isPlaying === c.conversation_id}
-                      onPlayToggle={() => {
+                      isAudioPlaying={isPlaying === c.conversation_id && !isPaused}
+                      hasAudioSession={isPlaying === c.conversation_id}
+                      onPlayPause={() => {
                         if (!c.conversation_id) return;
-                        if (isPlaying === c.conversation_id) handlePauseAudio();
-                        else handlePlayAudio(c.conversation_id);
+                        if (isPlaying === c.conversation_id) {
+                          if (isPaused) handlePlayAudio(c.conversation_id);
+                          else handlePauseAudio();
+                        } else {
+                          handlePlayAudio(c.conversation_id);
+                        }
+                      }}
+                      onStopAudio={() => {
+                        if (isPlaying === c.conversation_id) handleStopAudio();
                       }}
                       onVerResumen={() => handleAction('resumen', c)}
                     />
@@ -991,16 +1001,20 @@ function ConversationTableRow({
   onAction,
   isMenuOpen,
   onToggleMenu,
-  isPlaying,
-  onPlayToggle,
+  isAudioPlaying,
+  hasAudioSession,
+  onPlayPause,
+  onStopAudio,
   onVerResumen,
 }: {
   c: Conversation;
   onAction: (a: ActionId) => void;
   isMenuOpen: boolean;
   onToggleMenu: () => void;
-  isPlaying: boolean;
-  onPlayToggle: () => void;
+  isAudioPlaying: boolean;
+  hasAudioSession: boolean;
+  onPlayPause: () => void;
+  onStopAudio: () => void;
   onVerResumen: () => void;
 }) {
   const isSuccessful = c.call_successful === 'true';
@@ -1063,15 +1077,39 @@ function ConversationTableRow({
         )}
       </td>
       <td className="px-4 py-3 align-middle">
-        <button
-          type="button"
-          onClick={onPlayToggle}
-          className="inline-flex items-center gap-2 rounded-lg px-2 py-1 text-slate-700 hover:bg-slate-100"
-          title={isPlaying ? 'Pausar audio' : 'Reproducir audio'}
-        >
-          <Activity className={`h-4 w-4 text-sky-600 ${isPlaying ? 'animate-pulse' : ''}`} strokeWidth={1.75} />
-          <span className="tabular-nums font-medium">{formatDuration(c.call_duration_secs || 0)}</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="tabular-nums text-sm font-medium text-slate-800">
+            {formatDuration(c.call_duration_secs || 0)}
+          </span>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={onPlayPause}
+              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white shadow-sm transition ${
+                isAudioPlaying ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-emerald-500 hover:bg-emerald-600'
+              }`}
+              title={isAudioPlaying ? 'Pausar grabación' : 'Reproducir grabación'}
+              aria-label={isAudioPlaying ? 'Pausar grabación' : 'Reproducir grabación'}
+            >
+              {isAudioPlaying ? (
+                <Pause className="h-4 w-4" strokeWidth={2.5} />
+              ) : (
+                <Play className="h-4 w-4 fill-current pl-0.5" strokeWidth={0} />
+              )}
+            </button>
+            {hasAudioSession ? (
+              <button
+                type="button"
+                onClick={onStopAudio}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-400 text-white shadow-sm transition hover:bg-slate-500"
+                title="Detener grabación"
+                aria-label="Detener grabación"
+              >
+                <Square className="h-3 w-3 fill-current" strokeWidth={0} />
+              </button>
+            ) : null}
+          </div>
+        </div>
       </td>
       <td className="px-4 py-3 align-middle">
         <div className="text-[13px] font-medium tabular-nums text-slate-900">{fecha.date}</div>
