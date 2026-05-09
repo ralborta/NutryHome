@@ -22,6 +22,7 @@ import {
   MessageSquare,
   Settings,
   FolderKanban,
+  Webhook,
 } from 'lucide-react';
 
 type NavItem = {
@@ -178,6 +179,20 @@ export default function Sidebar() {
           <div className="shrink-0 border-t border-[#eef2f6] px-3 py-4">
             <p className="mb-3 px-3 text-[10px] font-bold uppercase tracking-[0.14em] text-sky-600/55">Sistema</p>
             <div className="space-y-1.5">
+              <Link
+                href="/callbacks"
+                onClick={() => setIsMobileOpen(false)}
+                className={`${systemItemClass} ${
+                  pathname === '/callbacks' ? 'border-sky-200/90 bg-sky-50/80 text-[#1d4ed8]' : ''
+                }`}
+              >
+                <Webhook
+                  className={`h-[18px] w-[18px] shrink-0 stroke-[1.75] ${
+                    pathname === '/callbacks' ? 'text-[#2563eb]' : 'text-slate-400'
+                  }`}
+                />
+                Callbacks
+              </Link>
               <button
                 type="button"
                 className={systemItemClass}
