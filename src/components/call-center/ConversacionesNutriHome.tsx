@@ -1,8 +1,13 @@
 'use client';
 
 import React from 'react';
-import { useEffect, useState, useRef, useMemo } from 'react';
+import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
 import TranscripcionModal from '@/components/TranscripcionModal';
+import CallRecordingMiniPlayer, {
+  type CallRecordingMiniPlayerHandle,
+  type PlaybackUiState,
+  type PlayerTrack,
+} from '@/components/call-center/CallRecordingMiniPlayer';
 import {
   MoreVertical,
   Calendar,
@@ -159,14 +164,23 @@ function ConversacionesUI() {
   const [showTranscripcion, setShowTranscripcion] = useState(false);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [isRecovering, setIsRecovering] = useState(false);
-  const [isPlaying, setIsPlaying] = useState<string | null>(null);
-  const [isPaused, setIsPaused] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const miniPlayerRef = useRef<CallRecordingMiniPlayerHandle>(null);
+  const [playerTrack, setPlayerTrack] = useState<PlayerTrack | null>(null);
+  const [playbackUi, setPlaybackUi] = useState<PlaybackUiState>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'completed' | 'failed'>('all');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [previewBanner, setPreviewBanner] = useState<string | null>(null);
+
+  const handlePlaybackChange = useCallback((s: PlaybackUiState) => {
+    setPlaybackUi(s);
+  }, []);
+
+  const closePlayer = useCallback(() => {
+    setPlayerTrack(null);
+    setPlaybackUi(null);
+  }, []);
 
   // Abrir vista del reporte (sin tocar lógica de Isabela)
   const handleGenerateProductReport = () => {
@@ -406,90 +420,22 @@ Los datos se han recuperado correctamente.`);
     }
   };
 
-  // ===== Funciones de control de audio =====
-  const handlePlayAudio = (conversationId: string) => {
-    if (!conversationId) {
-      alert("ID de conversación no disponible");
-      return;
-    }
-
-    // Si ya hay un audio reproduciéndose, reanudar
-    if (audioRef.current && isPaused && isPlaying === conversationId) {
-      audioRef.current.play().then(() => {
-        setIsPlaying(conversationId);
-        setIsPaused(false);
-      }).catch(err => {
-        console.error('Error reanudando audio:', err);
-        alert('No se pudo reanudar el audio');
-      });
-      return;
-    }
-
-    // Crear nuevo audio
-    const audioUrl = `/api/get-audio?id=${conversationId}`;
-    const audio = new Audio(audioUrl);
-    audioRef.current = audio;
-
-    audio.onerror = () => {
-      console.error('Error de reproducción de audio');
-      alert('No se pudo reproducir el audio. Puede que no esté disponible para esta conversación.');
-      setIsPlaying(null);
-      setIsPaused(false);
-    };
-
-    audio.onended = () => {
-      setIsPlaying(null);
-      setIsPaused(false);
-    };
-
-    audio.play().then(() => {
-      setIsPlaying(conversationId);
-      setIsPaused(false);
-      console.log('Audio reproduciéndose correctamente');
-    }).catch((error) => {
-      console.error('Error reproduciendo audio:', error);
-      alert(`🎵 AUDIO DE GRABACIÓN\n\n⚠️ No se pudo reproducir el audio\n\nPuede que no esté disponible para esta conversación.`);
-      setIsPlaying(null);
-      setIsPaused(false);
-    });
-  };
-
-  const handlePauseAudio = () => {
-    if (audioRef.current && isPlaying) {
-      audioRef.current.pause();
-      setIsPaused(true);
-    }
-  };
-
-  const handleStopAudio = () => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-      setIsPlaying(null);
-      setIsPaused(false);
-    }
-  };
-
   // ===== Lógica de acciones =====
   const handleAction = (action: ActionId, c: Conversation) => {
   switch (action) {
     case "audio": {
-      if (!c.conversation_id) { 
-        alert("ID de conversación no disponible"); 
-        break; 
+      if (!c.conversation_id) {
+        alert('ID de conversación no disponible');
+        break;
       }
-      
-      // Si ya está reproduciéndose, pausar
-      if (isPlaying === c.conversation_id) {
-        handlePauseAudio();
+      if (playerTrack?.id === c.conversation_id) {
+        miniPlayerRef.current?.togglePlayPause();
       } else {
-        // Si está pausado, reanudar
-        if (isPaused && isPlaying === c.conversation_id) {
-          handlePlayAudio(c.conversation_id);
-        } else {
-          // Reproducir nuevo audio
-          handlePlayAudio(c.conversation_id);
-        }
+        setPlayerTrack({
+          id: c.conversation_id,
+          title: conversationTitleForPlayer(c),
+          durationHintSecs: c.call_duration_secs,
+        });
       }
       break;
     }
@@ -814,17 +760,17 @@ ${c.summary ? c.summary.substring(0, 200) + (c.summary.length > 200 ? "..." : ""
           </div>
         </div>
 
-        <div className="mt-6 overflow-hidden rounded-[14px] border border-slate-200 bg-white shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+        <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_4px_32px_rgba(15,23,42,0.06)] ring-1 ring-slate-900/[0.03]">
           <div className="overflow-x-auto">
-            <table className="min-w-[960px] w-full border-collapse text-left text-sm">
+            <table className="min-w-[960px] w-full border-separate border-spacing-0 text-left text-sm">
               <thead>
-                <tr className="border-b border-slate-200 bg-slate-50/80 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                  <th className="px-4 py-3">Contacto</th>
-                  <th className="px-4 py-3">Detalles</th>
-                  <th className="px-4 py-3">Estado</th>
-                  <th className="px-4 py-3">Duración</th>
-                  <th className="px-4 py-3">Fecha</th>
-                  <th className="px-4 py-3 text-right">Acciones</th>
+                <tr className="border-b border-slate-200/90 bg-gradient-to-b from-slate-50 via-white to-slate-50/30 text-[11px] font-bold uppercase tracking-[0.08em] text-slate-500">
+                  <th className="px-5 py-4">Contacto</th>
+                  <th className="px-5 py-4">Detalles</th>
+                  <th className="px-5 py-4">Estado</th>
+                  <th className="px-5 py-4">Duración</th>
+                  <th className="px-5 py-4">Fecha</th>
+                  <th className="px-5 py-4 text-right">Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -850,19 +796,30 @@ ${c.summary ? c.summary.substring(0, 200) + (c.summary.length > 200 ? "..." : ""
                       onToggleMenu={() =>
                         setOpenMenuId(openMenuId === c.conversation_id ? null : c.conversation_id || null)
                       }
-                      isAudioPlaying={isPlaying === c.conversation_id && !isPaused}
-                      hasAudioSession={isPlaying === c.conversation_id}
+                      isAudioPlaying={
+                        playbackUi != null &&
+                        playbackUi.id === c.conversation_id &&
+                        playbackUi.status === 'playing'
+                      }
+                      hasAudioSession={
+                        playbackUi != null && playbackUi.id === c.conversation_id
+                      }
                       onPlayPause={() => {
                         if (!c.conversation_id) return;
-                        if (isPlaying === c.conversation_id) {
-                          if (isPaused) handlePlayAudio(c.conversation_id);
-                          else handlePauseAudio();
+                        if (playerTrack?.id === c.conversation_id) {
+                          miniPlayerRef.current?.togglePlayPause();
                         } else {
-                          handlePlayAudio(c.conversation_id);
+                          setPlayerTrack({
+                            id: c.conversation_id,
+                            title: conversationTitleForPlayer(c),
+                            durationHintSecs: c.call_duration_secs,
+                          });
                         }
                       }}
                       onStopAudio={() => {
-                        if (isPlaying === c.conversation_id) handleStopAudio();
+                        if (playerTrack?.id === c.conversation_id) {
+                          miniPlayerRef.current?.stop();
+                        }
                       }}
                       onVerResumen={() => handleAction('resumen', c)}
                     />
@@ -939,6 +896,13 @@ ${c.summary ? c.summary.substring(0, 200) + (c.summary.length > 200 ? "..." : ""
         }}
         conversation={selectedConversation}
       />
+
+      <CallRecordingMiniPlayer
+        ref={miniPlayerRef}
+        track={playerTrack}
+        onClose={closePlayer}
+        onPlaybackChange={handlePlaybackChange}
+      />
     </div>
   );
 }
@@ -970,6 +934,14 @@ function ConvKpiCard({
       </div>
     </div>
   );
+}
+
+function conversationTitleForPlayer(c: Conversation): string {
+  const displayNameRaw =
+    c.nombre_paciente && c.nombre_paciente !== 'Cliente NutryHome'
+      ? c.nombre_paciente
+      : 'Sin nombre';
+  return displayNameRaw.toUpperCase();
 }
 
 function formatDateParts(epochSecs?: number): { date: string; time: string } {
@@ -1025,27 +997,27 @@ function ConversationTableRow({
   const fecha = formatDateParts(c.start_time_unix_secs);
 
   return (
-    <tr className="border-b border-slate-100 last:border-0 hover:bg-slate-50/60">
-      <td className="px-4 py-3 align-middle">
-        <div className="flex items-center gap-3">
-          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-sky-100 text-[11px] font-bold uppercase text-sky-800">
+    <tr className="group border-b border-slate-100/90 transition-colors duration-200 last:border-0 hover:bg-gradient-to-r hover:from-slate-50/95 hover:to-white">
+      <td className="px-5 py-4 align-middle">
+        <div className="flex items-center gap-3.5">
+          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-gradient-to-br from-indigo-500 to-sky-500 text-[11px] font-bold uppercase tracking-wide text-white shadow-md shadow-indigo-500/20 ring-2 ring-white">
             {nm}
           </div>
           <div className="min-w-0">
-            <div className="truncate font-semibold uppercase tracking-tight text-slate-900">
+            <div className="truncate text-[13px] font-semibold uppercase tracking-tight text-slate-900">
               {displayNameRaw.toUpperCase()}
             </div>
-            <div className="truncate text-[13px] text-slate-500">
+            <div className="truncate text-[12px] text-slate-500">
               {c.telefono_destino && c.telefono_destino !== 'Sin teléfono' ? c.telefono_destino : '—'}
             </div>
           </div>
         </div>
       </td>
-      <td className="px-4 py-3 align-middle">
-        <span className="inline-flex gap-2 text-sky-600">
+      <td className="px-5 py-4 align-middle">
+        <span className="inline-flex gap-2">
           <button
             type="button"
-            className="rounded-lg bg-sky-50 p-1.5 hover:bg-sky-100"
+            className="rounded-xl border border-slate-200/80 bg-slate-50/90 p-2 text-sky-600 shadow-sm transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700"
             title="Insight"
             aria-label="Tendencia"
           >
@@ -1053,7 +1025,7 @@ function ConversationTableRow({
           </button>
           <button
             type="button"
-            className="rounded-lg bg-sky-50 p-1.5 hover:bg-sky-100"
+            className="rounded-xl border border-slate-200/80 bg-slate-50/90 p-2 text-sky-600 shadow-sm transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700"
             title={c.producto || 'NutriHome'}
             aria-label="Producto"
           >
@@ -1061,32 +1033,34 @@ function ConversationTableRow({
           </button>
         </span>
       </td>
-      <td className="px-4 py-3 align-middle">
+      <td className="px-5 py-4 align-middle">
         {isSuccessful ? (
-          <span className="inline-flex rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
+          <span className="inline-flex rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-900 ring-1 ring-emerald-600/15">
             Completada
           </span>
         ) : isFailed ? (
-          <span className="inline-flex rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-800">
+          <span className="inline-flex rounded-full bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-900 ring-1 ring-rose-600/20">
             Fallida
           </span>
         ) : (
-          <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700">
+          <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 ring-1 ring-slate-400/15">
             {c.status || '—'}
           </span>
         )}
       </td>
-      <td className="px-4 py-3 align-middle">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="tabular-nums text-sm font-medium text-slate-800">
+      <td className="px-5 py-4 align-middle">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <span className="tabular-nums text-sm font-semibold tracking-tight text-slate-800">
             {formatDuration(c.call_duration_secs || 0)}
           </span>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={onPlayPause}
-              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white shadow-sm transition ${
-                isAudioPlaying ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-emerald-500 hover:bg-emerald-600'
+              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white shadow-md transition active:scale-95 ${
+                isAudioPlaying
+                  ? 'bg-gradient-to-br from-emerald-600 to-teal-600 hover:brightness-110'
+                  : 'bg-gradient-to-br from-emerald-500 to-teal-500 shadow-emerald-500/25 hover:brightness-110'
               }`}
               title={isAudioPlaying ? 'Pausar grabación' : 'Reproducir grabación'}
               aria-label={isAudioPlaying ? 'Pausar grabación' : 'Reproducir grabación'}
@@ -1111,16 +1085,16 @@ function ConversationTableRow({
           </div>
         </div>
       </td>
-      <td className="px-4 py-3 align-middle">
-        <div className="text-[13px] font-medium tabular-nums text-slate-900">{fecha.date}</div>
-        <div className="text-xs text-slate-500">{fecha.time}</div>
+      <td className="px-5 py-4 align-middle">
+        <div className="text-[13px] font-semibold tabular-nums text-slate-900">{fecha.date}</div>
+        <div className="text-xs font-medium text-slate-500">{fecha.time}</div>
       </td>
-      <td className="px-4 py-3 align-middle">
+      <td className="px-5 py-4 align-middle">
         <div className="flex items-center justify-end gap-2">
           <button
             type="button"
             onClick={onVerResumen}
-            className="inline-flex items-center gap-1.5 rounded-[10px] border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200/90 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm ring-1 ring-slate-900/[0.04] transition hover:border-slate-300 hover:bg-slate-50"
           >
             <FileText className="h-3.5 w-3.5 text-sky-600" />
             Ver resumen
