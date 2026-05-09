@@ -32,20 +32,12 @@ export default function CallsChart({ data = [] }: CallsChartProps) {
     };
   }).sort((a, b) => new Date(a.originalDate).getTime() - new Date(b.originalDate).getTime());
 
-  // Si no hay datos, mostrar datos de ejemplo
   if (chartData.length === 0) {
-    const exampleData = [];
-    for (let i = 6; i >= 0; i--) {
-      const baseDate = new Date();
-      const date = new Date(baseDate);
-      date.setDate(date.getDate() - i);
-      exampleData.push({
-        fecha: format(date, 'dd/MM', { locale: es }),
-        llamadas: Math.floor(Math.random() * 10) + 1,
-        originalDate: date.toISOString(),
-      });
-    }
-    chartData.push(...exampleData);
+    return (
+      <div className="flex h-64 items-center justify-center text-sm text-slate-500">
+        Sin datos de llamadas en el período (no se muestran valores de ejemplo).
+      </div>
+    );
   }
 
   return (

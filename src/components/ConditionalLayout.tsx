@@ -1,6 +1,6 @@
 'use client';
 
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Sidebar from '@/components/layout/Sidebar';
 import { useAuthStore } from '@/store/authStore';
@@ -12,13 +12,19 @@ interface ConditionalLayoutProps {
 
 export default function ConditionalLayout({ children }: ConditionalLayoutProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const { isAuthenticated } = useAuthStore();
   const [isClient, setIsClient] = useState(false);
-  const isLoginPage = pathname === '/login';
 
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  useEffect(() => {
+    if (isAuthenticated && pathname === '/login') {
+      router.replace('/');
+    }
+  }, [isAuthenticated, pathname, router]);
 
   // Mostrar loading mientras se hidrata
   if (!isClient) {
@@ -40,11 +46,9 @@ export default function ConditionalLayout({ children }: ConditionalLayoutProps) 
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-[#F8FAFC]">
       <Sidebar />
-      <main className="flex-1 overflow-auto">
-        {children}
-      </main>
+      <main className="min-w-0 flex-1 overflow-auto pt-[4.25rem] lg:pt-0">{children}</main>
     </div>
   );
 }

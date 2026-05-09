@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import translate from 'google-translate-api-x';
+import { buildDashboardPayload } from '@/lib/dashboardMetrics';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -34,6 +35,7 @@ interface Conversation {
   telefono_destino?: string;
   nombre_paciente?: string;
   producto?: string;
+  evaluation_data?: Record<string, unknown>;
 }
 
 // Función de traducción con Google Translate gratuito como primera opción
@@ -109,9 +111,32 @@ async function traducirTexto(texto: string): Promise<string> {
   return texto;
 }
 
+function emptyDashboardResponse(message: string) {
+  const dashboard = buildDashboardPayload([]);
+  return NextResponse.json({
+    total_calls: 0,
+    total_minutes: 0,
+    conversations: [],
+    dashboard,
+    warning: message,
+    configured: false,
+  });
+}
+
 export async function GET() {
-  const API_KEY = process.env.ELEVENLABS_API_KEY || 'YOUR_API_KEY';
-  const AGENT_ID = 'agent_01jyqdepnrf1x9wfrt9kkyy84t';
+  const API_KEY = (process.env.ELEVENLABS_API_KEY || '').trim();
+  const AGENT_ID = (process.env.ELEVENLABS_AGENT_ID || '').trim();
+
+  if (!API_KEY) {
+    return emptyDashboardResponse(
+      'ELEVENLABS_API_KEY no configurado. El dashboard muestra valores en cero hasta que configures .env.local'
+    );
+  }
+  if (!AGENT_ID) {
+    return emptyDashboardResponse(
+      'ELEVENLABS_AGENT_ID no configurado. El dashboard muestra valores en cero hasta que completes la variable.'
+    );
+  }
 
   try {
     let allConversations: Conversation[] = [];
@@ -189,12 +214,23 @@ export async function GET() {
                             if (fromSummary) nombre_paciente = fromSummary;
                           }
                           if (!nombre_paciente) nombre_paciente = 'Cliente NutryHome';
+                          const callSuccessfulRaw = data.analysis?.call_successful;
+                          const call_successful =
+                            callSuccessfulRaw === 'success'
+                              ? 'true'
+                              : callSuccessfulRaw === 'failure'
+                                ? 'false'
+                                : undefined;
                           return {
                             ...conv,
                             telefono_destino: data.metadata?.phone_call?.external_number || data.conversation_initiation_client_data?.dynamic_variables?.system__called_number || null,
                             nombre_paciente,
                             producto: data.conversation_initiation_client_data?.dynamic_variables?.producto || null,
                             summary: resumen,
+                            call_successful,
+                            evaluation_data: data.analysis?.evaluation_criteria_results || {},
+                            status: data.status || conv.status,
+                            message_count: data.message_count ?? conv.message_count,
                           };
                         } catch {
                           return conv;
@@ -204,18 +240,24 @@ export async function GET() {
 
     // Ordenar por fecha de más reciente a más antigua
     detailedConversations.sort((a, b) => (b.start_time_unix_secs || 0) - (a.start_time_unix_secs || 0));
-    // Tomar las primeras 35
-    const last35Conversations = detailedConversations.slice(0, 35);
-    const total_calls = last35Conversations.length;
-    const total_minutes = Math.round(last35Conversations.reduce((acc: number, c: Conversation) => acc + (c.call_duration_secs || 0), 0) / 60);
+    const dashboard = buildDashboardPayload(detailedConversations);
+    const total_calls = detailedConversations.length;
+    const total_minutes = Math.round(
+      detailedConversations.reduce((acc: number, c: Conversation) => acc + (c.call_duration_secs || 0), 0) / 60
+    );
+    const lastForTable = detailedConversations.slice(0, 50);
 
     return NextResponse.json({
       total_calls,
       total_minutes,
-      conversations: last35Conversations
+      conversations: lastForTable,
+      dashboard,
+      configured: true,
     });
   } catch (error) {
     console.error('Error en estadísticas:', error);
-    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
+    return emptyDashboardResponse(
+      'Error al obtener datos de ElevenLabs (revisá clave de API y red). Valores mostrados en cero.'
+    );
   }
 }
