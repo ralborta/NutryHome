@@ -43,10 +43,14 @@ export default function MensajesLayout({ children }: { children: React.ReactNode
             </div>
           </div>
         </div>
-        <MensajesSubNav />
       </header>
 
-      <div className="p-6">{children}</div>
+      <div className="flex flex-col gap-5 p-6 lg:flex-row lg:items-start">
+        <aside className="w-full shrink-0 lg:w-[260px]">
+          <MensajesSubNav />
+        </aside>
+        <div className="min-w-0 flex-1">{children}</div>
+      </div>
     </div>
   );
 }
