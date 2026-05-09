@@ -19,6 +19,7 @@ const variablesRoutes = require('./routes/variables');
 const isabelaRoutes = require('./routes/isabela');
 const elevenlabsRoutes = require('./routes/elevenlabs');
 const reportsRoutes = require('./routes/reports');
+const contactsRoutes = require('./routes/contacts');
 
 // Importar middleware
 const errorHandler = require('./middleware/errorHandler');
@@ -203,6 +204,7 @@ app.use('/api/variables', variablesRoutes);
 app.use('/api/isabela', isabelaRoutes);
 app.use('/api/elevenlabs', elevenlabsRoutes);
 app.use('/api/reports', reportsRoutes);
+app.use('/api/contacts', contactsRoutes);
 
 // Ruta OPTIONS para audio (CORS preflight)
 app.options('/api/audio/:conversationId', (req, res) => {
