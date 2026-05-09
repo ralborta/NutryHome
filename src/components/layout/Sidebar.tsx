@@ -28,7 +28,7 @@ type NavItem = {
   title: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
-  /** activo también en subrutas (ej. /calls/campanas) */
+  /** activo también en subrutas (p. ej. /calls y /calls/campanas) */
   activeMatch?: 'prefix';
 };
 
@@ -51,14 +51,14 @@ const groups: { label: string; items: NavItem[] }[] = [
       { title: 'Dashboard', href: '/', icon: Home },
       { title: 'Gestión de Llamadas', href: '/calls', icon: Phone },
       { title: 'Campañas y lotes', href: '/calls/campanas', icon: FolderKanban, activeMatch: 'prefix' },
-      { title: 'Mensajes', href: '/calls', icon: MessageSquare },
+      { title: 'Mensajes', href: '/mensajes', icon: MessageSquare },
       { title: 'Carga de Llamadas', href: '/upload', icon: Upload },
     ],
   },
   {
     label: 'Pacientes',
     items: [
-      { title: 'Pacientes', href: '/calls', icon: Users },
+      { title: 'Pacientes', href: '/pacientes', icon: Users },
       { title: 'Seguimiento', href: '/estadisticas-isabela', icon: ClipboardList },
     ],
   },
@@ -167,7 +167,11 @@ export default function Sidebar() {
                 <p className="mb-3 px-3 text-[10px] font-bold uppercase tracking-[0.14em] text-sky-600/55">
                   {g.label}
                 </p>
-                <div className="space-y-1.5">{g.items.map((item) => <NavLink key={item.href + item.title} item={item} />)}</div>
+                <div className="space-y-1.5">
+                  {g.items.map((item) => (
+                    <NavLink key={`${g.label}-${item.href}-${item.title}`} item={item} />
+                  ))}
+                </div>
               </div>
             ))}
           </nav>
