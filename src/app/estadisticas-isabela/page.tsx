@@ -159,7 +159,7 @@ function ConversacionesUI() {
       console.log('🔍 Datos recibidos de la API:', json.conversations?.[0]); // Debug
       console.log('🔍 Estructura completa de la API:', json); // Debug
       const adaptedData = {
-        total_calls: json.total ?? 0,
+        total_calls: json.total_calls ?? json.total ?? 0,
         total_minutes: Math.floor((json.conversations ?? []).reduce((acc: number, c: any) => acc + (c.call_duration_secs || 0), 0) / 60),
         conversations: (json.conversations ?? []).map((c: any) => {
           console.log('🔍 Conversación individual:', { 
