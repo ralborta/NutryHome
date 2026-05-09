@@ -1,7 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { MoreHorizontal } from 'lucide-react';
+import { useMemo, useRef, useState } from 'react';
+import { MoreHorizontal, Pause, Play, Square } from 'lucide-react';
 import Link from 'next/link';
 import { buildTableRows, type DashboardConversation, type TableRow } from '@/lib/dashboardMetrics';
 
@@ -15,8 +15,77 @@ export default function DashboardCallsTable({
   loading: boolean;
 }) {
   const [tab, setTab] = useState<Tab>('todas');
+  const [playingId, setPlayingId] = useState<string | null>(null);
+  const [isPaused, setIsPaused] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  const rows = useMemo(() => buildTableRows(conversations, 80), [conversations]);
+  const rows = useMemo(() => buildTableRows(conversations, 20), [conversations]);
+
+  const handlePauseAudio = () => {
+    if (audioRef.current && playingId) {
+      audioRef.current.pause();
+      setIsPaused(true);
+    }
+  };
+
+  const handleStopAudio = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+    setPlayingId(null);
+    setIsPaused(false);
+  };
+
+  const handlePlayAudio = (conversationId: string) => {
+    if (!conversationId) return;
+
+    if (audioRef.current && isPaused && playingId === conversationId) {
+      audioRef.current.play().then(() => {
+        setPlayingId(conversationId);
+        setIsPaused(false);
+      }).catch(() => {
+        alert('No se pudo reanudar el audio');
+      });
+      return;
+    }
+
+    if (audioRef.current && playingId && playingId !== conversationId) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+
+    const audio = new Audio(`/api/get-audio?id=${encodeURIComponent(conversationId)}`);
+    audioRef.current = audio;
+
+    audio.onerror = () => {
+      alert('No se pudo reproducir el audio. Puede que no esté disponible para esta conversación.');
+      setPlayingId(null);
+      setIsPaused(false);
+    };
+
+    audio.onended = () => {
+      setPlayingId(null);
+      setIsPaused(false);
+    };
+
+    audio.play().then(() => {
+      setPlayingId(conversationId);
+      setIsPaused(false);
+    }).catch(() => {
+      alert('No se pudo reproducir el audio.');
+      setPlayingId(null);
+      setIsPaused(false);
+    });
+  };
+
+  const toggleRowAudio = (id: string) => {
+    if (playingId === id && !isPaused) {
+      handlePauseAudio();
+      return;
+    }
+    handlePlayAudio(id);
+  };
 
   const filtered = useMemo(() => {
     if (tab === 'todas') return rows;
@@ -83,6 +152,7 @@ export default function DashboardCallsTable({
               <th className="whitespace-nowrap px-4 py-3">Paciente</th>
               <th className="whitespace-nowrap px-4 py-3">Estado</th>
               <th className="whitespace-nowrap px-4 py-3">Duración</th>
+              <th className="whitespace-nowrap px-4 py-3">Grabación</th>
               <th className="min-w-[140px] px-4 py-3">Resultado</th>
               <th className="whitespace-nowrap px-4 py-3">Reclamo</th>
               <th className="min-w-[120px] px-4 py-3">Próxima acción</th>
@@ -93,13 +163,13 @@ export default function DashboardCallsTable({
           <tbody className="divide-y divide-slate-100">
             {loading ? (
               <tr>
-                <td colSpan={8} className="px-4 py-10 text-center text-slate-500">
+                <td colSpan={9} className="px-4 py-10 text-center text-slate-500">
                   Cargando datos reales…
                 </td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-4 py-10 text-center text-slate-500">
+                <td colSpan={9} className="px-4 py-10 text-center text-slate-500">
                   No hay llamadas en este filtro.
                 </td>
               </tr>
@@ -119,6 +189,34 @@ export default function DashboardCallsTable({
                   </td>
                   <td className="px-4 py-3">{badge(r)}</td>
                   <td className="whitespace-nowrap px-4 py-3 text-slate-700">{r.durationLabel}</td>
+                  <td className="whitespace-nowrap px-4 py-3">
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => toggleRowAudio(r.id)}
+                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] border border-sky-200 bg-sky-50 text-sky-700 shadow-sm transition hover:bg-sky-100"
+                        title={playingId === r.id && !isPaused ? 'Pausar' : 'Reproducir'}
+                        aria-label={playingId === r.id && !isPaused ? 'Pausar grabación' : 'Reproducir grabación'}
+                      >
+                        {playingId === r.id && !isPaused ? (
+                          <Pause className="h-4 w-4" strokeWidth={2} />
+                        ) : (
+                          <Play className="h-4 w-4" fill="currentColor" strokeWidth={0} />
+                        )}
+                      </button>
+                      {playingId === r.id ? (
+                        <button
+                          type="button"
+                          onClick={handleStopAudio}
+                          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50"
+                          title="Detener"
+                          aria-label="Detener grabación"
+                        >
+                          <Square className="h-3.5 w-3.5 fill-current" strokeWidth={0} />
+                        </button>
+                      ) : null}
+                    </div>
+                  </td>
                   <td className="max-w-[220px] px-4 py-3 text-slate-600">{r.resultado}</td>
                   <td className="whitespace-nowrap px-4 py-3 font-medium text-slate-800">{r.reclamo ? 'Sí' : 'No'}</td>
                   <td className="max-w-[160px] px-4 py-3 text-slate-600">{r.nextAction}</td>
