@@ -6,60 +6,69 @@ import { usePathname } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import toast from 'react-hot-toast';
 import {
-  LayoutDashboard,
+  Home,
+  Heart,
   Phone,
   Upload,
-  Settings,
-  BarChart3,
-  HelpCircle,
   Menu,
   X,
-  User,
   Bell,
-  Search,
-  LogOut
+  LogOut,
+  ChevronDown,
+  Users,
+  ClipboardList,
+  FileBarChart,
+  LineChart,
+  MessageSquare,
+  Settings,
+  FolderKanban,
 } from 'lucide-react';
 
-// Icono de WhatsApp (SVG inline) para el menú
-function WhatsAppIcon(props: React.SVGProps<SVGSVGElement>) {
+type NavItem = {
+  title: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  /** activo también en subrutas (ej. /calls/campanas) */
+  activeMatch?: 'prefix';
+};
+
+function BrandLogoMark({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" {...props}>
-      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.1-.472-.149-.672.15-.197.297-.769.966-.941 1.166-.173.199-.347.224-.644.075-.297-.149-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.52.149-.173.198-.297.298-.496.099-.198.05-.372-.025-.521-.075-.149-.672-1.62-.92-2.22-.242-.58-.487-.501-.672-.51-.173-.009-.372-.011-.571-.011-.199 0-.521.074-.793.372-.273.297-1.04 1.016-1.04 2.479 0 1.463 1.065 2.875 1.213 3.074.149.198 2.095 3.2 5.077 4.487.709.306 1.262.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.718 2.006-1.41.248-.69.248-1.282.173-1.41-.074-.128-.272-.198-.57-.347zM12.002 2c5.514 0 9.998 4.486 9.998 10 0 5.515-4.484 10-9.998 10-1.76 0-3.405-.455-4.833-1.249L2 22l1.272-5.045C2.455 15.526 2 13.86 2 12c0-5.514 4.486-10 10.002-10z"/>
-    </svg>
+    <div
+      className={`relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-[13px] bg-gradient-to-br from-violet-600 via-purple-600 to-blue-600 text-white shadow-md shadow-purple-900/18 ${className ?? ''}`}
+      aria-hidden
+    >
+      <Home className="relative z-0 h-[19px] w-[19px]" strokeWidth={1.85} />
+      <Heart className="absolute left-1/2 top-[54%] z-10 h-[9px] w-[9px] -translate-x-1/2 -translate-y-1/2 fill-white text-white opacity-95" strokeWidth={0} />
+    </div>
   );
 }
 
-const menuItems = [
+const groups: { label: string; items: NavItem[] }[] = [
   {
-    title: 'Dashboard',
-    icon: LayoutDashboard,
-    href: '/',
-    description: 'Vista general del call center'
+    label: 'Operación',
+    items: [
+      { title: 'Dashboard', href: '/', icon: Home },
+      { title: 'Gestión de Llamadas', href: '/calls', icon: Phone },
+      { title: 'Campañas y lotes', href: '/calls/campanas', icon: FolderKanban, activeMatch: 'prefix' },
+      { title: 'Mensajes', href: '/calls', icon: MessageSquare },
+      { title: 'Carga de Llamadas', href: '/upload', icon: Upload },
+    ],
   },
   {
-    title: 'Gestión de Llamadas',
-    icon: Phone,
-    href: '/calls',
-    description: 'Administrar llamadas'
+    label: 'Pacientes',
+    items: [
+      { title: 'Pacientes', href: '/calls', icon: Users },
+      { title: 'Seguimiento', href: '/estadisticas-isabela', icon: ClipboardList },
+    ],
   },
   {
-    title: 'Mensajes',
-    icon: WhatsAppIcon,
-    href: '/conversations',
-    description: 'Historial de mensajes'
+    label: 'Reportes',
+    items: [
+      { title: 'Reportes', href: '/reportes/productos', icon: FileBarChart },
+      { title: 'Analytics', href: '/estadisticas-isabela', icon: LineChart },
+    ],
   },
-  {
-    title: 'Carga de Llamadas',
-    icon: Upload,
-    href: '/upload',
-    description: 'Subir llamadas manualmente'
-  },
-  {
-    title: 'Llamadas NutriHome',
-    icon: BarChart3,
-    href: '/estadisticas-isabela',
-    description: 'Llamadas NutriHome'
-  }
 ];
 
 export default function Sidebar() {
@@ -72,143 +81,134 @@ export default function Sidebar() {
     toast.success('Sesión cerrada correctamente');
   };
 
+  const NavLink = ({ item }: { item: NavItem }) => {
+    const isActive =
+      item.activeMatch === 'prefix'
+        ? pathname === item.href || pathname.startsWith(`${item.href}/`)
+        : pathname === item.href;
+    const Icon = item.icon;
+    return (
+      <Link
+        href={item.href}
+        onClick={() => setIsMobileOpen(false)}
+        className={`flex items-center gap-3 rounded-[14px] px-3.5 py-3 text-[13px] font-semibold tracking-tight transition-all ${
+          isActive
+            ? 'border border-sky-200/90 bg-gradient-to-r from-sky-50 via-blue-50/90 to-sky-50/80 text-[#1d4ed8] shadow-[0_2px_8px_rgba(37,99,235,0.08)]'
+            : 'border border-[#eceff3] bg-white text-slate-600 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:border-slate-200 hover:bg-slate-50/80 hover:text-slate-900'
+        }`}
+      >
+        <Icon
+          className={`h-[18px] w-[18px] shrink-0 stroke-[1.75] ${isActive ? 'text-[#2563eb]' : 'text-slate-400'}`}
+        />
+        <span>{item.title}</span>
+      </Link>
+    );
+  };
+
+  const systemItemClass =
+    'flex w-full items-center gap-3 rounded-[14px] border border-[#eceff3] bg-white px-3.5 py-3 text-left text-[13px] font-semibold tracking-tight text-slate-600 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all hover:border-slate-200 hover:bg-slate-50/80 hover:text-slate-900';
+
   return (
     <>
-      {/* Mobile menu button */}
       <button
+        type="button"
         onClick={() => setIsMobileOpen(!isMobileOpen)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-white rounded-lg shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+        className="fixed left-4 top-4 z-50 rounded-xl border border-slate-200/80 bg-white p-2.5 shadow-sm lg:hidden"
+        aria-label="Menú"
       >
-        {isMobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+        {isMobileOpen ? <X className="h-5 w-5 text-slate-700" /> : <Menu className="h-5 w-5 text-slate-700" />}
       </button>
 
-      {/* Sidebar */}
-      <div className={`
-        fixed lg:relative lg:translate-x-0 z-40
+      <aside
+        className={`
+        fixed left-0 top-0 z-40 flex h-screen min-h-0 w-[272px] flex-col overflow-hidden border-r border-[#e8ecf1] bg-[#f8fafc] shadow-[4px_0_24px_rgba(15,23,42,0.04)] transition-transform duration-300
+        lg:sticky lg:h-screen lg:shrink-0 lg:translate-x-0 lg:shadow-[2px_0_14px_rgba(15,23,42,0.03)]
         ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-        transition-transform duration-300 ease-in-out
-        w-70 lg:w-64 h-full bg-white border-r border-gray-200 shadow-xl
-      `}>
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-              <Phone className="w-6 h-6 text-white" />
+      `}
+      >
+        {/* Marca + campana — mockup: logo casa+corazón, NutriHome + Call Center; perfil aparte */}
+        <div className="border-b border-[#eceff3] px-4 pb-4 pt-[18px]">
+          <div className="flex items-start gap-2.5">
+            <BrandLogoMark />
+            <div className="min-w-0 flex-1 pt-0.5">
+              <p className="text-[15px] font-bold leading-none tracking-tight text-[#0f172a] lg:text-[16px]">NutriHome</p>
+              <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-400">Call Center</p>
             </div>
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">NutriHome</h1>
-              <p className="text-xs text-gray-600 font-medium">Call Center</p>
-            </div>
-          </div>
-        </div>
-
-        {/* User Profile */}
-        <div className="p-4 border-b border-gray-200 bg-white">
-          <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-md">
-              <User className="w-6 h-6 text-white" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-gray-900 truncate">
-                Administrador
-              </p>
-              <p className="text-xs text-gray-500 truncate">
-                admin@nutryhome.com
-              </p>
-            </div>
-            <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors relative">
-              <Bell className="w-5 h-5 text-gray-600" />
-              <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></span>
+            <button
+              type="button"
+              className="relative mt-px shrink-0 rounded-xl border border-[#eef2f6] bg-white p-2.5 text-slate-500 shadow-[0_2px_8px_rgba(15,23,42,0.05)] transition-colors hover:bg-slate-50 hover:text-slate-700"
+              aria-label="Notificaciones"
+            >
+              <Bell className="h-[18px] w-[18px]" strokeWidth={1.75} />
+              <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
             </button>
           </div>
-        </div>
 
-        {/* Search */}
-        <div className="p-4 border-b border-gray-200 bg-gray-50">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Buscar..."
-              className="w-full pl-10 pr-4 py-3 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white shadow-sm"
-            />
+          <div className="mt-4 rounded-[14px] border border-[#eef2f6] bg-white p-3 shadow-[0_2px_12px_rgba(15,23,42,0.06)]">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-blue-700 text-sm font-bold text-white shadow-sm">
+                A
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-bold text-[#0f172a]">Administrador</p>
+                <div className="mt-0.5 flex items-center gap-1 text-xs text-slate-500">
+                  <span className="truncate">admin@nutryhome.com</span>
+                  <ChevronDown className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Navigation Menu */}
-        <nav className="flex-1 p-4 space-y-2 overflow-y-auto bg-white">
-          {menuItems.map((item) => {
-            const isActive = pathname === item.href;
-            const Icon = item.icon as any;
-            
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`
-                  group flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200
-                  ${isActive 
-                    ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg' 
-                    : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900 hover:shadow-md'
-                  }
-                `}
+        <div className="flex min-h-0 flex-1 flex-col">
+          <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
+            {groups.map((g, gi) => (
+              <div key={g.label} className={gi > 0 ? 'mt-5 border-t border-slate-100 pt-6' : ''}>
+                <p className="mb-3 px-3 text-[10px] font-bold uppercase tracking-[0.14em] text-sky-600/55">
+                  {g.label}
+                </p>
+                <div className="space-y-1.5">{g.items.map((item) => <NavLink key={item.href + item.title} item={item} />)}</div>
+              </div>
+            ))}
+          </nav>
+          <div className="shrink-0 border-t border-[#eef2f6] px-3 py-4">
+            <p className="mb-3 px-3 text-[10px] font-bold uppercase tracking-[0.14em] text-sky-600/55">Sistema</p>
+            <div className="space-y-1.5">
+              <button
+                type="button"
+                className={systemItemClass}
+                onClick={() => toast('Configuración disponible próximamente.', { icon: '⚙️' })}
               >
-                <div className={`
-                  p-2 rounded-lg transition-colors
-                  ${isActive 
-                    ? 'bg-white bg-opacity-20' 
-                    : 'bg-gray-100 group-hover:bg-gray-200'
-                  }
-                `}>
-                  <Icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-gray-600'}`} />
-                </div>
-                <div className="flex-1">
-                  <span className="text-sm font-semibold">{item.title}</span>
-                  <p className={`text-xs mt-1 ${isActive ? 'text-blue-100' : 'text-gray-500'}`}>
-                    {item.description}
-                  </p>
-                </div>
-              </Link>
-            );
-          })}
-          
-          {/* Logout Button */}
-          <button
-            onClick={handleLogout}
-            className="w-full group flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 text-gray-700 hover:bg-red-50 hover:text-red-600 hover:shadow-md"
-          >
-            <div className="p-2 rounded-lg transition-colors bg-gray-100 group-hover:bg-red-100">
-              <LogOut className="w-5 h-5 text-gray-600 group-hover:text-red-600" />
+                <Settings className="h-[18px] w-[18px] shrink-0 text-slate-400" strokeWidth={1.75} />
+                Configuración
+              </button>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className={`${systemItemClass} hover:border-red-100 hover:bg-red-50/80 hover:text-red-700`}
+              >
+                <LogOut className="h-[18px] w-[18px] shrink-0 text-slate-400" strokeWidth={1.75} />
+                Cerrar Sesión
+              </button>
             </div>
-            <div className="flex-1 text-left">
-              <span className="text-sm font-semibold">Cerrar Sesión</span>
-              <p className="text-xs mt-1 text-gray-500 group-hover:text-red-500">
-                Salir del sistema
-              </p>
-            </div>
-          </button>
-        </nav>
-
-        {/* Footer */}
-        <div className="p-4 border-t border-gray-200 bg-gray-50">
-          <div className="text-center">
-            <p className="text-xs text-gray-600 font-medium">
-              NutriHome v3.5.1
-            </p>
-            <p className="text-xs text-gray-400 mt-1">
-              © 2025 IAsolutions - Todos los derechos reservados
-            </p>
           </div>
         </div>
-      </div>
 
-      {/* Mobile overlay */}
+        <div className="border-t border-[#eceff3] px-4 py-4 text-center">
+          <p className="text-[12px] font-semibold text-slate-600">NutriHome v3.5.1</p>
+          <p className="mt-1.5 text-[11px] text-slate-400">© 2026 | IA Solutions</p>
+          <p className="mt-1 text-[10px] leading-snug text-slate-400/90">Todos los derechos reservados</p>
+        </div>
+      </aside>
+
       {isMobileOpen && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden"
+        <button
+          type="button"
+          className="fixed inset-0 z-30 bg-slate-900/40 lg:hidden"
+          aria-label="Cerrar menú"
           onClick={() => setIsMobileOpen(false)}
         />
       )}
     </>
   );
-} 
+}

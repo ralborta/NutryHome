@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import translate from 'google-translate-api-x';
+import { buildDashboardPayload, type DashboardConversation } from '@/lib/dashboardMetrics';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -64,13 +65,15 @@ async function traducirTexto(texto: string): Promise<string> {
   return texto;
 }
 
-function emptyResponse(message: string) {
+function emptyDashboardResponse(message: string) {
+  const dashboard = buildDashboardPayload([]);
   return NextResponse.json({
     total_calls: 0,
     total_minutes: 0,
     conversations: [],
-    configured: false,
+    dashboard,
     warning: message,
+    configured: false,
   });
 }
 
@@ -79,12 +82,12 @@ export async function GET() {
   const AGENT_ID = (process.env.ELEVENLABS_AGENT_ID || '').trim();
 
   if (!API_KEY) {
-    return emptyResponse(
+    return emptyDashboardResponse(
       'ELEVENLABS_API_KEY no configurado. Configurá .env.local (o variables en Vercel) para listar llamadas reales.',
     );
   }
   if (!AGENT_ID) {
-    return emptyResponse(
+    return emptyDashboardResponse(
       'ELEVENLABS_AGENT_ID no configurado. Sin agente no se pueden listar conversaciones de ConvAI.',
     );
   }
@@ -94,7 +97,6 @@ export async function GET() {
     let cursor: string | null = null;
     let pageToken: string | null = null;
     const PAGE_SIZE = 100;
-    /** ElevenLabs ConvAI suele paginar con cursor/next_cursor/has_more; a veces con page_token. */
     const MAX_LIST_PAGES = 200;
 
     for (let page = 0; page < MAX_LIST_PAGES; page++) {
@@ -135,7 +137,6 @@ export async function GET() {
 
       const nextCursor = (data.next_cursor as string | undefined) ?? null;
       const nextPageTok = (data.next_page_token as string | undefined) ?? null;
-      const hasMoreFlag = data.has_more === true;
 
       if (nextCursor) {
         cursor = nextCursor;
@@ -149,7 +150,7 @@ export async function GET() {
         await new Promise((r) => setTimeout(r, 120));
         continue;
       }
-      if (hasMoreFlag && raw.length >= PAGE_SIZE) {
+      if (data.has_more === true && raw.length >= PAGE_SIZE) {
         console.warn('[estadisticas-isabela] has_more sin cursor ni page_token; se detiene la lista.');
       }
       break;
@@ -225,10 +226,7 @@ export async function GET() {
               conv.telefono_destino ||
               null,
             nombre_paciente,
-            producto:
-              dyn.producto ??
-              conv.producto ??
-              null,
+            producto: dyn.producto ?? conv.producto ?? null,
             summary: resumen,
             call_successful: typeof call_successful === 'string' ? call_successful : conv.call_successful,
             evaluation_data: data.analysis?.evaluation_criteria_results || {},
@@ -239,7 +237,6 @@ export async function GET() {
             agent_name: conv.agent_name,
             transcript: data.transcript,
             hasTranscript: !!data.transcript,
-            /** Base: teléfono visto en metadata; el map final afloja si sólo falta ese campo */
             hasAudio: (hasPhoneLayer && dur > 2) || dur > 5,
           };
           return out;
@@ -254,6 +251,7 @@ export async function GET() {
     );
 
     const totalAll = detailedConversations.length;
+    const dashboard = buildDashboardPayload(detailedConversations as DashboardConversation[]);
 
     const tableSlice = detailedConversations.slice(0, MAX_CONVERSATIONS_IN_RESPONSE);
     const total_minutes = Math.round(
@@ -265,8 +263,7 @@ export async function GET() {
       return {
         ...rest,
         hasTranscript: !!tr,
-        hasAudio:
-          !!rest.hasAudio || secs > 3,
+        hasAudio: !!rest.hasAudio || secs > 3,
       };
     });
 
@@ -275,10 +272,13 @@ export async function GET() {
       returned_count: conversationsOut.length,
       total_minutes,
       conversations: conversationsOut,
+      dashboard,
       configured: true,
     });
   } catch (error) {
     console.error('Error en estadísticas:', error);
-    return emptyResponse('Error al obtener datos de ElevenLabs (revisá API key, agent id y red).');
+    return emptyDashboardResponse(
+      'Error al obtener datos de ElevenLabs (revisá API key, agent id y red). Valores mostrados en cero.',
+    );
   }
 }

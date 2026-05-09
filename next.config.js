@@ -3,6 +3,15 @@ const nextConfig = {
   images: {
     domains: ['localhost'],
   },
+  async redirects() {
+    return [
+      {
+        source: '/conversations',
+        destination: '/calls',
+        permanent: false,
+      },
+    ];
+  },
   async rewrites() {
     return [
       // Solo redirigir rutas específicas que no tenemos localmente
