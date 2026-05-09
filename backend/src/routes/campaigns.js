@@ -5,6 +5,10 @@ const fs = require('fs');
 const { body, validationResult } = require('express-validator');
 const { prisma } = require('../database/client');
 const xlsx = require('xlsx');
+const {
+  prepareTemplateVariablesFromContact: prepareVariablesForElevenLabs,
+  formatPhoneNumberE164AR: formatPhoneNumber,
+} = require('../lib/contactTemplateVariables');
 
 const router = express.Router();
 
@@ -264,104 +268,112 @@ async function executeBatchWithElevenLabs(batchId) {
   }
 }
 
-function prepareVariablesForElevenLabs(contact) {
-  const raw = {
-    nombre_contacto: sanitizeString(contact.nombre_contacto),
-    nombre_paciente: sanitizeString(contact.nombre_paciente),
-    domicilio_actual: sanitizeString(contact.domicilio_actual),
-    localidad: sanitizeString(contact.localidad),
-    delegacion: sanitizeString(contact.delegacion),
-    fecha_envio: formatDateForElevenLabs(contact.fecha_envio),
-    observaciones: sanitizeString(contact.observaciones),
-    producto1: sanitizeString(contact.producto1),
-    cantidad1: sanitizeString(contact.cantidad1),
-    producto2: sanitizeString(contact.producto2),
-    cantidad2: sanitizeString(contact.cantidad2),
-    producto3: sanitizeString(contact.producto3),
-    cantidad3: sanitizeString(contact.cantidad3),
-    producto4: sanitizeString(contact.producto4),
-    cantidad4: sanitizeString(contact.cantidad4),
-    producto5: sanitizeString(contact.producto5),
-    cantidad5: sanitizeString(contact.cantidad5)
+/**
+ * Batch WhatsApp / Builderbot: mismas variables por contacto que ElevenLabs (`dynamic_variables`).
+ * Despacho opcional vía POST a WHATSAPP_BATCH_DISPATCH_URL o BUILDERBOT_BATCH_DISPATCH_URL.
+ */
+async function executeBatchWhatsApp(batchId) {
+  const dispatchUrl = (
+    process.env.WHATSAPP_BATCH_DISPATCH_URL ||
+    process.env.BUILDERBOT_BATCH_DISPATCH_URL ||
+    ''
+  ).trim();
+
+  console.log(
+    `📱 Ejecutando batch WhatsApp ${batchId} — URL despacho: ${dispatchUrl ? 'sí' : 'no (solo log + COMPLETED)'}`,
+  );
+
+  const batch = await prisma.batch.findUnique({
+    where: { id: batchId },
+    include: { contacts: true },
+  });
+
+  if (!batch) {
+    throw new Error(`Batch ${batchId} no encontrado`);
+  }
+  if (batch.estado !== 'PENDING') {
+    throw new Error(`Batch ${batchId} no está en estado PENDING (estado actual: ${batch.estado})`);
+  }
+  if (!batch.contacts || batch.contacts.length === 0) {
+    throw new Error(`Batch ${batchId} no tiene contactos asociados`);
+  }
+
+  await prisma.batch.update({
+    where: { id: batchId },
+    data: { estado: 'PROCESSING', updatedAt: new Date() },
+  });
+
+  const recipients = batch.contacts.map((contact) => ({
+    phone_number: formatPhoneNumber(contact.phone_number),
+    variables: prepareVariablesForElevenLabs(contact),
+    contactId: contact.id,
+  }));
+
+  const payload = {
+    channel: 'WHATSAPP',
+    batchId: batch.id,
+    batchName: batch.nombre || `Batch ${batchId}`,
+    recipients,
+    meta: {
+      builderbotProjectId: process.env.BUILDERBOT_PROJECT_ID || null,
+    },
   };
-  // Omitir NA y cantidades 0 para no ensuciar el prompt
-  const cleaned = {};
-  for (const [k, v] of Object.entries(raw)) {
-    if (v === '' || v === null || v === undefined) continue;
-    if (typeof v === 'string' && v.toUpperCase() === 'NA') continue;
-    if (/^cantidad\d+$/.test(k) && Number(v) === 0) continue;
-    cleaned[k] = v;
-  }
-  return cleaned;
-}
 
-// 🔧 FUNCIÓN PARA SANITIZAR STRINGS
-function sanitizeString(value) {
-  if (value === null || value === undefined) return '';
-  
-  // Convertir a string y limpiar
-  return String(value)
-    .trim()
-    .replace(/[\r\n\t]/g, ' ') // Reemplazar saltos de línea por espacios
-    .replace(/\s+/g, ' ') // Múltiples espacios por uno solo
-    .substring(0, 500); // Limitar longitud
-}
-
-// E.164 Argentina robusto: +54 9 + (area) + número, sin '15'
-function formatPhoneNumber(phone) {
-  if (!phone) return '';
-  let d = String(phone).replace(/\D/g, '');        // solo dígitos
-  if (d.startsWith('00')) d = d.slice(2);          // quita 00 internacional
-  if (d.startsWith('0')) d = d.slice(1);           // quita 0 nacional
-  if (!d.startsWith('54')) d = '54' + d;           // asegura país
-  const after54 = d.slice(2);
-  if (!after54.startsWith('9')) {
-    // si aparece '15' tras el área, reemplazar por '9' móvil
-    d = d.replace(/^54(..|...|....)15/, '549$1');
-    if (!/^549/.test(d)) d = d.replace(/^54/, '549');
-  } else {
-    // ya tiene '9'; quitar '15' si quedó
-    d = d.replace(/^549(..|...|....)15/, '549$1');
-  }
-  return '+' + d;
-}
-
-// 🔧 FUNCIÓN PARA FORMATEAR FECHA
-function formatDateForElevenLabs(dateValue) {
-  if (!dateValue) return '';
-  
   try {
-    let date;
-    
-    // Si ya es un objeto Date
-    if (dateValue instanceof Date) {
-      date = dateValue;
-    } 
-    // Si es un string, parsearlo
-    else if (typeof dateValue === 'string') {
-      date = new Date(dateValue);
+    if (dispatchUrl) {
+      const headers = { 'Content-Type': 'application/json' };
+      const secret = (process.env.WHATSAPP_BATCH_DISPATCH_SECRET || '').trim();
+      if (secret) {
+        headers['x-nutryhome-dispatch-secret'] = secret;
+      }
+
+      const response = await fetch(dispatchUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const text = await response.text().catch(() => '');
+        throw new Error(`Dispatch HTTP ${response.status}: ${text.slice(0, 400)}`);
+      }
+    } else {
+      console.log(
+        `📱 Payload WhatsApp batch (${recipients.length} destinos). Configurá WHATSAPP_BATCH_DISPATCH_URL para enviar a tu worker/Builderbot.`,
+      );
+      console.log(JSON.stringify({ ...payload, recipientsSample: recipients.slice(0, 2) }));
     }
-    // Si es otro tipo, intentar convertir
-    else {
-      date = new Date(dateValue);
+
+    await prisma.batch.update({
+      where: { id: batchId },
+      data: {
+        estado: 'COMPLETED',
+        totalCalls: batch.contacts.length,
+        completedCalls: batch.contacts.length,
+        failedCalls: 0,
+        updatedAt: new Date(),
+      },
+    });
+
+    return {
+      success: true,
+      batchId,
+      message: dispatchUrl
+        ? 'Batch WhatsApp despachado al endpoint configurado'
+        : 'Batch WhatsApp: variables generadas (sin URL de despacho)',
+      totalRecipients: recipients.length,
+    };
+  } catch (err) {
+    console.error(`❌ executeBatchWhatsApp ${batchId}:`, err);
+    try {
+      await prisma.batch.update({
+        where: { id: batchId },
+        data: { estado: 'FAILED', updatedAt: new Date() },
+      });
+    } catch (e2) {
+      console.error('Error marcando batch FAILED:', e2);
     }
-    
-    // Verificar que la fecha sea válida
-    if (isNaN(date.getTime())) {
-      console.warn(`⚠️ Fecha inválida: ${dateValue}`);
-      return '';
-    }
-    
-    // Formatear como DD/MM/YYYY para Argentina
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    
-    return `${day}/${month}/${year}`;
-    
-  } catch (error) {
-    console.error(`❌ Error formateando fecha ${dateValue}:`, error);
-    return '';
+    throw err;
   }
 }
 
@@ -1415,8 +1427,12 @@ router.get('/:campaignId/contacts', async (req, res) => {
 router.post('/batch/:batchId/execute', async (req, res) => {
   try {
     const { batchId } = req.params;
-    
-    console.log(`🎯 Recibida solicitud para ejecutar batch: ${batchId}`);
+    const channel = String(req.body?.channel || 'VOICE').toUpperCase();
+    const useWhatsApp = channel === 'WHATSAPP' || channel === 'MESSAGES';
+
+    console.log(
+      `🎯 Recibida solicitud para ejecutar batch: ${batchId} (channel=${useWhatsApp ? 'WHATSAPP' : 'VOICE'})`,
+    );
     
     // Verificar que el batch existe antes de procesar
     const batch = await prisma.batch.findUnique({
@@ -1441,36 +1457,34 @@ router.post('/batch/:batchId/execute', async (req, res) => {
       });
     }
     
-    // Responder inmediatamente al frontend
-    res.json({ 
-      success: true, 
-      message: 'Ejecución del batch iniciada', 
-      batchId: batchId, 
+    res.json({
+      success: true,
+      message: 'Ejecución del batch iniciada',
+      batchId,
       status: 'PROCESSING',
-      totalContacts: batch._count.contacts
+      totalContacts: batch._count.contacts,
+      channel: useWhatsApp ? 'WHATSAPP' : 'VOICE',
     });
     
-    // Ejecutar batch de forma asíncrona
-    executeBatchWithElevenLabs(batchId)
+    const run = useWhatsApp ? executeBatchWhatsApp(batchId) : executeBatchWithElevenLabs(batchId);
+
+    run
       .then(async (result) => {
         console.log(`✅ Batch ${batchId} completado exitosamente:`, result);
-        
-        // 🔧 SYNC AUTOMÁTICO: Sincronizar con ElevenLabs después de ejecutar
-        try {
-          console.log(`🔄 Iniciando sync automático para batch ${batchId}...`);
-          
-          // Hacer sync automático usando la función local
-          await syncBatchWithElevenLabs(batchId);
-          console.log(`✅ Sync automático completado para batch ${batchId}`);
-          
-        } catch (syncError) {
-          console.error(`⚠️ Error en sync automático para batch ${batchId}:`, syncError);
-          // No fallar la ejecución por error de sync
+
+        if (!useWhatsApp) {
+          try {
+            console.log(`🔄 Iniciando sync automático para batch ${batchId}...`);
+            await syncBatchWithElevenLabs(batchId);
+            console.log(`✅ Sync automático completado para batch ${batchId}`);
+          } catch (syncError) {
+            console.error(`⚠️ Error en sync automático para batch ${batchId}:`, syncError);
+          }
         }
       })
-      .catch(error => {
+      .catch((error) => {
         console.error(`❌ Error ejecutando batch ${batchId}:`, error);
-    });
+      });
 
   } catch (error) {
     console.error('❌ Error iniciando ejecución del batch:', error);
