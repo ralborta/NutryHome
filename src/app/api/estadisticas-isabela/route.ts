@@ -4,8 +4,8 @@ import translate from 'google-translate-api-x';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-/** Máximo de conversaciones en la respuesta JSON (evita payloads enormes; el total real va en total_calls). */
-const MAX_CONVERSATIONS_IN_RESPONSE = 200;
+/** Máximo de conversaciones en la respuesta JSON (el total real sigue en total_calls). */
+const MAX_CONVERSATIONS_IN_RESPONSE = 500;
 
 function extractNameFallback(summary: string | null | undefined): string | null {
   if (!summary) return null;
@@ -91,15 +91,21 @@ export async function GET() {
 
   try {
     let allConversations: Conversation[] = [];
-    let hasMore = true;
-    let nextPageToken: string | null = null;
+    let cursor: string | null = null;
+    let pageToken: string | null = null;
     const PAGE_SIZE = 100;
+    /** ElevenLabs ConvAI suele paginar con cursor/next_cursor/has_more; a veces con page_token. */
+    const MAX_LIST_PAGES = 200;
 
-    while (hasMore) {
-      let url = `https://api.elevenlabs.io/v1/convai/conversations?agent_id=${encodeURIComponent(AGENT_ID)}&page_size=${PAGE_SIZE}`;
-      if (nextPageToken) url += `&page_token=${encodeURIComponent(nextPageToken)}`;
+    for (let page = 0; page < MAX_LIST_PAGES; page++) {
+      const url = new URL('https://api.elevenlabs.io/v1/convai/conversations');
+      url.searchParams.set('agent_id', AGENT_ID);
+      url.searchParams.set('limit', String(PAGE_SIZE));
+      url.searchParams.set('page_size', String(PAGE_SIZE));
+      if (cursor) url.searchParams.set('cursor', cursor);
+      else if (pageToken) url.searchParams.set('page_token', pageToken);
 
-      const res = await fetch(url, {
+      const res = await fetch(url.toString(), {
         headers: {
           'xi-api-key': API_KEY,
           'Content-Type': 'application/json',
@@ -114,14 +120,39 @@ export async function GET() {
         );
       }
       const data = await res.json();
-      const conversations = data.conversations || [];
-      allConversations = allConversations.concat(conversations);
-      if (data.next_page_token) {
-        nextPageToken = data.next_page_token;
-        hasMore = true;
-      } else {
-        hasMore = false;
+      const raw = data.conversations || [];
+      const conversations: Conversation[] = raw.map((item: Record<string, unknown>) => ({
+        ...(item as Conversation),
+        conversation_id: String(
+          (item as { conversationId?: string }).conversationId ||
+            (item as { conversation_id?: string }).conversation_id ||
+            (item as { id?: string }).id ||
+            '',
+        ),
+      }));
+
+      allConversations = allConversations.concat(conversations.filter((c) => c.conversation_id));
+
+      const nextCursor = (data.next_cursor as string | undefined) ?? null;
+      const nextPageTok = (data.next_page_token as string | undefined) ?? null;
+      const hasMoreFlag = data.has_more === true;
+
+      if (nextCursor) {
+        cursor = nextCursor;
+        pageToken = null;
+        await new Promise((r) => setTimeout(r, 120));
+        continue;
       }
+      if (nextPageTok) {
+        pageToken = nextPageTok;
+        cursor = null;
+        await new Promise((r) => setTimeout(r, 120));
+        continue;
+      }
+      if (hasMoreFlag && raw.length >= PAGE_SIZE) {
+        console.warn('[estadisticas-isabela] has_more sin cursor ni page_token; se detiene la lista.');
+      }
+      break;
     }
 
     const detailedConversations: Conversation[] = await Promise.all(
