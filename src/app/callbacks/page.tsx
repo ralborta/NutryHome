@@ -49,6 +49,7 @@ export default function CallbacksPage() {
   const apiBase = useMemo(() => getApiBase(), []);
   const [mounted, setMounted] = useState(false);
   const [currentDate, setCurrentDate] = useState('');
+  const [nextOrigin, setNextOrigin] = useState('');
 
   useEffect(() => {
     setMounted(true);
@@ -60,6 +61,9 @@ export default function CallbacksPage() {
         day: 'numeric',
       }),
     );
+    const fromEnv = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '');
+    if (fromEnv) setNextOrigin(fromEnv);
+    else if (typeof window !== 'undefined') setNextOrigin(window.location.origin);
   }, []);
 
   const urls = useMemo(
@@ -72,6 +76,16 @@ export default function CallbacksPage() {
     [apiBase],
   );
 
+  const nextUrls = useMemo(() => {
+    const o = nextOrigin.replace(/\/$/, '');
+    if (!o) return null;
+    return {
+      whatsapp: `${o}/api/webhooks/whatsapp`,
+      builderbot: `${o}/api/webhooks/builderbot`,
+      batchDispatch: `${o}/api/builderbot/batch-dispatch`,
+    };
+  }, [nextOrigin]);
+
   return (
     <div className="min-h-full bg-[#F8FAFC]">
       <header className="sticky top-0 z-10 border-b border-[#e8ecf1] bg-white px-6 py-5 shadow-[0_1px_0_rgba(15,23,42,0.04)]">
@@ -83,9 +97,10 @@ export default function CallbacksPage() {
             <div>
               <h1 className="text-[28px] font-bold leading-tight tracking-tight text-[#0f172a]">Callbacks</h1>
               <p className="mt-1.5 max-w-3xl text-[15px] text-slate-600">
-                URLs públicas que debés registrar en ElevenLabs, Meta (WhatsApp) o Builderbot. Los eventos llegan al
-                backend (Railway); el front solo centraliza la referencia y copia. Las llamadas suelen generar muchos
-                eventos; los mensajes, menos, pero el canal tiene que estar listo igual.
+                ElevenLabs sigue yendo típicamente al <strong>backend Railway</strong>. WhatsApp, Builderbot y el{' '}
+                <strong>despacho de lotes</strong> también pueden apuntar a este <strong>Next (Vercel)</strong> usando
+                las rutas <code className="rounded bg-slate-100 px-1">/api/webhooks/*</code> y{' '}
+                <code className="rounded bg-slate-100 px-1">/api/builderbot/batch-dispatch</code>.
               </p>
             </div>
           </div>
@@ -169,9 +184,25 @@ export default function CallbacksPage() {
               hint="Algunos flujos delegan en Builderbot; unificá en un solo pipeline si podés para no duplicar lógica."
             />
             <p className="text-xs text-slate-500">
-              Cuando existan los route handlers, devolvé 200 rápido y procesá de forma idempotente (IDs de mensaje /
-              conversación).
+              Rutas Next ya implementadas (devolvé 200 rápido; extendé el handler cuando persista en DB).
             </p>
+            {nextUrls ? (
+              <div className="mt-6 space-y-4 rounded-xl border border-indigo-200/80 bg-indigo-50/40 p-4">
+                <p className="text-sm font-bold text-indigo-950">Este despliegue (Next / Vercel)</p>
+                <p className="text-xs text-indigo-900/85">
+                  Configurá <code className="rounded bg-white/90 px-1">NEXT_PUBLIC_APP_URL</code> con la URL pública
+                  (p. ej. <code className="rounded bg-white/90 px-1">https://tu-app.vercel.app</code>) si copiás desde
+                  SSR sin abrir el navegador.
+                </p>
+                <CopyField
+                  label="POST despacho de lote WhatsApp (Railway → acá)"
+                  value={nextUrls.batchDispatch}
+                  hint="Header x-nutryhome-dispatch-secret = WHATSAPP_BATCH_DISPATCH_SECRET (misma en Vercel y Railway). Body: channel WHATSAPP, batchId, recipients[{ phone_number, variables }]."
+                />
+                <CopyField label="Webhook WhatsApp (Meta callback)" value={nextUrls.whatsapp} hint="GET hub.verify_token = WHATSAPP_VERIFY_TOKEN" />
+                <CopyField label="Webhook Builderbot" value={nextUrls.builderbot} hint="Opcional: BUILDERBOT_WEBHOOK_SECRET" />
+              </div>
+            ) : null}
           </div>
         </section>
 
