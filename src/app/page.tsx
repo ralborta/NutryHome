@@ -129,10 +129,8 @@ export default function DashboardPage() {
             {data.warning}
             {data?.configured === false ? (
               <span className="mt-1 block text-xs text-sky-800">
-                Archivo{' '}
-                <code className="rounded bg-white/80 px-1">.env.local</code> en la raíz del proyecto:{' '}
-                <code className="rounded bg-white/80 px-1">ELEVENLABS_API_KEY</code>,{' '}
-                <code className="rounded bg-white/80 px-1">ELEVENLABS_AGENT_ID</code>
+                Configurá las credenciales del motor de voz en las variables de entorno del proyecto para mostrar
+                datos reales.
               </span>
             ) : null}
           </div>

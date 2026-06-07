@@ -32,7 +32,7 @@ export default function MensajesLayout({ children }: { children: React.ReactNode
               <div>
                 <h1 className="text-[28px] font-bold leading-tight tracking-tight text-[#0f172a]">Mensajes</h1>
                 <p className="mt-1.5 max-w-2xl text-[15px] text-slate-600">
-                  WhatsApp (Builderbot): campañas salientes preparadas para conversación entrante cuando el contacto
+                  WhatsApp: campañas salientes preparadas para conversación entrante cuando el contacto
                   responde. Misma línea visual que el resto de NutriHome.
                 </p>
               </div>

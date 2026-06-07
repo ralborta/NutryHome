@@ -69,18 +69,13 @@ export default function MensajesBatchesPage() {
     <div className="space-y-5">
       {builderbotProjectId ? (
         <div className="rounded-[12px] border border-indigo-200 bg-indigo-50/70 px-4 py-3 text-sm text-indigo-950">
-          <span className="font-semibold">Builderbot — proyecto:</span>{' '}
+          <span className="font-semibold">Mensajería — proyecto:</span>{' '}
           <code className="rounded bg-white/90 px-1.5 py-0.5 text-xs">{builderbotProjectId}</code>
-          <span className="mt-1 block text-xs text-indigo-900/85">
-            Webhooks y despacho de lote: ver <Link href="/callbacks" className="font-semibold underline">Callbacks</Link>.
-            Railway puede postear a <code className="rounded bg-white/80 px-1">/api/builderbot/batch-dispatch</code> con
-            el mismo secreto que <code className="rounded bg-white/80 px-1">WHATSAPP_BATCH_DISPATCH_SECRET</code>.
-          </span>
         </div>
       ) : (
         <div className="rounded-[12px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
           Definí <code className="rounded bg-white/80 px-1">NEXT_PUBLIC_BUILDERBOT_PROJECT_ID</code> para mostrar acá el
-          UUID del proyecto Builderbot (NutriHome — Mensajes).
+          UUID del proyecto de mensajería (NutriHome — Mensajes).
         </div>
       )}
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -118,7 +113,7 @@ export default function MensajesBatchesPage() {
         <div className="flex flex-col gap-3 border-b border-[#eef2f6] p-5 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-slate-600">
             {tab === 'outbound'
-              ? 'Colas de envío masivo y seguimiento por lote (integración Builderbot pendiente).'
+              ? 'Colas de envío masivo y seguimiento por lote (integración de mensajería pendiente).'
               : 'Vista de conversaciones iniciadas por el contacto; enlazadas a la misma bandeja.'}
           </p>
           <button

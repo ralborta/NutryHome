@@ -178,7 +178,7 @@ export default function MensajesCargaPage() {
               <div className="min-w-0">
                 <h1 className="text-2xl font-bold tracking-tight text-[#1e2748] lg:text-[1.85rem]">Carga de Mensajes</h1>
                 <p className="mt-1 text-sm leading-relaxed text-slate-500 lg:text-[15px]">
-                  Excel con contactos y variables para campañas WhatsApp (Builderbot). Mismo criterio de columnas que
+                  Excel con contactos y variables para campañas WhatsApp. Mismo criterio de columnas que
                   llamadas donde compartan modelo.
                 </p>
               </div>
@@ -300,7 +300,7 @@ export default function MensajesCargaPage() {
                     <li>
                       <strong>phone_number</strong> con prefijo +54 (ej. +5491137710010).
                     </li>
-                    <li>Las variables del bot (nombre_paciente, producto1, etc.) deben coincidir con lo definido en Builderbot.</li>
+                    <li>Las variables del bot (nombre_paciente, producto1, etc.) deben coincidir con lo definido en el flujo de mensajería.</li>
                   </ul>
                 </div>
                 <div className="flex justify-center md:justify-end">
@@ -430,7 +430,7 @@ export default function MensajesCargaPage() {
                 </li>
                 <li className="flex gap-2">
                   <ListChecks className="mt-0.5 h-4 w-4 shrink-0 text-violet-600" />
-                  Compará columnas con la vista previa y con el flow en Builderbot.
+                  Compará columnas con la vista previa y con el flujo de mensajería.
                 </li>
               </ul>
               <div className="mt-6 flex justify-center">

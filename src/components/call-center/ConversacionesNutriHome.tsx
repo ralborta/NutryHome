@@ -216,7 +216,7 @@ function ConversacionesUI() {
       const apiWarning =
         typeof json.warning === 'string'
           ? json.warning
-          : 'Sin claves de ElevenLabs: tabla de muestra hasta que configures ELEVENLABS_API_KEY y ELEVENLABS_AGENT_ID.';
+          : 'Sin conexión con el motor de voz: se muestra una tabla de ejemplo hasta configurar las credenciales.';
 
       if (!configured && conversationList.length === 0) {
         conversationList = demoNutriHomeConversations(Math.floor(Date.now() / 1000));
@@ -577,7 +577,7 @@ ${c.summary ? c.summary.substring(0, 200) + (c.summary.length > 200 ? "..." : ""
       break;
     case 'eliminar':
       alert(
-        'Eliminar conversación no está disponible desde el cliente: los registros vienen de ElevenLabs.'
+        'Eliminar conversación no está disponible desde el cliente: los registros provienen del motor de voz.'
       );
       break;
     default:
@@ -777,7 +777,7 @@ ${c.summary ? c.summary.substring(0, 200) + (c.summary.length > 200 ? "..." : ""
                 {data.conversations.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-4 py-14 text-center text-slate-500">
-                      No hay llamadas para mostrar. Revisá ElevenLabs o usá <strong>Recuperar Histórico</strong>.
+                      No hay llamadas para mostrar. Verificá la conexión o usá <strong>Recuperar Histórico</strong>.
                     </td>
                   </tr>
                 ) : filteredRows.length === 0 ? (

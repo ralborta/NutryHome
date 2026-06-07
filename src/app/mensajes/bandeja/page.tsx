@@ -16,7 +16,7 @@ export default function MensajesBandejaPage() {
       <div className="rounded-[14px] border border-[#eef2f6] bg-white shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
         <div className="border-b border-[#eef2f6] px-5 py-4">
           <p className="text-sm text-slate-600">
-            Datos de demostración. Al integrar Builderbot, cada fila será un hilo real; al hacer clic abrís la
+            Datos de demostración. Al integrar la mensajería, cada fila será un hilo real; al hacer clic abrís la
             transcripción completa del chat.
           </p>
         </div>

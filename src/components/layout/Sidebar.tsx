@@ -22,7 +22,7 @@ import {
   MessageSquare,
   Settings,
   FolderKanban,
-  Webhook,
+  CalendarClock,
 } from 'lucide-react';
 
 type NavItem = {
@@ -60,7 +60,7 @@ const groups: { label: string; items: NavItem[] }[] = [
     label: 'Pacientes',
     items: [
       { title: 'Pacientes', href: '/pacientes', icon: Users },
-      { title: 'Seguimiento', href: '/estadisticas-isabela', icon: ClipboardList },
+      { title: 'Seguimiento', href: '/seguimiento', icon: ClipboardList },
     ],
   },
   {
@@ -180,18 +180,18 @@ export default function Sidebar() {
             <p className="mb-3 px-3 text-[10px] font-bold uppercase tracking-[0.14em] text-sky-600/55">Sistema</p>
             <div className="space-y-1.5">
               <Link
-                href="/callbacks"
+                href="/llamadas-programadas"
                 onClick={() => setIsMobileOpen(false)}
                 className={`${systemItemClass} ${
-                  pathname === '/callbacks' ? 'border-sky-200/90 bg-sky-50/80 text-[#1d4ed8]' : ''
+                  pathname === '/llamadas-programadas' ? 'border-sky-200/90 bg-sky-50/80 text-[#1d4ed8]' : ''
                 }`}
               >
-                <Webhook
+                <CalendarClock
                   className={`h-[18px] w-[18px] shrink-0 stroke-[1.75] ${
-                    pathname === '/callbacks' ? 'text-[#2563eb]' : 'text-slate-400'
+                    pathname === '/llamadas-programadas' ? 'text-[#2563eb]' : 'text-slate-400'
                   }`}
                 />
-                Callbacks
+                Llamadas Programadas
               </Link>
               <button
                 type="button"

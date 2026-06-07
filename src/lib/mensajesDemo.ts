@@ -30,7 +30,7 @@ const longTranscript = (nombre: string) => `Sistema: conversación ${nombre} —
 
 ---
 
-(Fin del fragmento demo; al integrar Builderbot esta transcripción vendrá del historial de mensajes del canal.)
+(Fin del fragmento demo; al integrar la mensajería esta transcripción vendrá del historial de mensajes del canal.)
 
 ${'Línea de continuidad para scroll en UI de prueba. '.repeat(40)}`;
 
