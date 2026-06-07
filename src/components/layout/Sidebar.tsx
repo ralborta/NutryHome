@@ -67,7 +67,7 @@ const groups: { label: string; items: NavItem[] }[] = [
     label: 'Reportes',
     items: [
       { title: 'Reportes', href: '/reportes/productos', icon: FileBarChart },
-      { title: 'Analytics', href: '/estadisticas-isabela', icon: LineChart },
+      { title: 'Analytics', href: '/analytics', icon: LineChart },
     ],
   },
 ];
