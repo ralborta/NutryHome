@@ -23,6 +23,7 @@ import {
   Settings,
   FolderKanban,
   CalendarClock,
+  Package,
 } from 'lucide-react';
 
 type NavItem = {
@@ -54,13 +55,14 @@ const groups: { label: string; items: NavItem[] }[] = [
       { title: 'Campañas y lotes', href: '/calls/campanas', icon: FolderKanban, activeMatch: 'prefix' },
       { title: 'Mensajes', href: '/mensajes', icon: MessageSquare, activeMatch: 'prefix' },
       { title: 'Carga de Llamadas', href: '/upload', icon: Upload },
+      { title: 'Pedidos', href: '/pedidos', icon: Package },
     ],
   },
   {
     label: 'Pacientes',
     items: [
       { title: 'Pacientes', href: '/pacientes', icon: Users },
-      { title: 'Seguimiento', href: '/seguimiento', icon: ClipboardList },
+      { title: 'Casos', href: '/casos', icon: ClipboardList },
     ],
   },
   {

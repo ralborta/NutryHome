@@ -2,6 +2,8 @@
 
 import React from 'react';
 import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
+import toast from 'react-hot-toast';
 import TranscripcionModal from '@/components/TranscripcionModal';
 import CallRecordingMiniPlayer, {
   type CallRecordingMiniPlayerHandle,
@@ -36,7 +38,16 @@ import {
   Play,
   Pause,
   Square,
+  Package,
+  AlertTriangle,
+  ShieldAlert,
 } from 'lucide-react';
+import { type DashboardConversation } from '@/lib/dashboardMetrics';
+import {
+  buildCasoFromConversation,
+  casoExists,
+  sugerenciasDesdeConversacion,
+} from '@/lib/operacionesCasos';
 
 // ===== Tipos =====
 interface Conversation {
@@ -148,7 +159,12 @@ type ActionId =
   | 'detalles'
   | 'descargar'
   | 'compartir'
-  | 'eliminar';
+  | 'eliminar'
+  | 'ver_pedido'
+  | 'registrar_reclamo'
+  | 'escalar_supervision'
+  | 'confirmar_reclamo'
+  | 'confirmar_supervision';
 
 /** Historial Isabela / ElevenLabs: pantalla principal de gestión operativa */
 export default function ConversacionesNutriHomeView() {
@@ -172,6 +188,7 @@ function ConversacionesUI() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [previewBanner, setPreviewBanner] = useState<string | null>(null);
+  const router = useRouter();
 
   const handlePlaybackChange = useCallback((s: PlaybackUiState) => {
     setPlaybackUi(s);
@@ -580,6 +597,55 @@ ${c.summary ? c.summary.substring(0, 200) + (c.summary.length > 200 ? "..." : ""
         'Eliminar conversación no está disponible desde el cliente: los registros provienen del motor de voz.'
       );
       break;
+    case 'ver_pedido': {
+      const nombre = encodeURIComponent(c.nombre_paciente || '');
+      router.push(nombre ? `/pedidos?paciente=${nombre}` : '/pedidos');
+      break;
+    }
+    case 'registrar_reclamo': {
+      const caso = buildCasoFromConversation(c as DashboardConversation & { conversation_id?: string }, 'reclamo', 'manual');
+      if (!caso) {
+        toast.error('Ya existe un reclamo para esta llamada');
+        break;
+      }
+      toast.success('Reclamo registrado en Casos');
+      break;
+    }
+    case 'escalar_supervision': {
+      const caso = buildCasoFromConversation(
+        c as DashboardConversation & { conversation_id?: string },
+        'supervision',
+        'manual',
+      );
+      if (!caso) {
+        toast.error('Ya existe un caso de supervisión para esta llamada');
+        break;
+      }
+      toast.success('Caso de supervisión registrado');
+      break;
+    }
+    case 'confirmar_reclamo': {
+      const caso = buildCasoFromConversation(c as DashboardConversation & { conversation_id?: string }, 'reclamo', 'confirmado');
+      if (!caso) {
+        toast.error('Reclamo ya registrado');
+        break;
+      }
+      toast.success('Reclamo confirmado');
+      break;
+    }
+    case 'confirmar_supervision': {
+      const caso = buildCasoFromConversation(
+        c as DashboardConversation & { conversation_id?: string },
+        'supervision',
+        'confirmado',
+      );
+      if (!caso) {
+        toast.error('Caso ya registrado');
+        break;
+      }
+      toast.success('Supervisión confirmada');
+      break;
+    }
     default:
       break;
   }
@@ -1034,19 +1100,22 @@ function ConversationTableRow({
         </span>
       </td>
       <td className="px-5 py-4 align-middle">
-        {isSuccessful ? (
-          <span className="inline-flex rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-900 ring-1 ring-emerald-600/15">
-            Completada
-          </span>
-        ) : isFailed ? (
-          <span className="inline-flex rounded-full bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-900 ring-1 ring-rose-600/20">
-            Fallida
-          </span>
-        ) : (
-          <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 ring-1 ring-slate-400/15">
-            {c.status || '—'}
-          </span>
-        )}
+        <div className="flex flex-col gap-1.5">
+          {isSuccessful ? (
+            <span className="inline-flex w-fit rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-900 ring-1 ring-emerald-600/15">
+              Completada
+            </span>
+          ) : isFailed ? (
+            <span className="inline-flex w-fit rounded-full bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-900 ring-1 ring-rose-600/20">
+              Fallida
+            </span>
+          ) : (
+            <span className="inline-flex w-fit rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 ring-1 ring-slate-400/15">
+              {c.status || '—'}
+            </span>
+          )}
+          <CallHintBadges conversation={c} />
+        </div>
       </td>
       <td className="px-5 py-4 align-middle">
         <div className="flex flex-wrap items-center gap-2.5">
@@ -1099,7 +1168,7 @@ function ConversationTableRow({
             <FileText className="h-3.5 w-3.5 text-sky-600" />
             Ver resumen
           </button>
-          <MoreMenu onAction={onAction} isOpen={isMenuOpen} onToggle={onToggleMenu} />
+          <MoreMenu conversation={c} onAction={onAction} isOpen={isMenuOpen} onToggle={onToggleMenu} />
         </div>
       </td>
     </tr>
@@ -1182,15 +1251,56 @@ function PaginationPages({
 }
 
 // ===== Menú =====
-function MoreMenu({ 
-  onAction, 
-  isOpen, 
-  onToggle 
-}: { 
+function CallHintBadges({ conversation: c }: { conversation: Conversation }) {
+  const conv = c as DashboardConversation & { conversation_id?: string };
+  const sug = sugerenciasDesdeConversacion(conv);
+  const tieneReclamo = casoExists(c.conversation_id, 'reclamo');
+  const tieneSupervision = casoExists(c.conversation_id, 'supervision');
+
+  if (!sug.reclamo && !sug.supervision && !tieneReclamo && !tieneSupervision) return null;
+
+  return (
+    <div className="flex flex-wrap gap-1">
+      {(sug.reclamo || tieneReclamo) && (
+        <span
+          className={`inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+            tieneReclamo ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800'
+          }`}
+        >
+          <AlertTriangle className="h-2.5 w-2.5" />
+          {tieneReclamo ? 'Reclamo' : '¿Reclamo?'}
+        </span>
+      )}
+      {(sug.supervision || tieneSupervision) && (
+        <span
+          className={`inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+            tieneSupervision ? 'bg-violet-100 text-violet-700' : 'bg-indigo-100 text-indigo-800'
+          }`}
+        >
+          <ShieldAlert className="h-2.5 w-2.5" />
+          {tieneSupervision ? 'Supervisión' : '¿Supervisión?'}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function MoreMenu({
+  conversation: c,
+  onAction,
+  isOpen,
+  onToggle,
+}: {
+  conversation: Conversation;
   onAction: (a: ActionId) => void;
   isOpen: boolean;
   onToggle: () => void;
 }) {
+  const conv = c as DashboardConversation & { conversation_id?: string };
+  const sug = sugerenciasDesdeConversacion(conv);
+  const tieneReclamo = casoExists(c.conversation_id, 'reclamo');
+  const tieneSupervision = casoExists(c.conversation_id, 'supervision');
+
   return (
     <div className="relative context-menu">
       <button
@@ -1201,17 +1311,31 @@ function MoreMenu({
       >
         <MoreVertical className="h-4 w-4" />
       </button>
-      
+
       {isOpen && (
-        <div className="absolute right-0 top-8 z-50 w-56 rounded-xl border border-slate-200 bg-white p-1 shadow-lg ring-1 ring-black/5">
-          <MenuItem icon={<FileText className="h-4 w-4"/>} label="Resumen" onClick={() => onAction('resumen')} />
-          <MenuItem icon={<MessageSquare className="h-4 w-4"/>} label="Transcripción" onClick={() => onAction('transcripcion')} />
-          <MenuItem icon={<BadgeCheck className="h-4 w-4"/>} label="Evaluación" onClick={() => onAction('evaluacion')} />
-          <MenuItem icon={<StickyNote className="h-4 w-4"/>} label="Notas" onClick={() => onAction('notas')} />
+        <div className="absolute right-0 top-8 z-50 w-60 rounded-xl border border-slate-200 bg-white p-1 shadow-lg ring-1 ring-black/5">
+          <MenuItem icon={<FileText className="h-4 w-4" />} label="Resumen" onClick={() => onAction('resumen')} />
+          <MenuItem icon={<MessageSquare className="h-4 w-4" />} label="Transcripción" onClick={() => onAction('transcripcion')} />
+          <MenuItem icon={<BadgeCheck className="h-4 w-4" />} label="Evaluación" onClick={() => onAction('evaluacion')} />
+          <MenuItem icon={<StickyNote className="h-4 w-4" />} label="Notas" onClick={() => onAction('notas')} />
           <div className="my-1 h-px bg-slate-200" />
-          <MenuItem icon={<Info className="h-4 w-4"/>} label="Ver detalles" onClick={() => onAction('detalles')} />
-          <MenuItem icon={<Download className="h-4 w-4"/>} label="Descargar audio" onClick={() => onAction('descargar')} />
-          <MenuItem icon={<Share2 className="h-4 w-4"/>} label="Compartir" onClick={() => onAction('compartir')} />
+          <MenuItem icon={<Package className="h-4 w-4" />} label="Ver pedido del paciente" onClick={() => onAction('ver_pedido')} />
+          {!tieneReclamo && (
+            <MenuItem icon={<AlertTriangle className="h-4 w-4" />} label="Registrar reclamo" onClick={() => onAction('registrar_reclamo')} />
+          )}
+          {!tieneSupervision && (
+            <MenuItem icon={<ShieldAlert className="h-4 w-4" />} label="Escalar a supervisión" onClick={() => onAction('escalar_supervision')} />
+          )}
+          {sug.reclamo && !tieneReclamo && (
+            <MenuItem icon={<AlertTriangle className="h-4 w-4" />} label="Confirmar reclamo sugerido" onClick={() => onAction('confirmar_reclamo')} />
+          )}
+          {sug.supervision && !tieneSupervision && (
+            <MenuItem icon={<ShieldAlert className="h-4 w-4" />} label="Confirmar supervisión sugerida" onClick={() => onAction('confirmar_supervision')} />
+          )}
+          <div className="my-1 h-px bg-slate-200" />
+          <MenuItem icon={<Info className="h-4 w-4" />} label="Ver detalles" onClick={() => onAction('detalles')} />
+          <MenuItem icon={<Download className="h-4 w-4" />} label="Descargar audio" onClick={() => onAction('descargar')} />
+          <MenuItem icon={<Share2 className="h-4 w-4" />} label="Compartir" onClick={() => onAction('compartir')} />
           <div className="my-1 h-px bg-slate-200" />
           <MenuDangerItem icon={<Trash2 className="h-4 w-4" />} label="Eliminar" onClick={() => onAction('eliminar')} />
         </div>
